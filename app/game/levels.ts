@@ -8,7 +8,7 @@ export type Level = {
   name: string; world: string; platforms: Platform[]; enemies: EnemySpawn[];
   current: { x: number; y: number }; time: number; tint: string;
   worldId: WorldId; backgroundId: string; loreFragmentId: string;
-  secret: "noFloor" | "trapFirst" | "oneChain" | "widow13"; boss?: boolean;
+  secret: "noFloor" | "trapFirst" | "oneChain" | "widow13"; boss?: boolean; bonus?: boolean; approach?: boolean;
 };
 
 const floor: Platform = { x: 24, y: 650, w: 912, h: 32 };
@@ -46,11 +46,21 @@ export const LEVELS: Level[] = [
   { name:"Thirteen Candles",world:"CRIMSON CHAPEL",worldId:"crimson-chapel",backgroundId:"chapel-thirteen-candles",loreFragmentId:"blame-feeds",tint:"#C4133D",time:82,
     platforms:[floor,p(35,440,205),p(280,570,190),p(520,440,190),p(755,570,170),p(120,260,240),p(560,235,270)],
     enemies:[e(100,404,"doll"),e(335,534,"skull"),e(575,404,"witch"),e(800,534,"love"),e(200,224,"eye"),e(650,199,"bat")],current:{x:-.13,y:-.29},secret:"widow13" },
-  { name:"Event Horizon",world:"THE BLACK BUBBLE",worldId:"black-bubble",backgroundId:"bubble-event-horizon",loreFragmentId:"shared-vow",tint:"#756CFF",time:86,
+  { name:"Event Horizon",world:"THE BLACK BUBBLE",worldId:"black-bubble",backgroundId:"bubble-event-horizon",loreFragmentId:"shared-vow",tint:"#756CFF",time:86,approach:true,
     platforms:[floor,p(60,550,170),p(275,455,180),p(505,550,180),p(735,445,170),p(570,280,210),p(210,245,210)],
     enemies:[e(115,514,"skull"),e(330,419,"witch"),e(560,514,"doll"),e(785,409,"eye"),e(625,244,"bat"),e(270,209,"love")],current:{x:.18,y:-.22},secret:"noFloor" },
   { name:"The Widow Unveiled",world:"THE BLACK BUBBLE",worldId:"black-bubble",backgroundId:"bubble-widow",loreFragmentId:"dawn",tint:"#C4133D",time:108,boss:true,
     platforms:[floor,p(40,525,220),p(370,560,220),p(700,525,220),p(155,340,220),p(585,340,220),p(350,180,260)],
     enemies:[e(140,489,"skull"),e(455,524,"doll"),e(770,489,"skull"),e(230,304,"witch"),e(660,304,"eye"),e(440,144,"bat")],current:{x:0,y:-.38},secret:"oneChain" },
 ];
+
+// Hidden vault reached only through Original/Extra Mode — a short score-chase
+// detour, not one of the twelve canonical chambers. Six clustered Heartlings
+// invite one big bubble chain before the timer runs out.
+export const BONUS_LEVEL: Level = {
+  name:"The Dirty Gold Vault",world:"VELVET DRAIN",worldId:"velvet-drain",backgroundId:"velvet-bonus-vault",loreFragmentId:"bonus-vault",tint:"#FFD36A",time:34,bonus:true,
+  platforms:[floor,p(100,560,210),p(650,560,210),p(375,435,210),p(100,315,210),p(650,315,210)],
+  enemies:[e(170,524,"love"),e(720,524,"love"),e(420,399,"love"),e(500,399,"love"),e(170,279,"love"),e(720,279,"love")],
+  current:{x:0,y:-.15},secret:"oneChain",
+};
 

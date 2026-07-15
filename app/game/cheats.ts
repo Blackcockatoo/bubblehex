@@ -33,3 +33,18 @@ export class CheatReader {
   reset() { this.buffer = []; this.lastInput = 0; }
 }
 
+const START_GRACE_SECONDS = 0.24;
+
+/**
+ * Every title-screen keypress that feeds the cheat reader must recompute the
+ * "begin run" grace window from scratch. Codes like SUPER embed a START
+ * token mid-sequence (`START,JUMP,BUBBLE,LEFT,RIGHT,JUMP,START,RIGHT`); if
+ * that mid-sequence START were allowed to keep a stale grace timer ticking
+ * in the background, it would fire a few frames after the code finishes
+ * confirming and silently kick the player into character select right
+ * after they activated the cheat.
+ */
+export function nextTitleStartGrace(codeJustCompleted: boolean, isStartToken: boolean): number {
+  return isStartToken && !codeJustCompleted ? START_GRACE_SECONDS : 0;
+}
+
