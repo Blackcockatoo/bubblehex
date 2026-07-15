@@ -1,0 +1,65 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+import { LEVELS } from "../app/game/levels.ts";
+import {
+  ART_MANIFEST, CHARACTER_PROFILES, CODEX_ENTRIES, DEFAULT_SKIN, ENEMIES, HEROES,
+  SKINS, STORY_FRAGMENTS, WORLD_PROFILES, WORLDS,
+} from "../app/game/content.ts";
+import { migrateSettings } from "../app/game/persistence.ts";
+
+test("canon covers the complete playable roster and world progression",()=>{
+  for(const id of [...HEROES,...ENEMIES,"widow"] as const)assert.equal(CHARACTER_PROFILES[id].id,id);
+  for(const id of WORLDS)assert.equal(WORLD_PROFILES[id].id,id);
+  assert.equal(new Set(Object.keys(CHARACTER_PROFILES)).size,9);
+  assert.equal(new Set(Object.keys(WORLD_PROFILES)).size,5);
+});
+
+test("twelve fragments are chronological and mapped one-to-one to chambers",()=>{
+  assert.equal(STORY_FRAGMENTS.length,12);
+  assert.deepEqual(STORY_FRAGMENTS.map(fragment=>fragment.order),Array.from({length:12},(_,index)=>index+1));
+  assert.equal(new Set(STORY_FRAGMENTS.map(fragment=>fragment.id)).size,12);
+  assert.deepEqual(LEVELS.map(level=>level.loreFragmentId),STORY_FRAGMENTS.map(fragment=>fragment.id));
+  for(const level of LEVELS)assert.equal(level.worldId,STORY_FRAGMENTS.find(fragment=>fragment.id===level.loreFragmentId)?.worldId);
+});
+
+test("skin ownership, defaults, and unlock routes are complete",()=>{
+  assert.equal(SKINS.length,4);
+  for(const hero of HEROES){
+    const skins=SKINS.filter(skin=>skin.heroId===hero);
+    assert.equal(skins.length,2);
+    assert.ok(skins.some(skin=>skin.id===DEFAULT_SKIN[hero]&&skin.unlock==="default"));
+    assert.ok(skins.some(skin=>skin.unlock==="clear-velvet-drain"));
+  }
+  assert.equal(new Set(SKINS.map(skin=>skin.id)).size,SKINS.length);
+});
+
+test("codex contains no orphan unlock references",()=>{
+  const valid=new Set([...Object.keys(CHARACTER_PROFILES),...Object.keys(WORLD_PROFILES),...STORY_FRAGMENTS.map(fragment=>fragment.id),...SKINS.map(skin=>skin.id)]);
+  assert.equal(new Set(CODEX_ENTRIES.map(entry=>entry.id)).size,CODEX_ENTRIES.length);
+  for(const entry of CODEX_ENTRIES)assert.ok(valid.has(entry.unlockId),`orphan codex entry ${entry.id}`);
+});
+
+test("art manifest points at real PNGs with declared dimensions",()=>{
+  for(const asset of Object.values(ART_MANIFEST)){
+    const bytes=readFileSync(join(process.cwd(),"public",asset.src.replace(/^\//,"")));
+    assert.equal(bytes.toString("ascii",1,4),"PNG");
+    assert.equal(bytes.readUInt32BE(16),asset.width,`${asset.id} width`);
+    assert.equal(bytes.readUInt32BE(20),asset.height,`${asset.id} height`);
+  }
+});
+
+test("legacy settings migrate without losing player preferences or records",()=>{
+  const settings=migrateSettings({muted:true,volume:.7,reducedMotion:true,highScore:108000,secrets:3});
+  assert.equal(settings.version,2);assert.equal(settings.muted,true);assert.equal(settings.volume,.7);assert.equal(settings.reducedMotion,true);
+  assert.equal(settings.highScore,108000);assert.equal(settings.secrets,3);assert.deepEqual(settings.selectedSkins,DEFAULT_SKIN);
+  assert.ok(Object.values(DEFAULT_SKIN).every(id=>settings.unlockedSkins.includes(id)));
+});
+
+test("invalid selected skins fall back while valid unlocks persist",()=>{
+  const settings=migrateSettings({selectedSkins:{vesper:"missing",jade:"jade-poison-current"},unlockedSkins:["jade-poison-current"],unlockedCodex:["dawn"],fragments:["dawn"]});
+  assert.equal(settings.selectedSkins.vesper,DEFAULT_SKIN.vesper);assert.equal(settings.selectedSkins.jade,"jade-poison-current");
+  assert.ok(settings.unlockedCodex.includes("dawn"));assert.deepEqual(settings.fragments,["dawn"]);
+});
+

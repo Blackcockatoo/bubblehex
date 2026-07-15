@@ -48,7 +48,7 @@ export default function BubbleHex() {
         </div>
         <div className="mini-controls">
           <button type="button" onClick={()=>press("start")}>START</button>
-          <button type="button" onClick={()=>press("pause")}>PAUSE</button>
+          <button type="button" onClick={()=>press("pause")}>ARCHIVE / PAUSE</button>
           <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
         </div>
         <div className="action-controls" aria-label="Action controls">
@@ -59,7 +59,7 @@ export default function BubbleHex() {
     </section>
     <footer className="machine-footer">
       <p>{running?"CABINET ONLINE":"WARMING TUBES"} · ONE PLAYER · LOCAL HIGH SCORE</p>
-      <p className="desktop-hint">MOVE A/D OR ←/→ · JUMP SPACE/C · BUBBLE X/Z · ENTER START · P PAUSE</p>
+      <p className="desktop-hint">MOVE A/D OR ←/→ · JUMP SPACE/C · BUBBLE X/Z · ENTER START · P ARCHIVE/PAUSE</p>
       <p className="mobile-hint">MULTI-TOUCH READY · TURN LANDSCAPE FOR A BIGGER CHAMBER</p>
     </footer>
   </main>;
