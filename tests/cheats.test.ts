@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CheatReader, CODES, mirrorCode, type CheatKey, type Token } from "../app/game/cheats.ts";
+import { CheatReader, CODES, mirrorCode, nextTitleStartGrace, type CheatKey, type Token } from "../app/game/cheats.ts";
 
 const feed = (reader: CheatReader, code: Token[], active: Record<CheatKey, boolean>, start = 1000) => {
   let result: CheatKey | null = null;
@@ -38,4 +38,14 @@ test("all three codes can stack in one title session", () => {
     active[key]=true;
   }
   assert.deepEqual(active,{power:true,super:true,extra:true});
+});
+
+test("a mid-sequence START token (as in SUPER) never leaves a dangling start-run grace", () => {
+  // SUPER = START,JUMP,BUBBLE,LEFT,RIGHT,JUMP,START,RIGHT — token 7 is START but
+  // does not complete the code by itself, so it must not arm a stale grace timer
+  // that fires after token 8 confirms the cheat a moment later.
+  assert.equal(nextTitleStartGrace(false, true), 0.24, "a non-completing START arms the grace window");
+  assert.equal(nextTitleStartGrace(true, true), 0, "a START that completes a code clears the grace window");
+  assert.equal(nextTitleStartGrace(false, false), 0, "non-START tokens never arm the grace window");
+  assert.equal(nextTitleStartGrace(true, false), 0, "a completing non-START token clears any pending grace");
 });

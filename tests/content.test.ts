@@ -50,11 +50,19 @@ test("art manifest points at real PNGs with declared dimensions",()=>{
   }
 });
 
-test("legacy settings migrate without losing player preferences or records",()=>{
+test("legacy v2 settings migrate to v3 without losing player preferences or records",()=>{
   const settings=migrateSettings({muted:true,volume:.7,reducedMotion:true,highScore:108000,secrets:3});
-  assert.equal(settings.version,2);assert.equal(settings.muted,true);assert.equal(settings.volume,.7);assert.equal(settings.reducedMotion,true);
+  assert.equal(settings.version,3);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);
+  assert.equal(settings.musicVolume,.7);assert.equal(settings.sfxVolume,.7);
   assert.equal(settings.highScore,108000);assert.equal(settings.secrets,3);assert.deepEqual(settings.selectedSkins,DEFAULT_SKIN);
   assert.ok(Object.values(DEFAULT_SKIN).every(id=>settings.unlockedSkins.includes(id)));
+  assert.deepEqual(settings.bestStageTimes,{});assert.equal(settings.perfectClears,0);
+});
+
+test("v3 settings preserve independent music/sfx volumes and best-time records",()=>{
+  const settings=migrateSettings({version:3,musicVolume:.3,sfxVolume:.9,bestStageTimes:{blueprint:41.2,bogus:-3},perfectClears:2});
+  assert.equal(settings.musicVolume,.3);assert.equal(settings.sfxVolume,.9);
+  assert.deepEqual(settings.bestStageTimes,{blueprint:41.2});assert.equal(settings.perfectClears,2);
 });
 
 test("invalid selected skins fall back while valid unlocks persist",()=>{
