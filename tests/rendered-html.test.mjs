@@ -1,33 +1,17 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
+const htmlPath = fileURLToPath(new URL("../.next/server/app/index.html", import.meta.url));
 
-test("renders development preview metadata", async () => {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+test("production build renders BubbleHex with correct branding and no dev-only metadata", async () => {
+  const html = await readFile(htmlPath, "utf8");
 
-  const response = await worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
-    {
-      ASSETS: {
-        fetch: async () => new Response("Not found", { status: 404 }),
-      },
-    },
-    {
-      waitUntil() {},
-      passThroughOnException() {},
-    },
-  );
-
-  assert.equal(response.status, 200);
-  assert.match(
-    response.headers.get("content-type") ?? "",
-    /^text\/html\b/i,
-  );
-  assert.match(await response.text(), developmentPreviewMeta);
+  assert.match(html, /<title>BUBBLE HEX — Blue \$nake Studio<\/title>/);
+  assert.match(html, /<canvas[^>]*width="960"[^>]*height="720"/);
+  assert.doesNotMatch(html, /codex-preview/);
+  assert.doesNotMatch(html, /localhost/i, "production markup must not reference localhost");
+  assert.match(html, /property="og:title"/);
+  assert.match(html, /name="twitter:card"/);
 });

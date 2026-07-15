@@ -30,6 +30,26 @@ test("codes expire after a 1.5 second gap", () => {
   assert.equal(feed(reader,CODES.power.slice(4),active,4000),null);
 });
 
+test("hasPending reports mid-sequence entry so a Start step of a code isn't mistaken for a fresh press", () => {
+  const reader = new CheatReader();
+  const active = { power: false, super: false, extra: false };
+  assert.equal(reader.hasPending(1000), false);
+  // Feed the first three tokens of POWER; a Start as the 4th token should read as "pending".
+  ["LEFT", "JUMP", "LEFT"].forEach((token, i) => reader.feed(token as Token, 1000 + i * 100, active));
+  assert.equal(reader.hasPending(1400), true);
+  // After the buffer expires (>1.5s gap), it should no longer read as pending.
+  assert.equal(reader.hasPending(3200), false);
+});
+
+test("hasPending ignores a buffer of only repeated Start presses (plain impatient tapping)", () => {
+  const reader = new CheatReader();
+  const active = { power: false, super: false, extra: false };
+  reader.feed("START", 1000, active);
+  assert.equal(reader.hasPending(1100), false);
+  reader.feed("START", 1100, active);
+  assert.equal(reader.hasPending(1200), false);
+});
+
 test("all three codes can stack in one title session", () => {
   const reader = new CheatReader();
   const active = { power:false, super:false, extra:false };

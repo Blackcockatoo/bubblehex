@@ -32,8 +32,21 @@ Quality checks:
 ```bash
 node --experimental-strip-types --test tests/cheats.test.ts tests/levels.test.ts tests/physics.test.ts
 npm run lint
+npm run typecheck
 npm run build
 ```
+
+`npm test` runs the pure-logic suite, a production build, and a smoke test of
+the rendered HTML/metadata in one pass.
+
+## Deployment
+
+Bubble Hex is a standard Next.js App Router project (`next dev` / `next build`
+/ `next start`) with no server-side data dependencies — the whole game runs
+client-side on `<canvas>`, and settings/high scores persist to
+`localStorage`. It deploys to Vercel with the zero-config Next.js preset:
+install command `npm ci`, build command `npm run build`, no custom output
+directory needed.
 
 ## Gameplay systems
 

@@ -1,5 +1,5 @@
-import { LEVELS, type EnemyKind, type Level } from "./levels";
-import { CheatReader, type Token } from "./cheats";
+import { applySuperRemix, LEVELS, type EnemyKind, type Level } from "./levels";
+import { CheatReader, type CheatKey, type Token } from "./cheats";
 import {
   AIR_ACCELERATION,
   AIR_DECELERATION,
@@ -124,8 +124,12 @@ export class BubbleHexEngine {
     this.audio.unlock();this.held[action]=true;this.just.add(action);
     if(this.state==="attract"){this.toTitle();return}
     if(this.state==="title")this.titleIdle=0;
+    // A Start press might be the real "begin game" button, or an embedded step of a cheat
+    // code (POWER token 4, SUPER tokens 1 & 7). If a sequence is already mid-entry we know
+    // this isn't a fresh start; otherwise give human-paced entry a real window to continue.
+    const midSequence=this.state==="title"&&this.cheatReader.hasPending(performance.now());
     const cheatMatched=this.state==="title"&&TOKENS[action]?this.recordToken(TOKENS[action]!):false;
-    if(this.state==="title"&&action==="start"&&!cheatMatched)this.startGrace=.24;
+    if(this.state==="title"&&action==="start"&&!cheatMatched&&!midSequence)this.startGrace=.6;
     if(this.state==="title"&&action!=="start")this.titleIdle=0;
     if(action==="pause"){
       if(this.state==="playing"||this.state==="hurry")this.setState("paused");
@@ -323,15 +327,22 @@ export class BubbleHexEngine {
   private nextStage(){if(this.levelIndex>=LEVELS.length-1){this.endingText=this.cheats.super?"TRUE ENDING — THE HEX DREAMS YOU BACK":"THE NIGHTCLUB OPENS AT DAWN";this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("victory")}else{this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro")}}
   private beginRun(){this.lives=3;this.score=0;this.levelIndex=0;this.venom.clear();this.upgrades={speed:this.cheats.power,rapid:this.cheats.power,range:this.cheats.power,velocity:false,shield:false,venom:false,chain:false,crown:false};this.loadLevel(0);this.setState("stageIntro")}
   private loadLevel(i:number){this.levelIndex=i;this.level=this.remixLevel(LEVELS[i]);this.levelTime=this.level.time;this.enemies=this.level.enemies.map(s=>({id:this.nextId++,x:s.x,y:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false}));this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];this.widow=this.level.boss?{x:W/2,y:95,vx:0,vy:0,age:0}:null;this.widowTime=0;this.platformAudit=auditLevelReachability(this.level);this.resetPlayer(1.2);this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false}
-  private remixLevel(base:Level):Level{if(!this.cheats.super)return base;return{...base,time:Math.max(45,base.time-12),platforms:base.platforms.map((p,i)=>i===0?p:{...p,y:p.y+(i%2?18:-12)}),enemies:[...base.enemies,...base.enemies.slice(0,2).map((e,i)=>({...e,x:clamp(e.x+150+i*90,60,860),kind:i?"skull" as EnemyKind:"witch" as EnemyKind}))]}}
+  private remixLevel(base:Level):Level{return this.cheats.super?applySuperRemix(base):base}
   private beginAttract(){this.attractTime=0;this.hero="jade";this.levelIndex=1;this.loadLevel(1);this.setState("attract")}
   private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false}}
   private recordToken(token:Token){
-    if(token==="JUMP"&&this.startGrace>0)this.startGrace=0;
+    // Any further title-screen input cancels a pending "press start" confirmation so a
+    // Start press embedded mid-sequence (POWER token 4, SUPER token 1 & 7) doesn't boot the
+    // player into character select before the rest of the cheat code can be entered.
+    if(this.startGrace>0)this.startGrace=0;
     const match=this.cheatReader.feed(token,performance.now(),this.cheats);
     if(!match)return false;this.cheats[match]=true;this.startGrace=0;this.confirmCheat(match);return true;
   }
   private confirmCheat(k:keyof Cheats){this.message=k==="power"?"POWER-UP MODE":k==="super"?"SUPER HEX":"SECRETS OPEN";this.messageLife=1.8;if(k==="super"){this.shake=this.settings.reducedMotion?0:8;this.audio.hurry()}else this.audio.secret();this.save()}
+  /** Developer/QA hook: activate a cheat directly, bypassing title-screen input timing. Not wired to any UI. */
+  debugActivateCheat(key:CheatKey){if(this.cheats[key])return;this.cheats[key]=true;this.confirmCheat(key)}
+  /** Developer/QA hook: current cheat activation state, for automated verification. */
+  debugCheatState(){return{...this.cheats}}
   private pollGamepad(){const g=navigator.getGamepads?.()[0];if(!g)return;this.held.left=(g.axes[0]||0)<-.35;this.held.right=(g.axes[0]||0)>.35;const next={jump:!!g.buttons[0]?.pressed,bubble:!!g.buttons[1]?.pressed,start:!!g.buttons[9]?.pressed,pause:!!g.buttons[8]?.pressed};for(const key of Object.keys(next) as (keyof typeof next)[]){if(next[key]&&!this.gamepadPrev[key])this.press(key);if(!next[key]&&this.gamepadPrev[key])this.release(key)}this.gamepadPrev=next}
   private burstParticles(x:number,y:number,color:string,count:number){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*190;this.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.35+Math.random()*.55,color,size:2+Math.random()*5})}}
   private load(){try{const raw=localStorage.getItem("bubble-hex-settings");if(raw)this.settings={...this.settings,...JSON.parse(raw)}}catch{}if(matchMedia("(prefers-reduced-motion: reduce)").matches)this.settings.reducedMotion=true}

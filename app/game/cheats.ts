@@ -31,5 +31,13 @@ export class CheatReader {
   }
 
   reset() { this.buffer = []; this.lastInput = 0; }
+
+  /** True if a cheat sequence is already mid-entry (used to suppress the "press start to
+   * begin" confirmation when a Start token is really an embedded step of a code). A buffer
+   * containing only Start tokens is a plain repeated/impatient press, not cheat progress. */
+  hasPending(at: number): boolean {
+    if (this.lastInput && at - this.lastInput > 1500) return false;
+    return this.buffer.some(token => token !== "START");
+  }
 }
 

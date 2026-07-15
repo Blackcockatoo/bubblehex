@@ -12,6 +12,22 @@ const floor: Platform = { x: 24, y: 650, w: 912, h: 32 };
 const p = (x: number, y: number, w: number): Platform => ({ x, y, w, h: 18 });
 const e = (x: number, y: number, kind: EnemyKind): EnemySpawn => ({ x, y, kind });
 
+// SUPER-mode level variation: shifts scaffolding, tightens the timer, and adds two
+// remixed enemies. Extracted as a pure function so reachability can be regression-tested.
+export const applySuperRemix = (base: Level): Level => ({
+  ...base,
+  time: Math.max(45, base.time - 12),
+  platforms: base.platforms.map((platform, i) => i === 0 ? platform : { ...platform, y: platform.y + (i % 2 ? 18 : -12) }),
+  enemies: [
+    ...base.enemies,
+    ...base.enemies.slice(0, 2).map((spawn, i) => ({
+      ...spawn,
+      x: Math.max(60, Math.min(860, spawn.x + 150 + i * 90)),
+      kind: (i ? "skull" : "witch") as EnemyKind,
+    })),
+  ],
+});
+
 export const LEVELS: Level[] = [
   { name: "The First Sip", world: "VELVET DRAIN", tint: "#087CFF", time: 62,
     platforms: [floor,p(90,528,240),p(480,510,240),p(270,382,260),p(650,300,190)],

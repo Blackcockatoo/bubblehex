@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { LEVELS } from "../app/game/levels.ts";
+import { applySuperRemix, LEVELS } from "../app/game/levels.ts";
 import { auditLevelReachability } from "../app/game/reachability.ts";
 
 test("twelve authored chambers have valid geometry and encounters", () => {
@@ -21,6 +21,14 @@ test("every chamber has a traversable scaffold graph", () => {
   for (const [index, level] of LEVELS.entries()) {
     const unreachable = auditLevelReachability(level).filter(platform => platform.status === "unreachable");
     assert.deepEqual(unreachable, [], `stage ${index + 1} has no unreachable scaffold`);
+  }
+});
+
+test("SUPER-mode remixed scaffolding stays fully traversable", () => {
+  for (const [index, level] of LEVELS.entries()) {
+    const remixed = applySuperRemix(level);
+    const unreachable = auditLevelReachability(remixed).filter(platform => platform.status === "unreachable");
+    assert.deepEqual(unreachable, [], `stage ${index + 1} has an unreachable scaffold once SUPER-mode remixes it`);
   }
 });
 

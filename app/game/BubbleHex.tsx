@@ -19,7 +19,14 @@ export default function BubbleHex() {
       if (["ArrowLeft","ArrowRight","ArrowUp"," "].includes(event.key)) event.preventDefault();
     };
     window.addEventListener("keydown", stopScroll, { passive:false });
-    return () => { window.removeEventListener("keydown", stopScroll); engine.destroy(); };
+    // QA/automation hook — not surfaced in any UI. Lets tooling verify cheat
+    // effects directly instead of racing title-screen input timing.
+    (window as unknown as { __bubbleHex?: BubbleHexEngine }).__bubbleHex = engine;
+    return () => {
+      window.removeEventListener("keydown", stopScroll);
+      engine.destroy();
+      delete (window as unknown as { __bubbleHex?: BubbleHexEngine }).__bubbleHex;
+    };
   }, []);
 
   const press = useCallback((action: Action) => engineRef.current?.press(action), []);
