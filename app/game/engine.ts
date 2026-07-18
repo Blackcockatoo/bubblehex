@@ -39,6 +39,8 @@ import {
   ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
   progressAfterXp, stageClearXp, unlockedHeroUpgrades,
 } from "./progression";
+import { blockForPlatform, type PlatformBlockDefinition } from "./blocks";
+import { drawHeroArt } from "./hero-art";
 
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause";
 type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
@@ -573,7 +575,38 @@ export class BubbleHexEngine {
     if(this.level.world==="CRIMSON CHAPEL"){for(let x=120;x<900;x+=210){c.fillStyle="#190711";c.fillRect(x,110,100,220);c.strokeStyle=COLORS.crimson;c.beginPath();c.arc(x+50,110,50,Math.PI,0);c.stroke()}}
     if(this.level.world==="JADE GARDEN"){for(let x=70;x<940;x+=140){c.strokeStyle="#0d4b36";c.beginPath();c.moveTo(x,H);c.bezierCurveTo(x-80,470,x+80,310,x,120);c.stroke()}}
   }
-  private drawPlatforms(){const c=this.ctx;for(const p of this.level.platforms){c.save();c.shadowBlur=8;c.shadowColor=this.widow?COLORS.crimson:this.level.tint;c.fillStyle="#07152d";c.fillRect(p.x,p.y,p.w,p.h);c.shadowBlur=0;c.fillStyle=this.widow?COLORS.crimson:this.level.tint;c.fillRect(p.x,p.y,p.w,4);c.fillStyle="#0d2e5d";for(let x=p.x+8;x<p.x+p.w-4;x+=18){c.fillRect(x,p.y+8,8,4);c.fillStyle="#9bc7ff";c.fillRect(x+2,p.y+9,2,2);c.fillStyle="#0d2e5d"}c.strokeStyle="#173e75";c.lineWidth=2;c.beginPath();c.moveTo(p.x+5,p.y+p.h);c.lineTo(p.x+12,p.y+5);c.moveTo(p.x+p.w-5,p.y+p.h);c.lineTo(p.x+p.w-12,p.y+5);c.stroke();c.restore()}}
+  private drawBlockMotif(block:PlatformBlockDefinition,x:number,y:number,w:number,h:number){
+    const c=this.ctx,tile=block.tileWidth;c.save();c.strokeStyle=block.edge;c.fillStyle=block.highlight;c.lineWidth=2;c.globalAlpha=.82;
+    if(block.motif==="rivets"||block.motif==="brass"||block.motif==="gold"){
+      for(let tx=x+tile/2;tx<x+w;tx+=tile){c.beginPath();c.arc(tx,y+11,block.motif==="gold"?3:2,0,Math.PI*2);c.fill();if(block.motif==="brass")c.strokeRect(tx-7,y+7,14,8)}
+    }else if(block.motif==="grate"){
+      for(let tx=x+7;tx<x+w-3;tx+=10){c.beginPath();c.moveTo(tx,y+7);c.lineTo(tx,y+h-3);c.stroke()}
+    }else if(block.motif==="tuft"||block.motif==="heart"){
+      for(let tx=x+tile/2;tx<x+w;tx+=tile)this.drawHeart(tx,y+11,block.motif==="heart"?5:3,block.highlight);
+    }else if(block.motif==="prism"){
+      for(let tx=x+tile/2;tx<x+w;tx+=tile){c.beginPath();c.moveTo(tx,y+5);c.lineTo(tx+7,y+11);c.lineTo(tx,y+h-2);c.lineTo(tx-7,y+11);c.closePath();c.stroke()}
+    }else if(block.motif==="vine"){
+      c.beginPath();c.moveTo(x+3,y+h-3);for(let tx=x+10;tx<x+w;tx+=20)c.quadraticCurveTo(tx,y+5,tx+10,y+h-3);c.stroke();
+    }else if(block.motif==="wax"){
+      for(let tx=x+10;tx<x+w;tx+=tile){c.fillRect(tx,y+5,5,7+(tx%3)*2);c.beginPath();c.arc(tx+2.5,y+12+(tx%3)*2,2.5,0,Math.PI*2);c.fill()}
+    }else if(block.motif==="thorn"){
+      c.beginPath();c.moveTo(x+3,y+h-4);for(let tx=x+12;tx<x+w;tx+=14){c.lineTo(tx,y+7);c.lineTo(tx+7,y+h-4)}c.stroke();
+    }else if(block.motif==="void"){
+      for(let tx=x+tile;tx<x+w;tx+=tile){c.beginPath();c.moveTo(tx,y+5);c.lineTo(tx-8,y+h-2);c.stroke()}c.globalAlpha=.45;c.strokeRect(x+4,y+7,w-8,7);
+    }
+    c.restore();
+  }
+  private drawPlatforms(){
+    const c=this.ctx;
+    for(const [index,p] of this.level.platforms.entries()){
+      const block=blockForPlatform(this.level.worldId,index,p.y>=640,!!this.level.bonus);
+      c.save();c.shadowBlur=12;c.shadowColor=this.widow?COLORS.crimson:block.top;c.fillStyle=block.shadow;c.fillRect(p.x-3,p.y+5,p.w+6,p.h+4);c.shadowBlur=0;
+      const face=c.createLinearGradient(0,p.y,0,p.y+p.h);face.addColorStop(0,block.base);face.addColorStop(1,block.side);c.fillStyle=face;c.fillRect(p.x,p.y,p.w,p.h);
+      c.fillStyle=this.widow?COLORS.crimson:block.top;c.fillRect(p.x,p.y,p.w,6);c.fillStyle=block.edge;c.fillRect(p.x,p.y+6,p.w,2);c.fillStyle=block.side;c.fillRect(p.x,p.y+p.h-3,p.w,3);
+      c.strokeStyle=block.highlight;c.globalAlpha=.36;c.lineWidth=1;for(let tx=p.x+block.tileWidth;tx<p.x+p.w;tx+=block.tileWidth){c.beginPath();c.moveTo(tx,p.y+7);c.lineTo(tx,p.y+p.h-3);c.stroke()}c.globalAlpha=1;
+      this.drawBlockMotif(block,p.x,p.y,p.w,p.h);c.strokeStyle=block.edge;c.lineWidth=2;c.strokeRect(p.x,p.y,p.w,p.h);c.restore();
+    }
+  }
   private drawPlayerShadow(){const c=this.ctx,p=this.player;const platform=this.level.platforms.find(s=>p.x+p.w>s.x&&p.x<s.x+s.w&&s.y>=p.y+p.h);if(!platform)return;const distance=platform.y-(p.y+p.h),scale=clamp(1-distance/260,.22,1);c.save();c.globalAlpha=.16*scale;c.fillStyle="#000";c.beginPath();c.ellipse(p.x+p.w/2,platform.y-2,21*scale,5*scale,0,0,Math.PI*2);c.fill();c.restore()}
   private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(315,34,this.hero,.55,false);this.label(`× ${this.lives}`,342,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
   private drawBossHealth(w:WidowState){
@@ -595,7 +628,7 @@ export class BubbleHexEngine {
     else if(e.kind==="doll"){c.fillStyle="#2a1629";c.beginPath();c.arc(0,-8,12,0,Math.PI*2);c.fill();c.fillRect(-12,2,24,21);c.strokeStyle=col;c.beginPath();c.moveTo(-8,-10);c.lineTo(8,-4);c.moveTo(-8,-4);c.lineTo(8,-10);c.stroke()}
     else{c.fillStyle="#ded8dc";c.beginPath();c.arc(0,-3,17,0,Math.PI*2);c.fill();c.fillStyle=COLORS.void;c.fillRect(-10,-8,6,7);c.fillRect(4,-8,6,7);c.fillRect(-4,4,8,7);c.strokeStyle=col;c.beginPath();c.moveTo(-15,-13);c.lineTo(-21,-25);c.moveTo(15,-13);c.lineTo(21,-25);c.stroke()}
     c.restore()}
-  private drawHero(x:number,y:number,hero:HeroId,scale=1,blink=false){if(blink)return;const c=this.ctx,skin=this.skinFor(hero),col=skin.accent,secondary=skin.secondary,dark=hero==="vesper"?"#130b18":"#081A3A";c.save();c.translate(x,y+Math.sin(this.stateTime*8)*.7);c.scale(scale,scale);c.strokeStyle=col;c.lineWidth=5;c.lineCap="square";c.beginPath();c.moveTo(4,10);c.bezierCurveTo(36,18,39,39,18,44);c.bezierCurveTo(2,53,-6,43,6,35);c.stroke();c.fillStyle=dark;c.beginPath();c.ellipse(0,7,15,23,-.08,0,Math.PI*2);c.fill();c.strokeStyle=col;c.lineWidth=2;c.stroke();c.fillStyle=dark;c.beginPath();c.arc(0,-13,15,0,Math.PI*2);c.fill();c.stroke();c.fillStyle=COLORS.shine;c.fillRect(-8,-16,5,4);c.fillRect(4,-16,5,4);c.fillStyle=secondary;c.fillRect(-6,-15,2,2);c.fillRect(5,-15,2,2);c.fillStyle=col;c.beginPath();c.moveTo(-10,-25);c.lineTo(-5,-38);c.lineTo(0,-25);c.moveTo(5,-25);c.lineTo(11,-37);c.lineTo(13,-22);c.fill();if(hero==="jade"){c.beginPath();c.moveTo(-13,-16);c.lineTo(-25,-8);c.lineTo(-13,-3);c.moveTo(13,-16);c.lineTo(25,-8);c.lineTo(13,-3);c.fill()}else{this.drawHeart(21,42,6,col)}if(skin.unlock!=="default"){c.strokeStyle=secondary;c.lineWidth=2;c.strokeRect(-10,0,6,6);c.strokeRect(5,10,6,6);c.beginPath();c.moveTo(-12,22);c.lineTo(12,28);c.stroke()}c.restore()}
+  private drawHero(x:number,y:number,hero:HeroId,scale=1,blink=false){if(blink)return;drawHeroArt(this.ctx,{hero,skin:this.skinFor(hero),x,y,scale,time:this.stateTime})}
   private drawWidow(w:WidowState){
     const c=this.ctx;
     if(w.phase==="telegraph"){
@@ -663,9 +696,12 @@ export class BubbleHexEngine {
   private drawGothicBox(x:number,y:number,w:number,h:number,color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=3;c.strokeRect(x,y,w,h);c.strokeRect(x+10,y+10,w-20,h-20)}
   private banner(text:string,y:number,color:string){const c=this.ctx;c.save();c.fillStyle="rgba(5,5,9,.88)";c.fillRect(90,y-55,780,88);c.strokeStyle=color;c.lineWidth=3;c.strokeRect(95,y-50,770,78);c.shadowBlur=18;c.shadowColor=color;this.label(text,W/2,y,32,color,"center","Georgia");c.restore()}
   private drawWrappedText(text:string,x:number,y:number,maxWidth:number,lineHeight:number,size:number,color:string,align:CanvasTextAlign="left"){
-    const c=this.ctx;c.font=`900 ${size}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
+    const c=this.ctx,readableSize=Math.max(size,11);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
     for(const word of words){const test=line?`${line} ${word}`:word;if(c.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);
-    lines.slice(0,6).forEach((value,index)=>this.label(value,x,y+index*lineHeight,size,color,align));
+    lines.slice(0,6).forEach((value,index)=>this.label(value,x,y+index*Math.max(lineHeight,readableSize+5),readableSize,color,align));
   }
-  private label(text:string,x:number,y:number,size:number,color:string,align:CanvasTextAlign="left",family="monospace"){const c=this.ctx;c.fillStyle=color;c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${size}px ${family}, monospace`;c.fillText(text,x,y)}
+  private label(text:string,x:number,y:number,size:number,color:string,align:CanvasTextAlign="left",family="monospace"){
+    const c=this.ctx,readableSize=Math.max(size,11);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
+    c.strokeStyle="rgba(2,3,10,.94)";c.lineWidth=Math.max(2,Math.min(5,readableSize*.16));c.strokeText(text,x,y);c.fillStyle=color;c.fillText(text,x,y);c.restore();
+  }
 }
