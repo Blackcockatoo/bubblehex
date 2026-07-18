@@ -1,5 +1,5 @@
 import type { HeroId } from "./content";
-import { normalizeHeroProgress, type HeroProgress } from "./progression";
+import type { HeroProgress } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
@@ -35,6 +35,13 @@ const positiveRecord=(value:unknown):Record<string,number>=>{
   for(const [key,entry] of Object.entries(value as Record<string,unknown>))if(typeof entry==="number"&&entry>=0)out[key]=entry;
   return out;
 };
+const normalizePersistedHeroProgress=(value:unknown):HeroProgress=>{
+  const raw=value&&typeof value==="object"?value as Partial<HeroProgress>:{};
+  const xp=Math.max(0,typeof raw.xp==="number"&&Number.isFinite(raw.xp)?Math.floor(raw.xp):0);
+  let level=1;
+  while(level<20&&xp>=150*level*(level+1))level++;
+  return {level,xp};
+};
 
 export function migrateSettings(input:unknown,prefersReducedMotion=false):PersistedSettings {
   const raw=input&&typeof input==="object"?input as Partial<PersistedSettings>&{volume?:number}:{};
@@ -56,6 +63,6 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     fragments:unique(raw.fragments,[]),
     bestStageTimes:positiveRecord(raw.bestStageTimes),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
-    heroProgress:{vesper:normalizeHeroProgress(raw.heroProgress?.vesper),jade:normalizeHeroProgress(raw.heroProgress?.jade)},
+    heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
   };
 }

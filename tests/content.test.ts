@@ -8,6 +8,9 @@ import {
   SKINS, STORY_FRAGMENTS, WORLD_PROFILES, WORLDS,
 } from "../app/game/content.ts";
 import { migrateSettings } from "../app/game/persistence.ts";
+import {
+  enemyRankForStage, enemyXp, levelFromXp, progressAfterXp, unlockedHeroUpgrades, xpForLevel,
+} from "../app/game/progression.ts";
 
 test("canon covers the complete playable roster and world progression",()=>{
   for(const id of [...HEROES,...ENEMIES,"widow"] as const)assert.equal(CHARACTER_PROFILES[id].id,id);
@@ -50,17 +53,18 @@ test("art manifest points at real PNGs with declared dimensions",()=>{
   }
 });
 
-test("legacy v2 settings migrate to v3 without losing player preferences or records",()=>{
+test("legacy settings migrate to v4 without losing preferences, records, or mastery",()=>{
   const settings=migrateSettings({muted:true,volume:.7,reducedMotion:true,highScore:108000,secrets:3});
-  assert.equal(settings.version,3);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);
+  assert.equal(settings.version,4);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);
   assert.equal(settings.musicVolume,.7);assert.equal(settings.sfxVolume,.7);
   assert.equal(settings.highScore,108000);assert.equal(settings.secrets,3);assert.deepEqual(settings.selectedSkins,DEFAULT_SKIN);
   assert.ok(Object.values(DEFAULT_SKIN).every(id=>settings.unlockedSkins.includes(id)));
   assert.deepEqual(settings.bestStageTimes,{});assert.equal(settings.perfectClears,0);
+  assert.deepEqual(settings.heroProgress,{vesper:{level:1,xp:0},jade:{level:1,xp:0}});
 });
 
-test("v3 settings preserve independent music/sfx volumes and best-time records",()=>{
-  const settings=migrateSettings({version:3,musicVolume:.3,sfxVolume:.9,bestStageTimes:{blueprint:41.2,bogus:-3},perfectClears:2});
+test("v4 settings preserve independent music/sfx volumes and best-time records",()=>{
+  const settings=migrateSettings({version:4,musicVolume:.3,sfxVolume:.9,bestStageTimes:{blueprint:41.2,bogus:-3},perfectClears:2});
   assert.equal(settings.musicVolume,.3);assert.equal(settings.sfxVolume,.9);
   assert.deepEqual(settings.bestStageTimes,{blueprint:41.2});assert.equal(settings.perfectClears,2);
 });
@@ -71,3 +75,21 @@ test("invalid selected skins fall back while valid unlocks persist",()=>{
   assert.ok(settings.unlockedCodex.includes("dawn"));assert.deepEqual(settings.fragments,["dawn"]);
 });
 
+test("hero mastery has deterministic thresholds and distinct milestone perks",()=>{
+  assert.equal(levelFromXp(0),1);
+  assert.equal(levelFromXp(xpForLevel(2)),2);
+  assert.equal(levelFromXp(xpForLevel(20)+999999),20);
+  const raised=progressAfterXp({level:1,xp:0},xpForLevel(4));
+  assert.deepEqual(raised,{level:4,xp:xpForLevel(4)});
+  assert.deepEqual(unlockedHeroUpgrades("vesper",4),["rapid","velocity"]);
+  assert.deepEqual(unlockedHeroUpgrades("jade",4),["range","venom"]);
+});
+
+test("enemy threat ranks rise across the campaign and reward dangerous echoes",()=>{
+  assert.deepEqual(Array.from({length:12},(_,index)=>enemyRankForStage(index)),[
+    1,1,1,2,2,2,3,3,3,4,4,4,
+  ]);
+  assert.equal(enemyRankForStage(11,true),5);
+  assert.equal(enemyRankForStage(2,false,true),3);
+  assert.ok(enemyXp("skull",5,true)>enemyXp("skull",1,false));
+});

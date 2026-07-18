@@ -37,7 +37,7 @@ import { DEFAULT_SETTINGS, migrateSettings, type PersistedSettings } from "./per
 import { computeStageBreakdown, isNewCampaignRecord, isNewStageRecord } from "./scoring";
 import {
   ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
-  progressAfterXp, stageClearXp, unlockedHeroUpgrades, xpForLevel,
+  progressAfterXp, stageClearXp, unlockedHeroUpgrades,
 } from "./progression";
 
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause";
@@ -554,7 +554,7 @@ export class BubbleHexEngine {
   private drawSelect(){this.drawStars();this.drawGothicFrame(COLORS.pink);this.label("CHOOSE YOUR HEX",W/2,105,42,COLORS.shine,"center","Georgia");
     this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("←  HERO  →   •   BUBBLE: LOOK",W/2,635,16,COLORS.blue,"center");this.label("START / JUMP TO CONFIRM   •   PAUSE TO RETURN",W/2,675,13,COLORS.jade,"center")}
   private drawSelectCard(x:number,y:number,hero:HeroId,on:boolean){
-    const c=this.ctx,skin=this.skinFor(hero),col=skin.accent,progress=this.settings.heroProgress[hero],next=nextHeroMilestone(hero,progress.level);c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
+    const c=this.ctx,skin=this.skinFor(hero),col=skin.accent;c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
     const portrait=this.art.draw(c,"heroes",hero==="vesper"?0:768,28,768,960,x+12,y+12,276,274);c.restore();
     if(!portrait)this.drawHero(x+150,y+175,hero,2.5,false);
     c.fillStyle="rgba(7,8,23,.82)";c.fillRect(x+8,y+286,284,126);c.strokeStyle=on?COLORS.shine:col;c.lineWidth=on?5:2;c.strokeRect(x,y,300,420);
