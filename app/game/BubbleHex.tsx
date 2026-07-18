@@ -37,24 +37,26 @@ export default function BubbleHex() {
     </header>
     <section className="cabinet" aria-label="Bubble Hex arcade cabinet">
       <div className="cabinet-crown" aria-hidden="true"><span>✦</span><b>BUBBLE HEX</b><span>✦</span></div>
-      <div className="screen-bezel"><div className="screen-wrap">
-        <canvas ref={canvasRef} width={960} height={720} aria-label="Playable Bubble Hex game" tabIndex={0}/>
-        <div className="scanlines" aria-hidden="true" />
-      </div></div>
-      <div className="control-deck">
-        <div className="dpad" aria-label="Movement controls">
-          <button type="button" aria-label="Move left" {...bind("left")}><span>◀</span></button>
-          <button type="button" aria-label="Move right" {...bind("right")}><span>▶</span></button>
-        </div>
-        <div className="mini-controls">
-          <button type="button" onClick={()=>press("start")}>START</button>
-          <button type="button" onClick={()=>press("consciousness")}>ENEMY LEVEL</button>
-          <button type="button" onClick={()=>press("pause")}>ARCHIVE / PAUSE</button>
-          <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
-        </div>
-        <div className="action-controls" aria-label="Action controls">
-          <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span>JUMP</span><small>C / SPACE</small></button>
-          <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span>BUBBLE</span><small>X / Z</small></button>
+      <div className="play-layout">
+        <div className="screen-bezel"><div className="screen-wrap">
+          <canvas ref={canvasRef} width={960} height={720} aria-label="Playable Bubble Hex game" tabIndex={0}/>
+          <div className="scanlines" aria-hidden="true" />
+        </div></div>
+        <div className="control-deck">
+          <div className="dpad" aria-label="Movement controls">
+            <button type="button" aria-label="Move left" {...bind("left")}><span>◀</span><small>LEFT</small></button>
+            <button type="button" aria-label="Move right" {...bind("right")}><span>▶</span><small>RIGHT</small></button>
+          </div>
+          <div className="mini-controls">
+            <button type="button" onClick={()=>press("start")}>START</button>
+            <button type="button" onClick={()=>press("consciousness")}>ENEMY LEVEL</button>
+            <button type="button" onClick={()=>press("pause")}>ARCHIVE / PAUSE</button>
+            <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
+          </div>
+          <div className="action-controls" aria-label="Action controls">
+            <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span>JUMP</span><small>C / SPACE</small></button>
+            <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span>BUBBLE</span><small>X / Z</small></button>
+          </div>
         </div>
       </div>
     </section>
