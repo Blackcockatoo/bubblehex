@@ -85,5 +85,6 @@ export function installBubbleHexRuntimeUpgrades(EngineClass:EngineConstructor){
     if(checkpoint)this.label(`CP STAGE ${checkpoint.levelIndex+1}`,190,53,9,"#FFD36A","center");
   };
 
+  // Do not replace drawHero: preserve the exact Claude 6c5fee7 animation snapshot.
   proto.drawProjectile=function(this:AnyEngine,p:any){drawHighContrastProjectile(this,p)};
 }
