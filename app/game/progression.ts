@@ -3,6 +3,9 @@ import type { EnemyKind } from "./levels";
 
 export const MAX_HERO_LEVEL = 20;
 export const MAX_ENEMY_RANK = 5;
+export const ENEMY_CONSCIOUSNESS_NAMES = ["RISING","DORMANT","STIRRING","VICIOUS","CURSED","NIGHTMARE"] as const;
+
+export type EnemyConsciousness = 0 | 1 | 2 | 3 | 4 | 5;
 
 export type HeroProgress = { level:number; xp:number };
 export type UpgradeKey = "speed" | "rapid" | "range" | "velocity" | "shield" | "venom" | "chain" | "crown";
@@ -65,7 +68,8 @@ export function nextHeroMilestone(hero:HeroId,level:number):HeroMilestone|undefi
   return HERO_MILESTONES[hero].find(item=>item.level>level);
 }
 
-export function enemyRankForStage(stageIndex:number,boss=false,bonus=false):number {
+export function enemyRankForStage(stageIndex:number,boss=false,bonus=false,consciousness:EnemyConsciousness=0):number {
+  if(consciousness>0)return consciousness;
   if(bonus)return 3;
   if(boss)return MAX_ENEMY_RANK;
   return Math.min(MAX_ENEMY_RANK,1+Math.floor(Math.max(0,stageIndex)/3));

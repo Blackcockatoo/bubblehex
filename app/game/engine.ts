@@ -36,13 +36,13 @@ import {
 import { DEFAULT_SETTINGS, migrateSettings, type PersistedSettings } from "./persistence";
 import { computeStageBreakdown, isNewCampaignRecord, isNewStageRecord } from "./scoring";
 import {
-  ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
-  progressAfterXp, stageClearXp, unlockedHeroUpgrades,
+  ENEMY_CONSCIOUSNESS_NAMES, ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
+  progressAfterXp, stageClearXp, unlockedHeroUpgrades, type EnemyConsciousness,
 } from "./progression";
 import { blockForPlatform, type PlatformBlockDefinition } from "./blocks";
 import { drawHeroArt } from "./hero-art";
 
-export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause";
+export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness";
 type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
 type EnemyState = "normal" | "trapped" | "furious" | "dead";
 type BubblePhase = "fired" | "slowing" | "floating" | "occupied" | "warning" | "burst";
@@ -66,7 +66,7 @@ type Settings = PersistedSettings;
 
 const FIXED=1/60;
 const COLORS={void:"#050509",midnight:"#081A3A",blue:"#087CFF",pink:"#FF2A9D",crimson:"#C4133D",jade:"#20C98B",shine:"#FFD6F1"};
-const TOKENS:Record<Action,Token|undefined>={left:"LEFT",right:"RIGHT",jump:"JUMP",bubble:"BUBBLE",start:"START",pause:undefined};
+const TOKENS:Record<Action,Token|undefined>={left:"LEFT",right:"RIGHT",jump:"JUMP",bubble:"BUBBLE",start:"START",pause:undefined,consciousness:undefined};
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);
 const overlaps=(a:{x:number;y:number;w:number;h:number},b:{x:number;y:number;w:number;h:number})=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
@@ -75,7 +75,7 @@ export class BubbleHexEngine {
   private canvas:HTMLCanvasElement; private ctx:CanvasRenderingContext2D; private audio=new AudioManager();
   private frame=0; private last=0; private acc=0; private alive=true; private ready:()=>void;
   private state:GameState="boot"; private stateTime=0; private titleIdle=0; private startGrace=0;
-  private held:Record<Action,boolean>={left:false,right:false,jump:false,bubble:false,start:false,pause:false};
+  private held:Record<Action,boolean>={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false};
   private just=new Set<Action>(); private hero:HeroId="vesper"; private selected:HeroId="vesper";
   private player:Player=this.makePlayer();
   private enemies:Enemy[]=[]; private bubbles:Bubble[]=[]; private rewards:Reward[]=[]; private projectiles:Projectile[]=[]; private particles:Particle[]=[];
@@ -121,6 +121,7 @@ export class BubbleHexEngine {
       widowPhase:this.widow?.phase??"",widowHp:String(this.widow?.hp??""),score:String(this.score),lives:String(this.lives),
       widowX:this.widow?.x.toFixed(1)??"",widowY:this.widow?.y.toFixed(1)??"",playerX:p.x.toFixed(1),
       levelName:this.level.name,levelBonus:String(!!this.level.bonus),cheatsExtra:String(this.cheats.extra),enemiesLeft:String(this.enemies.filter(e=>e.state!=="dead").length),
+      enemyConsciousness:String(this.settings.enemyConsciousness),enemyRank:String(this.threatRank()),
     });
   }
   private onKeyDown(e:KeyboardEvent){
@@ -138,7 +139,7 @@ export class BubbleHexEngine {
   private keyAction(code:string):Action|undefined{
     if(code==="ArrowLeft"||code==="KeyA")return"left";if(code==="ArrowRight"||code==="KeyD")return"right";
     if(code==="Space"||code==="KeyC")return"jump";if(code==="KeyX"||code==="KeyZ")return"bubble";
-    if(code==="Enter")return"start";if(code==="Escape"||code==="KeyP")return"pause";
+    if(code==="Enter")return"start";if(code==="Escape"||code==="KeyP")return"pause";if(code==="ArrowUp"||code==="KeyW")return"consciousness";
   }
   press(action:Action){
     const wasUnlocked=this.audioReady;this.audio.unlock();this.audioReady=true;if(!wasUnlocked)this.syncMusic();
@@ -189,12 +190,13 @@ export class BubbleHexEngine {
   private updateTitle(dt:number){
     if(this.startGrace>0){this.startGrace-=dt;if(this.startGrace<=0)this.setState("characterSelect")}
     if(this.titleIdle>15)this.beginAttract();
-    if(this.just.has("left")||this.just.has("right"))this.selected=this.selected==="vesper"?"jade":"vesper";
+    if(this.just.has("consciousness"))this.cycleEnemyConsciousness();
     if(this.just.has("pause"))this.setState("records/options");
   }
   private updateSelect(){
     if(this.just.has("left")||this.just.has("right")){this.selected=this.selected==="vesper"?"jade":"vesper";this.audio.tone(this.selected==="jade"?520:310)}
     if(this.just.has("bubble")){this.cycleSkin(this.selected);this.audio.reward()}
+    if(this.just.has("consciousness"))this.cycleEnemyConsciousness();
     if(this.just.has("start")||this.just.has("jump")){this.hero=this.selected;this.beginRun()}
     if(this.just.has("pause"))this.toTitle();
   }
@@ -464,7 +466,11 @@ export class BubbleHexEngine {
     const progress=this.heroProgress();
     for(const key of unlockedHeroUpgrades(this.hero,progress.level))if(key!=="shield"||refreshShield||!this.upgrades.shield)this.upgrades[key]=true;
   }
-  private threatRank(){return enemyRankForStage(this.levelIndex,!!this.level.boss,!!this.level.bonus)}
+  private threatRank(){return enemyRankForStage(this.levelIndex,!!this.level.boss,!!this.level.bonus,this.settings.enemyConsciousness)}
+  private cycleEnemyConsciousness(){
+    this.settings.enemyConsciousness=((this.settings.enemyConsciousness+1)%ENEMY_CONSCIOUSNESS_NAMES.length) as EnemyConsciousness;
+    this.message=`ENEMY CONSCIOUSNESS: ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`;this.messageLife=1.4;this.audio.reward();this.save();
+  }
   private collectReward(r:Reward){this.score+=r.value;this.audio.reward();this.burstParticles(r.x,r.y,r.letter?"#FFD36A":COLORS.pink,8);if(r.letter){this.venom.add(r.letter);if(this.venom.size===5){this.lives++;this.score+=10000;this.player.flying=6;this.venom.clear();this.message="VENOM ASCENSION +1 LIFE";this.messageLife=2.2;this.shake=this.settings.reducedMotion?0:5;this.audio.secret()}}}
   private clearStage(demo:boolean){
     if(demo){this.toTitle();return}
@@ -512,7 +518,7 @@ export class BubbleHexEngine {
   }
   private remixLevel(base:Level):Level{if(!this.cheats.super)return base;return{...base,time:Math.max(45,base.time-12),platforms:base.platforms.map((p,i)=>i===0?p:{...p,y:p.y+(i%2?18:-12)}),enemies:[...base.enemies,...base.enemies.slice(0,2).map((e,i)=>({...e,x:clamp(e.x+150+i*90,60,860),kind:i?"skull" as EnemyKind:"witch" as EnemyKind}))]}}
   private beginAttract(){this.attractTime=0;this.hero="jade";this.levelIndex=1;this.loadLevel(1);this.setState("attract")}
-  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false}}
+  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false}}
   private recordToken(token:Token,isStartAction:boolean){
     const match=this.cheatReader.feed(token,performance.now(),this.cheats);
     this.startGrace=nextTitleStartGrace(!!match,isStartAction);
@@ -548,13 +554,16 @@ export class BubbleHexEngine {
     this.drawHero(245,470,"vesper",1.55,false);this.drawHero(680,470,"jade",1.55,false);this.drawHeartBubble(W/2,475,72);
     if(this.cheats.power)for(let i=0;i<3;i++){const a=t*2+i*Math.PI*2/3;c.strokeStyle=i===0?COLORS.pink:i===1?COLORS.blue:COLORS.jade;c.lineWidth=3;c.beginPath();c.arc(W/2+Math.cos(a)*115,475+Math.sin(a)*70,13,0,Math.PI*2);c.stroke()}
     if(this.cheats.extra){c.strokeStyle=COLORS.jade;c.lineWidth=5;c.beginPath();c.arc(W/2,475,18,Math.PI,0);c.lineTo(W/2+12,515);c.lineTo(W/2-12,515);c.closePath();c.stroke()}
-    const all=this.cheats.power&&this.cheats.super&&this.cheats.extra;this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,610,all?22:27,all?COLORS.crimson:COLORS.shine,"center");
-    if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,644,14,COLORS.pink,"center");
-    this.label("ONE PLAYER",65,680,13,COLORS.blue);this.label("BLUE $NAKE STUDIO",895,680,12,COLORS.jade,"right");
-    const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,675,12,COLORS.shine,"center");
+    const all=this.cheats.power&&this.cheats.super&&this.cheats.extra;
+    this.label(`ENEMY CONSCIOUSNESS  ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,570,13,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
+    this.label("UP / ENEMY LEVEL TO CHANGE",W/2,592,11,COLORS.jade,"center");
+    this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,622,all?20:25,all?COLORS.crimson:COLORS.shine,"center");
+    if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,650,12,COLORS.pink,"center");
+    this.label("ONE PLAYER",65,699,12,COLORS.blue);this.label("BLUE $NAKE STUDIO",895,699,12,COLORS.jade,"right");
+    const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,676,12,COLORS.shine,"center");
   }
   private drawSelect(){this.drawStars();this.drawGothicFrame(COLORS.pink);this.label("CHOOSE YOUR HEX",W/2,105,42,COLORS.shine,"center","Georgia");
-    this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("←  HERO  →   •   BUBBLE: LOOK",W/2,635,16,COLORS.blue,"center");this.label("START / JUMP TO CONFIRM   •   PAUSE TO RETURN",W/2,675,13,COLORS.jade,"center")}
+    this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("← HERO →   •   BUBBLE: LOOK   •   UP: ENEMY LEVEL",W/2,635,13,COLORS.blue,"center");this.label(`START / JUMP TO CONFIRM   •   ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,675,13,COLORS.jade,"center")}
   private drawSelectCard(x:number,y:number,hero:HeroId,on:boolean){
     const c=this.ctx,skin=this.skinFor(hero),col=skin.accent;c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
     const portrait=this.art.draw(c,"heroes",hero==="vesper"?0:768,28,768,960,x+12,y+12,276,274);c.restore();

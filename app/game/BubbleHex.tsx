@@ -48,6 +48,7 @@ export default function BubbleHex() {
         </div>
         <div className="mini-controls">
           <button type="button" onClick={()=>press("start")}>START</button>
+          <button type="button" onClick={()=>press("consciousness")}>ENEMY LEVEL</button>
           <button type="button" onClick={()=>press("pause")}>ARCHIVE / PAUSE</button>
           <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
         </div>
