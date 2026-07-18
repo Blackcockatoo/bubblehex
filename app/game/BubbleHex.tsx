@@ -44,8 +44,8 @@ export default function BubbleHex() {
         </div></div>
         <div className="control-deck">
           <div className="dpad" aria-label="Movement controls">
-            <button type="button" aria-label="Move left" {...bind("left")}><span>◀</span><small>LEFT</small></button>
-            <button type="button" aria-label="Move right" {...bind("right")}><span>▶</span><small>RIGHT</small></button>
+            <button type="button" aria-label="Move left" {...bind("left")}><span aria-hidden="true">◀</span></button>
+            <button type="button" aria-label="Move right" {...bind("right")}><span aria-hidden="true">▶</span></button>
           </div>
           <div className="mini-controls">
             <button type="button" onClick={()=>press("start")}>START</button>
@@ -54,8 +54,8 @@ export default function BubbleHex() {
             <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
           </div>
           <div className="action-controls" aria-label="Action controls">
-            <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span>JUMP</span><small>C / SPACE</small></button>
-            <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span>BUBBLE</span><small>X / Z</small></button>
+            <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span aria-hidden="true">↑</span></button>
+            <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span aria-hidden="true">○</span></button>
           </div>
         </div>
       </div>

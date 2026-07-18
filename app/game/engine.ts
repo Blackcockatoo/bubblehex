@@ -705,12 +705,12 @@ export class BubbleHexEngine {
   private drawGothicBox(x:number,y:number,w:number,h:number,color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=3;c.strokeRect(x,y,w,h);c.strokeRect(x+10,y+10,w-20,h-20)}
   private banner(text:string,y:number,color:string){const c=this.ctx;c.save();c.fillStyle="rgba(5,5,9,.88)";c.fillRect(90,y-55,780,88);c.strokeStyle=color;c.lineWidth=3;c.strokeRect(95,y-50,770,78);c.shadowBlur=18;c.shadowColor=color;this.label(text,W/2,y,32,color,"center","Georgia");c.restore()}
   private drawWrappedText(text:string,x:number,y:number,maxWidth:number,lineHeight:number,size:number,color:string,align:CanvasTextAlign="left"){
-    const c=this.ctx,readableSize=Math.max(size,11);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
+    const c=this.ctx,readableSize=Math.max(size,13);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
     for(const word of words){const test=line?`${line} ${word}`:word;if(c.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);
     lines.slice(0,6).forEach((value,index)=>this.label(value,x,y+index*Math.max(lineHeight,readableSize+5),readableSize,color,align));
   }
   private label(text:string,x:number,y:number,size:number,color:string,align:CanvasTextAlign="left",family="monospace"){
-    const c=this.ctx,readableSize=Math.max(size,11);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
+    const c=this.ctx,readableSize=Math.max(size,13);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
     c.strokeStyle="rgba(2,3,10,.94)";c.lineWidth=Math.max(2,Math.min(5,readableSize*.16));c.strokeText(text,x,y);c.fillStyle=color;c.fillText(text,x,y);c.restore();
   }
 }
