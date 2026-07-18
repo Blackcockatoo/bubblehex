@@ -1,9 +1,10 @@
 import type { HeroId } from "./content";
+import { normalizeHeroProgress, type HeroProgress } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
 export type PersistedSettings = {
-  version:3;
+  version:4;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -16,13 +17,14 @@ export type PersistedSettings = {
   fragments:string[];
   bestStageTimes:Record<string,number>;
   perfectClears:number;
+  heroProgress:Record<HeroId,HeroProgress>;
 };
 
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:3,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,highScore:0,secrets:0,
+  version:4,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
-  bestStageTimes:{},perfectClears:0,
+  bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
 };
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
@@ -42,7 +44,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
   return {
-    ...DEFAULT_SETTINGS,...raw,version:3,
+    ...DEFAULT_SETTINGS,...raw,version:4,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -54,5 +56,6 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     fragments:unique(raw.fragments,[]),
     bestStageTimes:positiveRecord(raw.bestStageTimes),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
+    heroProgress:{vesper:normalizeHeroProgress(raw.heroProgress?.vesper),jade:normalizeHeroProgress(raw.heroProgress?.jade)},
   };
 }

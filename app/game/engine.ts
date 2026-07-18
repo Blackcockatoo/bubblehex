@@ -35,6 +35,10 @@ import {
 } from "./content";
 import { DEFAULT_SETTINGS, migrateSettings, type PersistedSettings } from "./persistence";
 import { computeStageBreakdown, isNewCampaignRecord, isNewStageRecord } from "./scoring";
+import {
+  ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
+  progressAfterXp, stageClearXp, unlockedHeroUpgrades, xpForLevel,
+} from "./progression";
 
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause";
 type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
@@ -46,7 +50,7 @@ type Player = {
   grounded:boolean;facing:1|-1;invuln:number;flying:number;
   maxJumps:number;jumpsRemaining:number;jumpCut:boolean;jumpAge:number;currentPlatformId:number|null;
 };
-type Enemy = { id:number;x:number;y:number;vx:number;vy:number;w:number;h:number;kind:EnemyKind;state:EnemyState;timer:number;cooldown:number;homeY:number;weakened:boolean };
+type Enemy = { id:number;x:number;y:number;vx:number;vy:number;w:number;h:number;kind:EnemyKind;state:EnemyState;timer:number;cooldown:number;homeY:number;weakened:boolean;rank:number;elite:boolean };
 type Bubble = { id:number;x:number;y:number;vx:number;vy:number;r:number;age:number;phase:BubblePhase;enemyId?:number;life:number };
 type Reward = { x:number;y:number;vy:number;kind:string;value:number;life:number;letter?:string };
 type Projectile = { x:number;y:number;vx:number;vy:number;life:number;kind:"tear"|"star" };
@@ -87,6 +91,7 @@ export class BubbleHexEngine {
   private readonly devTools:boolean=Boolean(import.meta.env?.DEV);
   private inBonus=false; private bonusVisited=false; private stageStartScore=0; private stageDamaged=false; private newRecord=false;
   private stageBreakdown={kills:0,speedBonus:0,lifeBonus:0,noDamageBonus:0,secretBonus:0,total:0};
+  private stageXp=0;
 
   constructor(canvas:HTMLCanvasElement,onReady:()=>void){
     this.canvas=canvas; const ctx=canvas.getContext("2d"); if(!ctx)throw new Error("Canvas unavailable"); this.ctx=ctx;this.ctx.imageSmoothingEnabled=false;this.ready=onReady;
@@ -318,7 +323,7 @@ export class BubbleHexEngine {
       this.audio.trap();this.burstParticles(b.x,b.y,COLORS.crimson,14);
       return;
     }
-    for(const e of this.enemies){if(e.state!=="normal"&&e.state!=="furious")continue;if(dist(b,e)<b.r+26){e.state="trapped";e.timer=0;e.weakened=this.upgrades.venom;b.phase="occupied";b.enemyId=e.id;b.life=e.weakened?6.4:5.4;b.vx*=.15;b.vy=-24;b.r=25;this.trappedBeforeFirstPop++;this.audio.trap();this.burstParticles(b.x,b.y,e.weakened?COLORS.jade:COLORS.pink,8);break}}
+    for(const e of this.enemies){if(e.state!=="normal"&&e.state!=="furious")continue;if(dist(b,e)<b.r+26){e.state="trapped";e.timer=0;e.weakened=this.upgrades.venom;b.phase="occupied";b.enemyId=e.id;const resistance=Math.max(.58,1-(e.rank-1)*.08-(e.elite?.08:0));b.life=(e.weakened?6.4:5.4)*resistance;b.vx*=.15;b.vy=-24;b.r=25;this.trappedBeforeFirstPop++;this.audio.trap();this.burstParticles(b.x,b.y,e.weakened?COLORS.jade:COLORS.pink,8);break}}
   }
   private playerBubbleHit(b:Bubble){const p=this.player;return p.x<b.x+b.r&&p.x+p.w>b.x-b.r&&p.y<b.y+b.r&&p.y+p.h>b.y-b.r}
   private popChain(root:Bubble){
@@ -331,7 +336,7 @@ export class BubbleHexEngine {
   }
   private resolveBubble(b:Bubble,mult:number,chain:number){
     if(b.enemyId===WIDOW_ENEMY_ID){this.hitWidow();b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,COLORS.crimson,18);return}
-    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy){enemy.state="dead";this.stageKills++;this.score+=100*mult;this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
+    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy){enemy.state="dead";this.stageKills++;this.score+=100*mult*enemy.rank*(enemy.elite?2:1);if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
   }
   private hitWidow(){
     const w=this.widow;if(!w)return;
@@ -350,16 +355,16 @@ export class BubbleHexEngine {
   }
   private releaseEnemy(b:Bubble){
     if(b.enemyId===WIDOW_ENEMY_ID){if(this.widow){this.widow.phase="chase";this.widow.phaseTimer=0;this.widow.x=b.x;this.widow.y=b.y;this.widow.vx=(this.player.x<b.x?1:-1)*80;this.widow.vy=-40}b.enemyId=undefined;return}
-    const e=this.enemies.find(e=>e.id===b.enemyId);if(e){e.state="furious";e.x=b.x-e.w/2;e.y=b.y-e.h/2;e.vx=(this.player.x<e.x?-1:1)*220;e.timer=8}b.enemyId=undefined;
+    const e=this.enemies.find(e=>e.id===b.enemyId);if(e){e.state="furious";e.x=b.x-e.w/2;e.y=b.y-e.h/2;e.vx=(this.player.x<e.x?-1:1)*220*(1+(e.rank-1)*.1+(e.elite?.15:0));e.timer=8}b.enemyId=undefined;
   }
   private updateEnemies(dt:number){
-    for(const e of this.enemies){if(e.state==="dead"||e.state==="trapped")continue;e.timer+=dt;e.cooldown-=dt;const rage=e.state==="furious"?(e.weakened?1.1:1.55):(e.weakened?.75:1);
+    for(const e of this.enemies){if(e.state==="dead"||e.state==="trapped")continue;e.timer+=dt;e.cooldown-=dt;const power=1+(e.rank-1)*.1+(e.elite?.15:0);const rage=(e.state==="furious"?(e.weakened?1.1:1.55):(e.weakened?.75:1))*power;
       if(e.kind==="bat"){if(Math.abs(this.player.x-e.x)<330||e.state==="furious"){e.vx+=(this.player.x-e.x)*.7*dt;e.vy+=(this.player.y-e.y)*.7*dt;e.vx=clamp(e.vx,-150*rage,150*rage);e.vy=clamp(e.vy,-120*rage,145*rage)}else{e.vx=Math.sin(e.timer*2)*45;e.vy=Math.sin(e.timer*3)*15}}
-      else if(e.kind==="eye"){e.vx=0;e.vy=0;if(e.cooldown<=0){const a=Math.atan2(this.player.y-e.y,this.player.x-e.x);this.projectiles.push({x:e.x+16,y:e.y+15,vx:Math.cos(a)*95*rage,vy:Math.sin(a)*95*rage,life:6,kind:"tear"});e.cooldown=e.state==="furious"?1.1:2.4}}
-      else if(e.kind==="witch"){const dx=this.player.x-e.x;e.vx=(Math.abs(dx)<190?-Math.sign(dx):Math.sign(dx))*70*rage;if(e.cooldown<=0){const a=Math.atan2(this.player.y-e.y,this.player.x-e.x);this.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a)*145,vy:Math.sin(a)*145,life:4,kind:"star"});e.cooldown=e.state==="furious"?1:2}}
+      else if(e.kind==="eye"){e.vx=0;e.vy=0;if(e.cooldown<=0){const a=Math.atan2(this.player.y-e.y,this.player.x-e.x);this.projectiles.push({x:e.x+16,y:e.y+15,vx:Math.cos(a)*95*rage,vy:Math.sin(a)*95*rage,life:6,kind:"tear"});e.cooldown=(e.state==="furious"?1.1:2.4)/power}}
+      else if(e.kind==="witch"){const dx=this.player.x-e.x;e.vx=(Math.abs(dx)<190?-Math.sign(dx):Math.sign(dx))*70*rage;if(e.cooldown<=0){const a=Math.atan2(this.player.y-e.y,this.player.x-e.x);this.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a)*145*power,vy:Math.sin(a)*145*power,life:4,kind:"star"});e.cooldown=(e.state==="furious"?1:2)/power}}
       else if(e.kind==="doll"){const charge=e.timer%3.4>2.55;e.vx=(this.player.x<e.x?-1:1)*(charge?250:55)*rage;e.vy+=1000*dt}
       else if(e.kind==="skull"){e.vx=(this.player.x<e.x?-1:1)*145*rage;e.vy+=900*dt;if(e.timer%2.2<dt)e.vy=-350}
-      else{e.vx=(e.vx||70)*rage;e.vy+=1000*dt}
+      else{e.vx=(e.vx>=0?1:-1)*70*rage;e.vy+=1000*dt}
       const oldY=e.y;e.x+=e.vx*dt;e.y+=e.vy*dt;if(e.x<28){e.x=28;e.vx=Math.abs(e.vx)}if(e.x>W-e.w-28){e.x=W-e.w-28;e.vx=-Math.abs(e.vx)}
       if(e.kind!=="bat"&&e.kind!=="eye")for(const plat of this.level.platforms){if(e.x+e.w>plat.x&&e.x<plat.x+plat.w&&oldY+e.h<=plat.y+4&&e.y+e.h>=plat.y&&e.vy>=0){e.y=plat.y-e.h;e.vy=0;if(e.kind==="love"){const edge=e.vx>0?e.x+e.w+7:e.x-7;if(edge<plat.x||edge>plat.x+plat.w)e.vx*=-1}}}
       if(e.y>H+50){e.y=100;e.x=100+Math.random()*700;e.vy=0}
@@ -440,6 +445,24 @@ export class BubbleHexEngine {
     if(n%5===0)this.applyPowerup(n);
   }
   private applyPowerup(n:number){const list=["rapid","range","velocity","speed","shield","venom","chain","crown"] as const;const key=list[(n+this.levelIndex)%list.length];this.upgrades[key]=true;this.message=({rapid:"LIGHTNING CANDY",range:"HEART RANGE",velocity:"BLUE COMET",speed:"CRIMSON HEELS",shield:"HEART COMPACT",venom:"JADE FANG",chain:"SNAKE CHAIN",crown:"THORN CROWN"})[key];this.messageLife=1.25;this.audio.reward()}
+  private heroProgress(){return this.settings.heroProgress[this.hero]}
+  private gainHeroXp(amount:number){
+    const before=this.heroProgress();
+    const after=progressAfterXp(before,amount);
+    this.settings.heroProgress[this.hero]=after;this.stageXp+=Math.max(0,Math.floor(amount));
+    if(after.level>before.level){
+      this.applyMasteryUpgrades(false);
+      const perk=nextHeroMilestone(this.hero,after.level-1);
+      this.message=`LEVEL ${after.level} - ${perk?.level===after.level?perk.name.toUpperCase():"MASTERY RISES"}`;
+      this.messageLife=2.4;
+      this.audio.secret();
+    }
+  }
+  private applyMasteryUpgrades(refreshShield=false){
+    const progress=this.heroProgress();
+    for(const key of unlockedHeroUpgrades(this.hero,progress.level))if(key!=="shield"||refreshShield||!this.upgrades.shield)this.upgrades[key]=true;
+  }
+  private threatRank(){return enemyRankForStage(this.levelIndex,!!this.level.boss,!!this.level.bonus)}
   private collectReward(r:Reward){this.score+=r.value;this.audio.reward();this.burstParticles(r.x,r.y,r.letter?"#FFD36A":COLORS.pink,8);if(r.letter){this.venom.add(r.letter);if(this.venom.size===5){this.lives++;this.score+=10000;this.player.flying=6;this.venom.clear();this.message="VENOM ASCENSION +1 LIFE";this.messageLife=2.2;this.shake=this.settings.reducedMotion?0:5;this.audio.secret()}}}
   private clearStage(demo:boolean){
     if(demo){this.toTitle();return}
@@ -447,6 +470,7 @@ export class BubbleHexEngine {
     this.secretFound=secret;
     this.stageBreakdown=computeStageBreakdown({kills:this.score-this.stageStartScore,remainingTime:this.levelTime,lives:this.lives,noDamage:!this.stageDamaged,secretFound:secret,bonusRoom:!!this.level.bonus});
     this.score+=this.stageBreakdown.speedBonus+this.stageBreakdown.lifeBonus+this.stageBreakdown.noDamageBonus+this.stageBreakdown.secretBonus;
+    this.gainHeroXp(stageClearXp(this.threatRank(),!this.stageDamaged,!!this.level.boss));
     if(secret){
       if(!this.level.bonus&&!this.settings.fragments.includes(this.level.loreFragmentId)){
         this.settings.fragments.push(this.level.loreFragmentId);this.settings.secrets++;
@@ -474,11 +498,13 @@ export class BubbleHexEngine {
   private loadBonusLevel(){this.inBonus=true;this.loadLevelData(this.remixLevel(BONUS_LEVEL))}
   private loadLevelData(level:Level){
     this.level=level;this.levelTime=level.time;
-    this.enemies=level.enemies.map(s=>({id:this.nextId++,x:s.x,y:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false}));
+    const rank=this.threatRank();
+    this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
     this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];
     this.widow=level.boss?this.makeWidow(W/2,-60,true):null;this.widowTime=0;
     this.platformAudit=auditLevelReachability(level);this.resetPlayer(1.2);
-    this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false;this.stageStartScore=this.score;this.stageDamaged=false;
+    this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false;this.stageStartScore=this.score;this.stageDamaged=false;this.stageXp=0;
+    this.applyMasteryUpgrades(true);
     this.unlockContent(level.worldId);for(const enemy of level.enemies)this.unlockContent(enemy.kind);if(level.boss)this.unlockContent("widow");
     this.save();
   }
@@ -528,7 +554,7 @@ export class BubbleHexEngine {
   private drawSelect(){this.drawStars();this.drawGothicFrame(COLORS.pink);this.label("CHOOSE YOUR HEX",W/2,105,42,COLORS.shine,"center","Georgia");
     this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("←  HERO  →   •   BUBBLE: LOOK",W/2,635,16,COLORS.blue,"center");this.label("START / JUMP TO CONFIRM   •   PAUSE TO RETURN",W/2,675,13,COLORS.jade,"center")}
   private drawSelectCard(x:number,y:number,hero:HeroId,on:boolean){
-    const c=this.ctx,skin=this.skinFor(hero),col=skin.accent;c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
+    const c=this.ctx,skin=this.skinFor(hero),col=skin.accent,progress=this.settings.heroProgress[hero],next=nextHeroMilestone(hero,progress.level);c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
     const portrait=this.art.draw(c,"heroes",hero==="vesper"?0:768,28,768,960,x+12,y+12,276,274);c.restore();
     if(!portrait)this.drawHero(x+150,y+175,hero,2.5,false);
     c.fillStyle="rgba(7,8,23,.82)";c.fillRect(x+8,y+286,284,126);c.strokeStyle=on?COLORS.shine:col;c.lineWidth=on?5:2;c.strokeRect(x,y,300,420);
