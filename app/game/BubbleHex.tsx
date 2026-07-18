@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
+import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 
 const holdActions: Action[] = ["left", "right"];
 
@@ -13,6 +14,7 @@ export default function BubbleHex() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine; engine.start();
     const stopScroll = (event: KeyboardEvent) => {
@@ -67,4 +69,3 @@ export default function BubbleHex() {
     </footer>
   </main>;
 }
-
