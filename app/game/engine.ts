@@ -550,20 +550,20 @@ export class BubbleHexEngine {
     if(this.cheats.super){c.fillStyle="rgba(0,0,0,.72)";c.fillRect(110,92,740,330);c.strokeStyle=COLORS.crimson;c.lineWidth=8;c.beginPath();c.ellipse(W/2,220,120,58,0,0,Math.PI*2);c.stroke();c.fillStyle=COLORS.pink;c.beginPath();c.arc(W/2,220,28,0,Math.PI*2);c.fill()}
     c.save();c.shadowBlur=18;c.shadowColor=COLORS.crimson;this.label("BUBBLE",W/2,225,104,COLORS.crimson,"center","Georgia");c.restore();
     c.save();c.shadowBlur=20;c.shadowColor=COLORS.jade;this.label("HEX",W/2,332,122,COLORS.jade,"center","Georgia");c.restore();
-    this.drawSerpent(220,165,COLORS.crimson,1);this.drawSerpent(735,315,COLORS.jade,-1);
+    this.drawSerpent(60,92,COLORS.crimson,1,.62);this.drawSerpent(900,92,COLORS.jade,-1,.62);
     this.drawHero(245,470,"vesper",1.55,false);this.drawHero(680,470,"jade",1.55,false);this.drawHeartBubble(W/2,475,72);
     if(this.cheats.power)for(let i=0;i<3;i++){const a=t*2+i*Math.PI*2/3;c.strokeStyle=i===0?COLORS.pink:i===1?COLORS.blue:COLORS.jade;c.lineWidth=3;c.beginPath();c.arc(W/2+Math.cos(a)*115,475+Math.sin(a)*70,13,0,Math.PI*2);c.stroke()}
     if(this.cheats.extra){c.strokeStyle=COLORS.jade;c.lineWidth=5;c.beginPath();c.arc(W/2,475,18,Math.PI,0);c.lineTo(W/2+12,515);c.lineTo(W/2-12,515);c.closePath();c.stroke()}
     const all=this.cheats.power&&this.cheats.super&&this.cheats.extra;
-    this.label(`ENEMY CONSCIOUSNESS  ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,570,13,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
-    this.label("UP / ENEMY LEVEL TO CHANGE",W/2,592,11,COLORS.jade,"center");
+    this.label(`ENEMY CONSCIOUSNESS: ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,570,13,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
+    this.label("↑  ENEMY LEVEL",W/2,592,11,COLORS.jade,"center");
     this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,622,all?20:25,all?COLORS.crimson:COLORS.shine,"center");
     if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,650,12,COLORS.pink,"center");
     this.label("ONE PLAYER",65,699,12,COLORS.blue);this.label("BLUE $NAKE STUDIO",895,699,12,COLORS.jade,"right");
     const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,676,12,COLORS.shine,"center");
   }
   private drawSelect(){this.drawStars();this.drawGothicFrame(COLORS.pink);this.label("CHOOSE YOUR HEX",W/2,105,42,COLORS.shine,"center","Georgia");
-    this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("← HERO →   •   BUBBLE: LOOK   •   UP: ENEMY LEVEL",W/2,635,13,COLORS.blue,"center");this.label(`START / JUMP TO CONFIRM   •   ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,675,13,COLORS.jade,"center")}
+    this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("← HERO →   •   BUBBLE: LOOK   •   UP: ENEMY LEVEL",W/2,635,13,COLORS.blue,"center");this.label(`START / JUMP TO CONFIRM   •   ENEMY LEVEL: ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,675,13,COLORS.jade,"center")}
   private drawSelectCard(x:number,y:number,hero:HeroId,on:boolean){
     const c=this.ctx,skin=this.skinFor(hero),col=skin.accent;c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
     const portrait=this.art.draw(c,"heroes",hero==="vesper"?0:768,28,768,960,x+12,y+12,276,274);c.restore();
@@ -575,7 +575,7 @@ export class BubbleHexEngine {
   }
   private drawWorld(){this.drawBackground();this.drawPlatforms();for(const r of this.rewards)this.drawReward(r);for(const b of this.bubbles)this.drawBubble(b);for(const e of this.enemies)if(e.state!=="dead"&&e.state!=="trapped")this.drawEnemy(e);for(const p of this.projectiles)this.drawProjectile(p);if(this.widow&&this.widow.phase!=="trapped")this.drawWidow(this.widow);this.drawPlayerShadow();this.drawHero(this.player.x+17,this.player.y+24,this.hero,1,this.player.invuln>0&&Math.floor(this.player.invuln*10)%2===0);for(const p of this.particles){this.ctx.globalAlpha=clamp(p.life*2,0,1);this.ctx.fillStyle=p.color;this.ctx.fillRect(p.x,p.y,p.size,p.size);this.ctx.globalAlpha=1}this.drawHud();this.drawProgressionHud();if(this.level.boss&&this.widow&&this.widow.phase==="entrance")this.drawBossNameplate();if(this.debug)this.drawDebugOverlay();if(this.comboLife>0)this.banner(this.comboText,370,COLORS.pink)}
   private drawBossNameplate(){const c=this.ctx,w=this.widow;if(!w)return;const t=clamp(w.phaseTimer/1.8,0,1);const alpha=t<.15?t/.15:t>.8?(1-t)/.2:1;c.save();c.globalAlpha=alpha;this.label("THE WIDOW",W/2,150,44,COLORS.crimson,"center","Georgia");this.label("LAST PATRON OF BUBBLE HEX",W/2,180,14,COLORS.pink,"center");c.restore()}
-  private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,389,25,11,COLORS.jade);this.label(`RANK ${rank} ${ENEMY_RANK_NAMES[rank-1]}`,389,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
+  private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,190,25,11,COLORS.jade);this.label(`RANK ${rank} ${ENEMY_RANK_NAMES[rank-1]}`,190,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
   private drawBackground(){const c=this.ctx;c.fillStyle=COLORS.void;c.fillRect(0,0,W,H);c.fillStyle=this.level.world==="JADE GARDEN"?"#06140f":"#050817";c.fillRect(18,70,W-36,H-92);c.globalAlpha=.18;c.strokeStyle=this.level.tint;c.lineWidth=2;
     if(this.level.worldId==="velvet-drain"){const sx=[0,724,1448][this.levelIndex]??0;c.save();c.globalAlpha=.58;this.art.draw(c,"velvetDrain",sx,0,724,724,18,70,W-36,H-92);c.restore();c.fillStyle="rgba(2,5,14,.24)";c.fillRect(18,70,W-36,H-92)}
     if(this.level.world==="THE BLACK BUBBLE"){for(let x=40;x<W;x+=55){c.beginPath();c.moveTo(x,75);c.lineTo(W-x/4,H);c.stroke()}for(let y=120;y<H;y+=55){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}c.beginPath();c.arc(W/2,H/2,250,0,Math.PI*2);c.stroke()}
@@ -699,7 +699,7 @@ export class BubbleHexEngine {
   }
   private drawHeartBubble(x:number,y:number,r:number){const c=this.ctx;c.save();c.fillStyle="rgba(255,42,157,.12)";c.strokeStyle=COLORS.pink;c.lineWidth=5;c.shadowBlur=24;c.shadowColor=COLORS.pink;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.shadowBlur=0;this.drawHeart(x,y+4,r*.55,"#8c164f");c.restore()}
   private drawHeart(x:number,y:number,s:number,color:string){const c=this.ctx;c.fillStyle=color;c.beginPath();c.moveTo(x,y+s*.8);c.bezierCurveTo(x-s*1.2,y,x-s*.7,y-s*.8,x,y-s*.25);c.bezierCurveTo(x+s*.7,y-s*.8,x+s*1.2,y,x,y+s*.8);c.fill()}
-  private drawSerpent(x:number,y:number,color:string,dir:number){const c=this.ctx;c.strokeStyle=color;c.lineWidth=17;c.lineCap="square";c.beginPath();c.moveTo(x,y);c.bezierCurveTo(x+130*dir,y-60,x+170*dir,y+90,x+300*dir,y+20);c.stroke();c.fillStyle=color;c.beginPath();c.moveTo(x+300*dir,y+20);c.lineTo(x+275*dir,y);c.lineTo(x+278*dir,y+42);c.fill()}
+  private drawSerpent(x:number,y:number,color:string,dir:number,scale=1){const c=this.ctx,s=scale;c.strokeStyle=color;c.lineWidth=17*s;c.lineCap="square";c.beginPath();c.moveTo(x,y);c.bezierCurveTo(x+130*dir*s,y-60*s,x+170*dir*s,y+90*s,x+300*dir*s,y+20*s);c.stroke();c.fillStyle=color;c.beginPath();c.moveTo(x+300*dir*s,y+20*s);c.lineTo(x+275*dir*s,y);c.lineTo(x+278*dir*s,y+42*s);c.fill()}
   private drawStars(){const c=this.ctx;for(let i=0;i<58;i++){const x=(i*173)%W,y=(i*97)%H,b=i%3===0?3:1;c.fillStyle=i%7===0?COLORS.pink:i%5===0?COLORS.jade:COLORS.blue;c.fillRect(x,y,b,b)}}
   private drawGothicFrame(color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=4;c.strokeRect(14,14,W-28,H-28);c.strokeRect(24,24,W-48,H-48);for(const [x,y,sx,sy] of [[25,25,1,1],[W-25,25,-1,1],[25,H-25,1,-1],[W-25,H-25,-1,-1]]){c.beginPath();c.moveTo(x,y+45*sy);c.lineTo(x,y);c.lineTo(x+45*sx,y);c.stroke();c.strokeRect(x+9*sx-(sx<0?8:0),y+9*sy-(sy<0?8:0),8,8)}}
   private drawGothicBox(x:number,y:number,w:number,h:number,color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=3;c.strokeRect(x,y,w,h);c.strokeRect(x+10,y+10,w-20,h-20)}
