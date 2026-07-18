@@ -53,9 +53,9 @@ test("art manifest points at real PNGs with declared dimensions",()=>{
   }
 });
 
-test("legacy settings migrate to v4 without losing preferences, records, or mastery",()=>{
+test("legacy settings migrate to v5 without losing preferences, records, mastery, or adaptive enemy consciousness",()=>{
   const settings=migrateSettings({muted:true,volume:.7,reducedMotion:true,highScore:108000,secrets:3});
-  assert.equal(settings.version,4);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);
+  assert.equal(settings.version,5);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);assert.equal(settings.enemyConsciousness,0);
   assert.equal(settings.musicVolume,.7);assert.equal(settings.sfxVolume,.7);
   assert.equal(settings.highScore,108000);assert.equal(settings.secrets,3);assert.deepEqual(settings.selectedSkins,DEFAULT_SKIN);
   assert.ok(Object.values(DEFAULT_SKIN).every(id=>settings.unlockedSkins.includes(id)));
@@ -67,6 +67,13 @@ test("v4 settings preserve independent music/sfx volumes and best-time records",
   const settings=migrateSettings({version:4,musicVolume:.3,sfxVolume:.9,bestStageTimes:{blueprint:41.2,bogus:-3},perfectClears:2});
   assert.equal(settings.musicVolume,.3);assert.equal(settings.sfxVolume,.9);
   assert.deepEqual(settings.bestStageTimes,{blueprint:41.2});assert.equal(settings.perfectClears,2);
+});
+
+test("enemy consciousness is validated and can override the campaign threat rank",()=>{
+  assert.equal(migrateSettings({version:5,enemyConsciousness:4}).enemyConsciousness,4);
+  assert.equal(migrateSettings({version:5,enemyConsciousness:99}).enemyConsciousness,0);
+  assert.equal(enemyRankForStage(0,false,false,5),5);
+  assert.equal(enemyRankForStage(11,true,false,1),1);
 });
 
 test("invalid selected skins fall back while valid unlocks persist",()=>{
