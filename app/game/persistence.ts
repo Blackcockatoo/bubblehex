@@ -1,10 +1,21 @@
 import type { HeroId } from "./content";
-import type { EnemyConsciousness, HeroProgress } from "./progression";
+import type { EnemyConsciousness, HeroProgress, UpgradeKey } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
+export type Checkpoint = {
+  levelIndex:number;
+  score:number;
+  hero:HeroId;
+  venom:string[];
+  upgrades:Record<UpgradeKey,boolean>;
+  lives:number;
+};
+
+export type LeaderboardEntry = { name:string; score:number };
+
 export type PersistedSettings = {
-  version:5;
+  version:6;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -19,13 +30,18 @@ export type PersistedSettings = {
   bestStageTimes:Record<string,number>;
   perfectClears:number;
   heroProgress:Record<HeroId,HeroProgress>;
+  checkpoint:Checkpoint|null;
+  leaderboard:LeaderboardEntry[];
 };
 
+export const LEADERBOARD_SIZE = 10;
+
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:5,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:6,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
+  checkpoint:null,leaderboard:[],
 };
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
@@ -44,6 +60,32 @@ const normalizePersistedHeroProgress=(value:unknown):HeroProgress=>{
   while(level<20&&xp>=150*level*(level+1))level++;
   return {level,xp};
 };
+const UPGRADE_KEYS:UpgradeKey[]=["speed","rapid","range","velocity","shield","venom","chain","crown"];
+const normalizeCheckpoint=(value:unknown):Checkpoint|null=>{
+  if(!value||typeof value!=="object")return null;
+  const raw=value as Partial<Checkpoint>;
+  if(typeof raw.levelIndex!=="number"||!Number.isInteger(raw.levelIndex)||raw.levelIndex<0)return null;
+  if(raw.hero!=="vesper"&&raw.hero!=="jade")return null;
+  const upgrades={} as Record<UpgradeKey,boolean>;
+  const rawUpgrades=raw.upgrades&&typeof raw.upgrades==="object"?raw.upgrades as Partial<Record<UpgradeKey,boolean>>:{};
+  for(const key of UPGRADE_KEYS)upgrades[key]=rawUpgrades[key]===true;
+  return {
+    levelIndex:raw.levelIndex,
+    score:typeof raw.score==="number"&&raw.score>=0?raw.score:0,
+    hero:raw.hero,
+    venom:unique(raw.venom,[]).filter(letter=>"VENOM".includes(letter)),
+    upgrades,
+    lives:typeof raw.lives==="number"&&raw.lives>0?Math.floor(raw.lives):3,
+  };
+};
+const normalizeLeaderboard=(value:unknown):LeaderboardEntry[]=>{
+  if(!Array.isArray(value))return[];
+  return value
+    .filter((entry):entry is LeaderboardEntry=>!!entry&&typeof entry==="object"&&typeof (entry as LeaderboardEntry).name==="string"&&typeof (entry as LeaderboardEntry).score==="number")
+    .map(entry=>({name:entry.name.slice(0,3).toUpperCase(),score:Math.max(0,Math.floor(entry.score))}))
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,LEADERBOARD_SIZE);
+};
 
 export function migrateSettings(input:unknown,prefersReducedMotion=false):PersistedSettings {
   const raw=input&&typeof input==="object"?input as Partial<PersistedSettings>&{volume?:number}:{};
@@ -53,7 +95,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
   return {
-    ...DEFAULT_SETTINGS,...raw,version:5,
+    ...DEFAULT_SETTINGS,...raw,version:6,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -67,5 +109,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     bestStageTimes:positiveRecord(raw.bestStageTimes),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
+    checkpoint:normalizeCheckpoint(raw.checkpoint),
+    leaderboard:normalizeLeaderboard(raw.leaderboard),
   };
 }

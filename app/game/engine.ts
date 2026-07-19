@@ -1,5 +1,5 @@
 import { LEVELS, BONUS_LEVEL, type EnemyKind, type Level } from "./levels";
-import { CheatReader, nextTitleStartGrace, type Token } from "./cheats";
+import { CheatReader, CODES, nextTitleStartGrace, type Token } from "./cheats";
 import {
   AIR_ACCELERATION,
   AIR_DECELERATION,
@@ -33,7 +33,7 @@ import {
   type HeroId,
   type SkinDefinition,
 } from "./content";
-import { DEFAULT_SETTINGS, migrateSettings, type PersistedSettings } from "./persistence";
+import { DEFAULT_SETTINGS, LEADERBOARD_SIZE, migrateSettings, type PersistedSettings } from "./persistence";
 import { computeStageBreakdown, isNewCampaignRecord, isNewStageRecord } from "./scoring";
 import {
   ENEMY_CONSCIOUSNESS_NAMES, ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
@@ -43,7 +43,7 @@ import { blockForPlatform, type PlatformBlockDefinition } from "./blocks";
 import { drawHeroArt, type HeroMotion, type HeroPose } from "./hero-art";
 
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness";
-type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
+type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options" | "nameEntry" | "cheatCodes";
 type EnemyState = "normal" | "trapped" | "furious" | "dead";
 type BubblePhase = "fired" | "slowing" | "floating" | "occupied" | "warning" | "burst";
 
@@ -66,6 +66,7 @@ const WIDOW_ENEMY_ID = -1;
 type Settings = PersistedSettings;
 
 const FIXED=1/60;
+const HUD_H=92;
 const COLORS={void:"#050509",midnight:"#081A3A",blue:"#087CFF",pink:"#FF2A9D",crimson:"#C4133D",jade:"#20C98B",shine:"#FFD6F1"};
 const TOKENS:Record<Action,Token|undefined>={left:"LEFT",right:"RIGHT",jump:"JUMP",bubble:"BUBBLE",start:"START",pause:undefined,consciousness:undefined};
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
@@ -96,6 +97,8 @@ export class BubbleHexEngine {
   private stageBreakdown={kills:0,speedBonus:0,lifeBonus:0,noDamageBonus:0,secretBonus:0,total:0};
   private stageXp=0;
   private doubleJumpVoiced=false; private projectileWarnedLevel=-1; private lowHealthVoiced=false; private enemyTauntCooldown=0; private hazardVoiceCooldown=0;
+  private nameEntryLetters:[string,string,string]=["A","A","A"]; private nameEntryCursor=0; private nameEntryNext:GameState="gameOver"; private pendingLeaderboardScore=0;
+  private pendingArrival:()=>void=()=>{};
 
   constructor(canvas:HTMLCanvasElement,onReady:()=>void){
     this.canvas=canvas; const ctx=canvas.getContext("2d"); if(!ctx)throw new Error("Canvas unavailable"); this.ctx=ctx;this.ctx.imageSmoothingEnabled=false;this.ready=onReady;
@@ -184,10 +187,13 @@ export class BubbleHexEngine {
     else if(this.state==="attract")this.updatePlaying(dt,true);
     else if(this.state==="dying"&&this.stateTime>1.15)this.afterDeath();
     else if(this.state==="stageClear"&&this.stateTime>2.35)this.nextStage();
+    else if(this.state==="gameOver"&&this.settings.checkpoint&&this.just.has("start"))this.continueFromCheckpoint();
     else if(this.state==="gameOver"&&(this.just.has("start")||this.just.has("jump")))this.toTitle();
     else if(this.state==="victory"&&(this.just.has("start")||this.just.has("jump")))this.toTitle();
     else if(this.state==="paused")this.updatePause();
     else if(this.state==="records/options")this.updateArchive();
+    else if(this.state==="nameEntry")this.updateNameEntry();
+    else if(this.state==="cheatCodes")this.updateCheatCodes();
     this.syncAuditData();this.just.clear();
   }
   private updateTitle(dt:number){
@@ -204,9 +210,9 @@ export class BubbleHexEngine {
     if(this.just.has("pause"))this.toTitle();
   }
   private updateArchive(){
-    const entries=this.archiveEntries();
-    if(this.just.has("left"))this.archiveIndex=(this.archiveIndex-1+entries.length)%entries.length;
-    if(this.just.has("right")||this.just.has("jump")||this.just.has("bubble"))this.archiveIndex=(this.archiveIndex+1)%entries.length;
+    const pages=this.archiveEntries().length+1;
+    if(this.just.has("left"))this.archiveIndex=(this.archiveIndex-1+pages)%pages;
+    if(this.just.has("right")||this.just.has("jump")||this.just.has("bubble"))this.archiveIndex=(this.archiveIndex+1)%pages;
     if(this.just.has("pause")||this.just.has("start"))this.toTitle();
   }
   private updatePause(){
@@ -464,7 +470,31 @@ export class BubbleHexEngine {
     this.audio.hurt();this.audio.playVoice("playerDamage");this.lives--;
     if(this.lives===1&&!this.lowHealthVoiced){this.lowHealthVoiced=true;this.audio.playVoice("lowHealth")}
     this.setState("dying");this.burstParticles(this.player.x+17,this.player.y+24,COLORS.crimson,22)}
-  private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("gameOver");this.audio.playVoice("deathRestart")}else{this.resetPlayer(2.2);this.setState("playing")}}
+  private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.finishRun("gameOver",()=>this.audio.playVoice("deathRestart"))}else{this.resetPlayer(2.2);this.setState("playing")}}
+  private qualifiesForLeaderboard(score:number){if(score<=0)return false;const board=this.settings.leaderboard;return board.length<LEADERBOARD_SIZE||score>board[board.length-1].score}
+  private finishRun(target:"gameOver"|"victory",onArrive:()=>void=()=>{}){
+    this.pendingArrival=onArrive;
+    if(this.qualifiesForLeaderboard(this.score)){this.pendingLeaderboardScore=this.score;this.beginNameEntry(target)}
+    else{this.setState(target);onArrive()}
+  }
+  private beginNameEntry(next:GameState){this.nameEntryNext=next;this.nameEntryLetters=["A","A","A"];this.nameEntryCursor=0;this.setState("nameEntry")}
+  private updateNameEntry(){
+    const cycle=(delta:number)=>{const alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZ";const current=alphabet.indexOf(this.nameEntryLetters[this.nameEntryCursor]);this.nameEntryLetters[this.nameEntryCursor]=alphabet[(current+delta+alphabet.length)%alphabet.length];this.audio.tone(320,.05,"square",40,.06)};
+    if(this.just.has("left"))this.nameEntryCursor=(this.nameEntryCursor+2)%3;
+    if(this.just.has("right"))this.nameEntryCursor=(this.nameEntryCursor+1)%3;
+    if(this.just.has("jump"))cycle(1);
+    if(this.just.has("bubble"))cycle(-1);
+    if(this.just.has("start"))this.confirmNameEntry();
+  }
+  private confirmNameEntry(){
+    const name=this.nameEntryLetters.join("");
+    this.settings.leaderboard=[...this.settings.leaderboard,{name,score:this.pendingLeaderboardScore}]
+      .sort((a,b)=>b.score-a.score).slice(0,LEADERBOARD_SIZE);
+    this.save();this.audio.recordSting();
+    if(name==="HEX"){this.setState("cheatCodes");return}
+    this.setState(this.nameEntryNext);this.pendingArrival()
+  }
+  private updateCheatCodes(){if(this.just.has("start")||this.just.has("jump")||this.just.has("pause")){this.setState(this.nameEntryNext);this.pendingArrival()}}
   private spawnReward(x:number,y:number,chain:number){
     const kinds=["CHERRY","RING","PERFUME","DRAGON FRUIT","BLACKBERRY","CROWN"],values=[100,250,400,600,800,1300];const tier=Math.min(kinds.length-1,Math.floor((chain-1)/2)+(this.upgrades.crown?1:0));
     const n=this.stageKills;if(n%7===0){const letters=["V","E","N","O","M"];const letter=letters.find(l=>!this.venom.has(l))||letters[n%5];this.rewards.push({x,y,vy:-120,kind:"LETTER",value:1080,life:12,letter})}
@@ -512,9 +542,9 @@ export class BubbleHexEngine {
       }
       this.unlockContent(this.level.loreFragmentId);this.audio.secret();this.audio.playVoice("secretFound");
     }else if(!this.stageDamaged){this.audio.playVoice("perfectChain")}
-    if(!this.level.bonus){
-      const idx=this.levelIndex;
-      if(idx<LEVELS.length-1&&LEVELS[idx+1]&&LEVELS[idx+1].worldId!==this.level.worldId)this.audio.playVoice("checkpointSecured");
+    if(!this.level.bonus&&!this.inBonus&&(this.levelIndex===4||this.levelIndex===9)){
+      this.settings.checkpoint={levelIndex:this.levelIndex+1,score:this.score,hero:this.hero,venom:[...this.venom],upgrades:{...this.upgrades},lives:3};
+      this.audio.playVoice("checkpointSecured");
     }
     this.recordStageResult();
     if(this.levelIndex===2&&!this.inBonus)this.unlockVelvetSkin(this.hero);
@@ -529,10 +559,17 @@ export class BubbleHexEngine {
   private nextStage(){
     if(this.inBonus){this.inBonus=false;this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro");return}
     if(this.cheats.extra&&!this.bonusVisited&&this.levelIndex===2){this.bonusVisited=true;this.loadBonusLevel();this.setState("stageIntro");return}
-    if(this.levelIndex>=LEVELS.length-1){this.endingText=this.cheats.super?"TRUE ENDING — THE HEX DREAMS YOU BACK":"THE NIGHTCLUB OPENS AT DAWN";this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("victory");this.audio.playVoice(this.cheats.super?"finalSecret":"victoryCampaign")}else{this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro")}
+    if(this.levelIndex>=LEVELS.length-1){this.endingText=this.cheats.super?"TRUE ENDING — THE HEX DREAMS YOU BACK":"THE NIGHTCLUB OPENS AT DAWN";this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.settings.checkpoint=null;this.save();this.finishRun("victory",()=>this.audio.playVoice(this.cheats.super?"finalSecret":"victoryCampaign"))}else{this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro")}
   }
   private beginRun(){this.lives=3;this.score=0;this.levelIndex=0;this.venom.clear();this.bonusVisited=false;this.stageStartScore=0;this.upgrades={speed:this.cheats.power,rapid:this.cheats.power,range:this.cheats.power,velocity:false,shield:false,venom:false,chain:false,crown:false};this.lowHealthVoiced=false;this.doubleJumpVoiced=false;this.loadLevel(0);this.setState("stageIntro")}
   private restartCurrentStage(){if(this.inBonus)this.loadBonusLevel();else this.loadLevel(this.levelIndex);this.setState("stageIntro")}
+  private continueFromCheckpoint(){
+    const checkpoint=this.settings.checkpoint;if(!checkpoint)return;
+    this.hero=checkpoint.hero;this.selected=checkpoint.hero;this.score=checkpoint.score;this.venom=new Set(checkpoint.venom);
+    this.upgrades={...checkpoint.upgrades};this.lives=checkpoint.lives;this.bonusVisited=false;this.stageStartScore=checkpoint.score;
+    this.lowHealthVoiced=false;this.doubleJumpVoiced=false;
+    this.loadLevel(checkpoint.levelIndex);this.setState("stageIntro");this.audio.playVoice("checkpointRestored");
+  }
   private loadLevel(i:number){this.levelIndex=i;this.inBonus=false;this.loadLevelData(this.remixLevel(LEVELS[i]))}
   private loadBonusLevel(){this.inBonus=true;this.loadLevelData(this.remixLevel(BONUS_LEVEL))}
   private loadLevelData(level:Level){
@@ -551,11 +588,7 @@ export class BubbleHexEngine {
       if(level.bonus)this.audio.playVoice("treasureDetected");
       else if(level.boss)this.audio.playVoice("bossArrival");
       else if(level.secret)this.audio.playVoice("secretRoomNearby");
-      else{
-        const idx=this.levelIndex;
-        if(idx>0&&LEVELS[idx-1]&&LEVELS[idx-1].worldId!==level.worldId)this.audio.playVoice("checkpointRestored");
-        else if(idx<LEVELS.length-1&&LEVELS[idx+1]&&LEVELS[idx+1].worldId!==level.worldId)this.audio.playVoice("checkpointApproaching");
-      }
+      else if(!this.inBonus&&(this.levelIndex===4||this.levelIndex===9))this.audio.playVoice("checkpointApproaching");
     }
   }
   private remixLevel(base:Level):Level{if(!this.cheats.super)return base;return{...base,time:Math.max(45,base.time-12),platforms:base.platforms.map((p,i)=>i===0?p:{...p,y:p.y+(i%2?18:-12)}),enemies:[...base.enemies,...base.enemies.slice(0,2).map((e,i)=>({...e,x:clamp(e.x+150+i*90,60,860),kind:i?"skull" as EnemyKind:"witch" as EnemyKind}))]}}
@@ -590,7 +623,7 @@ export class BubbleHexEngine {
   private save(){try{localStorage.setItem("bubble-hex-settings",JSON.stringify(this.settings))}catch{}}
 
   private render(){const c=this.ctx;c.save();const s=this.shake&&!this.settings.reducedMotion?(Math.random()-.5)*this.shake:0;c.translate(s,s);c.fillStyle=COLORS.void;c.fillRect(-10,-10,W+20,H+20);
-    if(this.state==="boot")this.drawBoot();else if(this.state==="title")this.drawTitle();else if(this.state==="characterSelect")this.drawSelect();else if(this.state==="records/options")this.drawRecords();else if(this.state==="victory")this.drawVictory();else if(this.state==="gameOver")this.drawGameOver();else{this.drawWorld();if(this.state==="stageIntro")this.drawStageIntro();if(this.state==="hurry")this.drawHurry();if(this.state==="paused")this.drawPause();if(this.state==="stageClear")this.drawStageClear();if(this.state==="dying")this.drawDying();if(this.state==="attract")this.label("ATTRACT MODE — PRESS ANY KEY",W/2,700,15,COLORS.shine,"center")}
+    if(this.state==="boot")this.drawBoot();else if(this.state==="title")this.drawTitle();else if(this.state==="characterSelect")this.drawSelect();else if(this.state==="records/options")this.drawRecords();else if(this.state==="victory")this.drawVictory();else if(this.state==="gameOver")this.drawGameOver();else if(this.state==="nameEntry")this.drawNameEntry();else if(this.state==="cheatCodes")this.drawCheatCodes();else{this.drawWorld();if(this.state==="stageIntro")this.drawStageIntro();if(this.state==="hurry")this.drawHurry();if(this.state==="paused")this.drawPause();if(this.state==="stageClear")this.drawStageClear();if(this.state==="dying")this.drawDying();if(this.state==="attract")this.label("ATTRACT MODE — PRESS ANY KEY",W/2,700,15,COLORS.shine,"center")}
     if(this.messageLife>0)this.banner(this.message,110,COLORS.jade);c.restore();
   }
   private drawBoot(){this.label("BLUE $NAKE STUDIO",W/2,306,26,COLORS.blue,"center");this.label("DRESSING THE NIGHT",W/2,350,14,COLORS.jade,"center");this.ctx.strokeStyle="#183860";this.ctx.strokeRect(280,390,400,12);this.ctx.fillStyle=COLORS.pink;this.ctx.fillRect(282,392,396*this.art.progress,8)}
@@ -604,23 +637,23 @@ export class BubbleHexEngine {
     if(this.cheats.power)for(let i=0;i<3;i++){const a=t*2+i*Math.PI*2/3;c.strokeStyle=i===0?COLORS.pink:i===1?COLORS.blue:COLORS.jade;c.lineWidth=3;c.beginPath();c.arc(W/2+Math.cos(a)*115,475+Math.sin(a)*70,13,0,Math.PI*2);c.stroke()}
     if(this.cheats.extra){c.strokeStyle=COLORS.jade;c.lineWidth=5;c.beginPath();c.arc(W/2,475,18,Math.PI,0);c.lineTo(W/2+12,515);c.lineTo(W/2-12,515);c.closePath();c.stroke()}
     const all=this.cheats.power&&this.cheats.super&&this.cheats.extra;
-    this.label(`ENEMY CONSCIOUSNESS  ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,570,13,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
-    this.label("UP / ENEMY LEVEL TO CHANGE",W/2,592,11,COLORS.jade,"center");
-    this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,622,all?20:25,all?COLORS.crimson:COLORS.shine,"center");
-    if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,650,12,COLORS.pink,"center");
-    this.label("ONE PLAYER",65,699,12,COLORS.blue);this.label("BLUE $NAKE STUDIO",895,699,12,COLORS.jade,"right");
-    const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,676,12,COLORS.shine,"center");
+    this.label(`ENEMY CONSCIOUSNESS  ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,572,15,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
+    this.label("UP / ENEMY LEVEL TO CHANGE",W/2,594,14,COLORS.jade,"center");
+    this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,624,all?22:27,all?COLORS.crimson:COLORS.shine,"center");
+    if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,652,15,COLORS.pink,"center");
+    this.label("ONE PLAYER",65,699,14,COLORS.blue);this.label("BLUE $NAKE STUDIO",895,699,14,COLORS.jade,"right");
+    const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,676,14,COLORS.shine,"center");
   }
   private drawSelect(){this.drawStars();this.drawGothicFrame(COLORS.pink);this.label("CHOOSE YOUR HEX",W/2,105,42,COLORS.shine,"center","Georgia");
-    this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("← HERO →   •   BUBBLE: LOOK   •   UP: ENEMY LEVEL",W/2,635,13,COLORS.blue,"center");this.label(`START / JUMP TO CONFIRM   •   ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,675,13,COLORS.jade,"center")}
+    this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("← HERO →   •   BUBBLE: LOOK   •   UP: ENEMY LEVEL",W/2,637,15,COLORS.blue,"center");this.label(`START / JUMP TO CONFIRM   •   ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,677,15,COLORS.jade,"center")}
   private drawSelectCard(x:number,y:number,hero:HeroId,on:boolean){
     const c=this.ctx,skin=this.skinFor(hero),col=skin.accent;c.fillStyle="#070817";c.fillRect(x,y,300,420);c.save();c.globalAlpha=.72;
     const portrait=this.art.draw(c,"heroes",hero==="vesper"?0:768,28,768,960,x+12,y+12,276,274);c.restore();
     if(!portrait)this.drawHero(x+150,y+175,hero,2.5,false);
     c.fillStyle="rgba(7,8,23,.82)";c.fillRect(x+8,y+286,284,126);c.strokeStyle=on?COLORS.shine:col;c.lineWidth=on?5:2;c.strokeRect(x,y,300,420);
     if(on){c.shadowBlur=18;c.shadowColor=col;c.strokeRect(x+9,y+9,282,402);c.shadowBlur=0}
-    this.label(hero.toUpperCase(),x+150,y+326,30,col,"center","Georgia");this.label(skin.name.toUpperCase(),x+150,y+354,11,COLORS.shine,"center");
-    this.label(hero==="vesper"?"THORN • SPARK • BITE":"MIST • GLASS • TIDE",x+150,y+379,10,skin.secondary,"center");this.label(on?"BUBBLE: CHANGE LOOK":"ALTERNATE",x+150,y+404,10,on?COLORS.pink:COLORS.blue,"center")
+    this.label(hero.toUpperCase(),x+150,y+326,30,col,"center","Georgia");this.label(skin.name.toUpperCase(),x+150,y+354,13,COLORS.shine,"center");
+    this.label(hero==="vesper"?"THORN • SPARK • BITE":"MIST • GLASS • TIDE",x+150,y+379,13,skin.secondary,"center");this.label(on?"BUBBLE: CHANGE LOOK":"ALTERNATE",x+150,y+404,13,on?COLORS.pink:COLORS.blue,"center")
   }
   private drawWorld(){
     this.drawBackground();this.drawPlatforms();
@@ -644,9 +677,9 @@ export class BubbleHexEngine {
     if(this.comboLife>0)this.banner(this.comboText,370,COLORS.pink)
   }
   private drawBossNameplate(){const c=this.ctx,w=this.widow;if(!w)return;const t=clamp(w.phaseTimer/1.8,0,1);const alpha=t<.15?t/.15:t>.8?(1-t)/.2:1;c.save();c.globalAlpha=alpha;this.label("THE WIDOW",W/2,150,44,COLORS.crimson,"center","Georgia");this.label("LAST PATRON OF BUBBLE HEX",W/2,180,14,COLORS.pink,"center");c.restore()}
-  private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,389,25,11,COLORS.jade);this.label(`RANK ${rank} ${ENEMY_RANK_NAMES[rank-1]}`,389,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
-  private drawBackground(){const c=this.ctx;c.fillStyle=COLORS.void;c.fillRect(0,0,W,H);c.fillStyle=this.level.world==="JADE GARDEN"?"#06140f":"#050817";c.fillRect(18,70,W-36,H-92);c.globalAlpha=.18;c.strokeStyle=this.level.tint;c.lineWidth=2;
-    if(this.level.worldId==="velvet-drain"){const sx=[0,724,1448][this.levelIndex]??0;c.save();c.globalAlpha=.58;this.art.draw(c,"velvetDrain",sx,0,724,724,18,70,W-36,H-92);c.restore();c.fillStyle="rgba(2,5,14,.24)";c.fillRect(18,70,W-36,H-92)}
+  private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level} · RANK ${rank} ${ENEMY_RANK_NAMES[rank-1]}`,20,80,12,rank>=4?COLORS.crimson:COLORS.jade)}
+  private drawBackground(){const c=this.ctx;c.fillStyle=COLORS.void;c.fillRect(0,0,W,H);c.fillStyle=this.level.world==="JADE GARDEN"?"#06140f":"#050817";c.fillRect(18,HUD_H,W-36,H-HUD_H-22);c.globalAlpha=.18;c.strokeStyle=this.level.tint;c.lineWidth=2;
+    if(this.level.worldId==="velvet-drain"){const sx=[0,724,1448][this.levelIndex]??0;c.save();c.globalAlpha=.58;this.art.draw(c,"velvetDrain",sx,0,724,724,18,HUD_H,W-36,H-HUD_H-22);c.restore();c.fillStyle="rgba(2,5,14,.24)";c.fillRect(18,HUD_H,W-36,H-HUD_H-22)}
     if(this.level.world==="THE BLACK BUBBLE"){for(let x=40;x<W;x+=55){c.beginPath();c.moveTo(x,75);c.lineTo(W-x/4,H);c.stroke()}for(let y=120;y<H;y+=55){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}c.beginPath();c.arc(W/2,H/2,250,0,Math.PI*2);c.stroke()}
     else{for(let x=45;x<W;x+=90){c.beginPath();c.moveTo(x,80);c.lineTo(x,H);c.stroke()}for(let y=120;y<H;y+=90){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}}
     c.globalAlpha=1;
@@ -655,7 +688,7 @@ export class BubbleHexEngine {
     if(this.level.world==="CRIMSON CHAPEL"){for(let x=120;x<900;x+=210){c.fillStyle="#190711";c.fillRect(x,110,100,220);c.strokeStyle=COLORS.crimson;c.beginPath();c.arc(x+50,110,50,Math.PI,0);c.stroke()}}
     if(this.level.world==="JADE GARDEN"){for(let x=70;x<940;x+=140){c.strokeStyle="#0d4b36";c.beginPath();c.moveTo(x,H);c.bezierCurveTo(x-80+(rm?0:Math.sin(T*.8+x)*8),470,x+80+(rm?0:Math.sin(T*.6+x)*10),310,x,120);c.stroke()}}
     if(!rm){
-      c.save();c.beginPath();c.rect(18,70,W-36,H-92);c.clip();
+      c.save();c.beginPath();c.rect(18,HUD_H,W-36,H-HUD_H-22);c.clip();
       if(this.level.worldId==="velvet-drain"){
         c.strokeStyle="rgba(8,124,255,.35)";c.lineWidth=1.5;
         for(let i=0;i<12;i++){const bx=30+((i*83)%(W-60))+Math.sin(T*.9+i)*8,by=H-((T*(26+(i%4)*7)+i*61)%(H-120)),br=2+(i%3)*1.5;c.beginPath();c.arc(bx,by,br,0,Math.PI*2);c.stroke()}
@@ -711,13 +744,28 @@ export class BubbleHexEngine {
   }
   private drawShadowUnder(cx:number,bottom:number,w:number){const c=this.ctx;const platform=this.level.platforms.find(s=>cx>s.x&&cx<s.x+s.w&&s.y>=bottom-6);if(!platform)return;const distance=platform.y-bottom,scale=clamp(1-distance/260,.22,1);c.save();c.globalAlpha=.16*scale;c.fillStyle="#000";c.beginPath();c.ellipse(cx,platform.y-2,w*scale,5*scale,0,0,Math.PI*2);c.fill();c.restore()}
   private drawPlayerShadow(){const p=this.player;this.drawShadowUnder(p.x+p.w/2,p.y+p.h,21)}
-  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(315,34,this.hero,.55,false);this.label(`× ${this.lives}`,342,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
+  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,HUD_H);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,HUD_H-2);c.lineTo(W,HUD_H-2);c.stroke();
+    this.label(`SCORE ${String(this.score).padStart(7,"0")}`,20,30,20,COLORS.shine);
+    this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,20,54,14,COLORS.blue);
+    this.drawHero(305,60,this.hero,.62,false);this.label(`× ${this.lives}`,336,66,21,skin.accent);
+    this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,30,19,this.level.bonus?"#FFD36A":COLORS.shine,"center");
+    this.label(this.level.world,W/2,54,13,this.level.tint,"center");
+    const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");
+    this.label(fx?`FX ${fx}`:"FX —",W/2,80,12,fx?COLORS.jade:"#30445e","center");
+    this.label("JUMP",600,30,13,COLORS.blue);
+    for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(600+i*22,40,15,15);c.strokeStyle=COLORS.shine;c.strokeRect(600+i*22,40,15,15)}
+    this.label(`VENOM`,700,30,15,COLORS.pink);
+    ["V","E","N","O","M"].forEach((l,i)=>this.label(l,696+i*30,66,21,this.venom.has(l)?"#FFD36A":"#3a2541"));
+    this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,930,60,30,this.widow?COLORS.crimson:COLORS.jade,"right");
+    if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);
+    if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")
+  }
   private drawBossHealth(w:WidowState){
-    const c=this.ctx,pips=w.maxHp,cx=W/2,y=82,size=16,gap=26,startX=cx-((pips-1)*gap)/2;
-    c.save();this.label("THE WIDOW",cx,74,11,COLORS.pink,"center");
+    const c=this.ctx,pips=w.maxHp,cx=W/2,y=110,size=17,gap=28,startX=cx-((pips-1)*gap)/2;
+    c.save();this.label("THE WIDOW",cx,100,13,COLORS.pink,"center");
     for(let i=0;i<pips;i++){const x=startX+i*gap,filled=i<w.hp;c.strokeStyle=COLORS.crimson;c.lineWidth=2;c.fillStyle=filled?COLORS.crimson:"rgba(0,0,0,.3)";c.beginPath();
       c.moveTo(x,y-size*.8);c.lineTo(x-size*.7,y-size*.15);c.lineTo(x-size*.7,y+size*.4);c.lineTo(x,y+size*.9);c.lineTo(x+size*.7,y+size*.4);c.lineTo(x+size*.7,y-size*.15);c.closePath();c.fill();c.stroke();}
-    if(w.phase==="staggered")this.label("VULNERABLE — TRAP HER!",cx,110,11,COLORS.jade,"center");
+    if(w.phase==="staggered")this.label("VULNERABLE — TRAP HER!",cx,138,13,COLORS.jade,"center");
     c.restore();
   }
   private drawDebugOverlay(){const c=this.ctx,p=this.player;c.save();c.lineWidth=2;for(const audit of this.platformAudit){const platform=this.level.platforms[audit.id];c.strokeStyle=audit.status==="unreachable"?"#ff405c":audit.status==="double"?"#ffd36a":"#43ffb2";c.strokeRect(platform.x,platform.y,platform.w,platform.h);this.label(`${audit.id}:${audit.status}`,platform.x+3,platform.y-4,9,c.strokeStyle)}c.strokeStyle="#fff";c.strokeRect(p.x,p.y,p.w,p.h);c.fillStyle="#fff";c.fillRect(p.x,p.y+p.h-1,p.w,2);c.fillStyle="rgba(0,0,0,.78)";c.fillRect(16,82,275,104);this.label(`F3 DEBUG  Y ${p.y.toFixed(1)}  VY ${p.vy.toFixed(1)}`,26,104,11,COLORS.shine);this.label(`GROUND ${p.grounded}  PLATFORM ${p.currentPlatformId??"—"}`,26,126,11,p.grounded?COLORS.jade:COLORS.pink);this.label(`JUMPS ${p.jumpsRemaining}/${p.maxJumps}  COYOTE ${this.coyote.toFixed(2)}`,26,148,11,COLORS.blue);this.label(`BUFFER ${this.jumpBuffer.toFixed(2)}  APEX ${TARGET_JUMP_HEIGHT.toFixed(1)}PX`,26,170,11,COLORS.jade);c.restore()}
@@ -897,9 +945,9 @@ export class BubbleHexEngine {
     const sa=T*3.2+r.x*.1;c.fillStyle="#fff";c.globalAlpha*=.5+.5*Math.sin(T*6+r.x);
     c.beginPath();c.arc(Math.cos(sa)*13,Math.sin(sa*1.3)*9,1.5,0,Math.PI*2);c.fill();
     c.restore()}
-  private drawStageIntro(){const fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId);this.ctx.fillStyle="rgba(5,5,9,.84)";this.ctx.fillRect(110,225,740,235);this.label(this.level.bonus?"ORIGINAL MODE SECRET":`STAGE ${this.levelIndex+1}`,W/2,280,20,this.level.tint,"center");this.label(this.level.name.toUpperCase(),W/2,338,38,COLORS.shine,"center","Georgia");this.label(this.level.world,W/2,378,15,COLORS.pink,"center");if(this.level.bonus)this.label("CHAIN THEM ALL BEFORE THE VAULT SEALS",W/2,425,12,COLORS.jade,"center");else if(fragment)this.label(`JADE DOOR: ${fragment.title.toUpperCase()}`,W/2,425,12,COLORS.jade,"center")}
-  private drawHurry(){this.ctx.fillStyle="rgba(196,19,61,.2)";this.ctx.fillRect(0,70,W,H-70);this.banner("HURRY, DARLING!",300,COLORS.crimson)}
-  private drawPause(){this.ctx.fillStyle="rgba(5,5,9,.9)";this.ctx.fillRect(130,135,700,490);this.drawGothicBox(130,135,700,490,COLORS.pink);this.label("PAUSED",W/2,205,42,COLORS.shine,"center","Georgia");this.label("P / PAUSE — RESUME",W/2,270,15,COLORS.jade,"center");this.label("← →  MUSIC VOLUME  "+Math.round(this.settings.musicVolume*10),W/2,312,15,COLORS.blue,"center");this.label("HOLD JUMP + ← →  SFX VOLUME  "+Math.round(this.settings.sfxVolume*10),W/2,340,13,COLORS.blue,"center");this.label(`BUBBLE  SOUND ${this.settings.muted?"OFF":"ON"}`,W/2,378,15,COLORS.pink,"center");this.label(`JUMP (TAP)  REDUCED MOTION ${this.settings.reducedMotion?"ON":"OFF"}`,W/2,418,15,COLORS.pink,"center");this.label("START — RESTART CHAMBER",W/2,458,15,COLORS.crimson,"center");this.label("MOVE A/D OR ARROWS · JUMP SPACE/C · BUBBLE X/Z",W/2,533,12,COLORS.shine,"center");this.label("TOUCH CONTROLS SUPPORT MULTI-TOUCH",W/2,568,12,COLORS.jade,"center")}
+  private drawStageIntro(){const fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId);this.ctx.fillStyle="rgba(5,5,9,.84)";this.ctx.fillRect(110,225,740,235);this.label(this.level.bonus?"ORIGINAL MODE SECRET":`STAGE ${this.levelIndex+1}`,W/2,282,22,this.level.tint,"center");this.label(this.level.name.toUpperCase(),W/2,340,38,COLORS.shine,"center","Georgia");this.label(this.level.world,W/2,380,16,COLORS.pink,"center");if(this.level.bonus)this.label("CHAIN THEM ALL BEFORE THE VAULT SEALS",W/2,427,14,COLORS.jade,"center");else if(fragment)this.label(`JADE DOOR: ${fragment.title.toUpperCase()}`,W/2,427,14,COLORS.jade,"center")}
+  private drawHurry(){this.ctx.fillStyle="rgba(196,19,61,.2)";this.ctx.fillRect(0,HUD_H,W,H-HUD_H);this.banner("HURRY, DARLING!",300,COLORS.crimson)}
+  private drawPause(){this.ctx.fillStyle="rgba(5,5,9,.9)";this.ctx.fillRect(130,135,700,490);this.drawGothicBox(130,135,700,490,COLORS.pink);this.label("PAUSED",W/2,205,42,COLORS.shine,"center","Georgia");this.label("P / PAUSE — RESUME",W/2,272,17,COLORS.jade,"center");this.label("← →  MUSIC VOLUME  "+Math.round(this.settings.musicVolume*10),W/2,314,17,COLORS.blue,"center");this.label("HOLD JUMP + ← →  SFX VOLUME  "+Math.round(this.settings.sfxVolume*10),W/2,344,15,COLORS.blue,"center");this.label(`BUBBLE  SOUND ${this.settings.muted?"OFF":"ON"}`,W/2,382,17,COLORS.pink,"center");this.label(`JUMP (TAP)  REDUCED MOTION ${this.settings.reducedMotion?"ON":"OFF"}`,W/2,422,17,COLORS.pink,"center");this.label("START — RESTART CHAMBER",W/2,462,17,COLORS.crimson,"center");this.label("MOVE A/D OR ARROWS · JUMP SPACE/C · BUBBLE X/Z",W/2,535,14,COLORS.shine,"center");this.label("TOUCH CONTROLS SUPPORT MULTI-TOUCH",W/2,570,14,COLORS.jade,"center")}
   private drawStageClear(){
     const c=this.ctx,fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId),b=this.stageBreakdown;
     const elapsed=Math.max(0,this.level.time-Math.max(0,this.levelTime));
@@ -923,18 +971,75 @@ export class BubbleHexEngine {
     else if(this.secretFound&&this.level.bonus){this.label("THE VAULT YIELDS ITS GOLD",W/2,y,18,"#FFD36A","center")}
     else{this.label(this.level.bonus?"THE VAULT STAYS SHUT — CHAIN THEM ALL NEXT TIME":"THE DOOR REMAINS QUIET",W/2,y,13,"#59687a","center")}
   }
-  private drawDying(){this.ctx.fillStyle=`rgba(196,19,61,${.2+Math.sin(this.stateTime*18)*.1})`;this.ctx.fillRect(0,70,W,H-70);this.label("HEART BROKEN",W/2,360,38,COLORS.crimson,"center","Georgia")}
-  private drawGameOver(){this.drawStars();this.drawGothicFrame(COLORS.crimson);this.label("GAME OVER",W/2,265,80,COLORS.crimson,"center","Georgia");this.drawHeart(W/2,370,45,"#16070d");this.label(`SCORE ${String(this.score).padStart(7,"0")}`,W/2,475,22,COLORS.shine,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,505,14,"#FFD36A","center");else this.label(`CAMPAIGN BEST ${String(this.settings.highScore).padStart(7,"0")}`,W/2,505,12,COLORS.blue,"center");this.label("PRESS START — THE NIGHT REMEMBERS",W/2,560,16,COLORS.pink,"center")}
-  private drawVictory(){this.drawStars();this.drawGothicFrame(this.cheats.super?COLORS.crimson:COLORS.jade);this.drawHero(310,300,this.hero,2.2,false,{pose:"jump"});this.drawHeartBubble(650,300,90);this.label(this.cheats.super?"VENOM EDITION CLEARED":"DAWN SURVIVED",W/2,495,45,this.cheats.super?COLORS.crimson:COLORS.jade,"center","Georgia");this.label(this.endingText,W/2,545,15,COLORS.shine,"center");this.label(`FINAL SCORE ${this.score}`,W/2,590,18,COLORS.pink,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,615,14,"#FFD36A","center");this.label("PRESS START",W/2,650,15,COLORS.blue,"center")}
+  private drawDying(){this.ctx.fillStyle=`rgba(196,19,61,${.2+Math.sin(this.stateTime*18)*.1})`;this.ctx.fillRect(0,HUD_H,W,H-HUD_H);this.label("HEART BROKEN",W/2,360,38,COLORS.crimson,"center","Georgia")}
+  private drawGameOver(){
+    this.drawStars();this.drawGothicFrame(COLORS.crimson);this.label("GAME OVER",W/2,265,80,COLORS.crimson,"center","Georgia");this.drawHeart(W/2,370,45,"#16070d");
+    this.label(`SCORE ${String(this.score).padStart(7,"0")}`,W/2,475,24,COLORS.shine,"center");
+    if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,507,16,"#FFD36A","center");else this.label(`CAMPAIGN BEST ${String(this.settings.highScore).padStart(7,"0")}`,W/2,507,14,COLORS.blue,"center");
+    if(this.settings.checkpoint){
+      this.label(`START — CONTINUE FROM STAGE ${this.settings.checkpoint.levelIndex+1}`,W/2,560,17,COLORS.jade,"center");
+      this.label("JUMP — NEW GAME FROM STAGE 1",W/2,586,15,COLORS.pink,"center");
+    }else this.label("PRESS START — THE NIGHT REMEMBERS",W/2,570,17,COLORS.pink,"center");
+  }
+  private drawVictory(){this.drawStars();this.drawGothicFrame(this.cheats.super?COLORS.crimson:COLORS.jade);this.drawHero(310,300,this.hero,2.2,false,{pose:"jump"});this.drawHeartBubble(650,300,90);this.label(this.cheats.super?"VENOM EDITION CLEARED":"DAWN SURVIVED",W/2,495,45,this.cheats.super?COLORS.crimson:COLORS.jade,"center","Georgia");this.label(this.endingText,W/2,545,17,COLORS.shine,"center");this.label(`FINAL SCORE ${this.score}`,W/2,590,20,COLORS.pink,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,617,16,"#FFD36A","center");this.label("PRESS START",W/2,652,17,COLORS.blue,"center")}
+  private drawNameEntry(){
+    this.drawStars();this.drawGothicFrame(COLORS.jade);
+    this.label(this.nameEntryNext==="victory"?"CAMPAIGN RECORD!":"NEW HIGH SCORE!",W/2,150,36,COLORS.shine,"center","Georgia");
+    this.label(`SCORE ${String(this.pendingLeaderboardScore).padStart(7,"0")}`,W/2,195,18,COLORS.jade,"center");
+    this.label("ENTER YOUR INITIALS",W/2,270,16,COLORS.blue,"center");
+    const cx=W/2,gap=90,startX=cx-gap;
+    for(let i=0;i<3;i++){
+      const x=startX+i*gap,active=i===this.nameEntryCursor;
+      this.ctx.strokeStyle=active?COLORS.shine:"#33507a";this.ctx.lineWidth=active?4:2;this.ctx.strokeRect(x-38,330,76,96);
+      this.label(this.nameEntryLetters[i],x,398,52,active?COLORS.shine:COLORS.blue,"center","Georgia");
+    }
+    this.label("← → SELECT LETTER  •  JUMP/BUBBLE CHANGE LETTER",W/2,470,15,COLORS.jade,"center");
+    this.label("START TO CONFIRM",W/2,496,16,COLORS.pink,"center");
+  }
+  private drawCheatCodes(){
+    this.drawStars();this.drawGothicFrame(COLORS.pink);
+    this.label("SECRET CODES",W/2,90,34,COLORS.shine,"center","Georgia");
+    this.label("ENTER ON THE TITLE SCREEN",W/2,124,14,COLORS.blue,"center");
+    const rows:[string,string,Token[]][]=[
+      ["POWER-UP MODE","boosted speed, rapid fire & range",CODES.power],
+      ["SUPER HEX","harder remix + true ending",CODES.super],
+      ["SECRETS OPEN","reveals the bonus vault",CODES.extra],
+    ];
+    const glyph=(t:Token)=>t==="LEFT"?"◀":t==="RIGHT"?"▶":t==="JUMP"?"↑":t==="BUBBLE"?"○":"START";
+    rows.forEach(([title,desc,code],i)=>{
+      const y=185+i*140;
+      this.drawGothicBox(90,y,780,115,COLORS.jade);
+      this.label(title,W/2,y+32,20,COLORS.jade,"center","Georgia");
+      this.label(desc,W/2,y+54,13,COLORS.shine,"center");
+      this.label(code.map(glyph).join("  "),W/2,y+90,20,COLORS.pink,"center");
+    });
+    this.label("START / JUMP / PAUSE: CONTINUE",W/2,650,15,COLORS.blue,"center");
+  }
   private drawRecords(){
-    const c=this.ctx,entries=this.archiveEntries();this.archiveIndex=((this.archiveIndex%entries.length)+entries.length)%entries.length;const entry=entries[this.archiveIndex];
+    const c=this.ctx,entries=this.archiveEntries(),pages=entries.length+1;this.archiveIndex=((this.archiveIndex%pages)+pages)%pages;
     this.drawStars();c.save();c.globalAlpha=.16;this.art.draw(c,"roster",0,0,1536,1024,0,0,W,H);c.restore();c.fillStyle="rgba(5,5,9,.76)";c.fillRect(0,0,W,H);this.drawGothicFrame(COLORS.blue);
-    this.label("THE NIGHT ARCHIVE",W/2,92,38,COLORS.shine,"center","Georgia");this.label(`${entry.category.toUpperCase()}  ${this.archiveIndex+1}/${entries.length}`,W/2,125,11,COLORS.jade,"center");
-    this.drawGothicBox(90,150,780,410,entry.category==="fragment"?COLORS.jade:COLORS.pink);this.label(entry.title.toUpperCase(),W/2,215,30,COLORS.shine,"center","Georgia");this.label(entry.subtitle.toUpperCase(),W/2,248,12,COLORS.pink,"center");
-    if(entry.category==="profile"){
-      const profile=CHARACTER_PROFILES[entry.unlockId as keyof typeof CHARACTER_PROFILES];this.drawWrappedText(profile.history,W/2,292,650,21,13,COLORS.shine,"center");this.label(`WANTS: ${profile.desire}`,W/2,398,11,COLORS.jade,"center");this.drawWrappedText(`FEAR: ${profile.fear}  •  FLAW: ${profile.flaw}`,W/2,428,660,18,10,COLORS.blue,"center");this.label(profile.gameplay.toUpperCase(),W/2,510,9,COLORS.pink,"center");
-    }else this.drawWrappedText(entry.body,W/2,302,650,24,14,COLORS.shine,"center");
-    this.label(`HI ${String(this.settings.highScore).padStart(7,"0")}  •  JADE DOORS ${this.settings.fragments.length}/12  •  LOOKS ${this.settings.unlockedSkins.length}/4`,W/2,605,11,COLORS.blue,"center");this.label("← → / JUMP / BUBBLE: TURN PAGE  •  START / PAUSE: RETURN",W/2,655,11,COLORS.shine,"center")
+    this.label("THE NIGHT ARCHIVE",W/2,92,38,COLORS.shine,"center","Georgia");
+    if(this.archiveIndex===0){
+      this.label(`LEADERBOARD  1/${pages}`,W/2,125,14,COLORS.jade,"center");
+      this.drawGothicBox(90,150,780,410,COLORS.pink);
+      this.label("TOP HEXES",W/2,190,26,COLORS.shine,"center","Georgia");
+      const board=this.settings.leaderboard;
+      if(!board.length)this.label("NO SCORES YET — BE THE FIRST",W/2,300,16,COLORS.blue,"center");
+      else board.slice(0,10).forEach((row,i)=>{
+        const y=232+i*32;
+        this.label(`${i+1}.`,140,y,17,COLORS.blue);
+        this.label(row.name,190,y,17,COLORS.shine);
+        this.label(String(row.score).padStart(7,"0"),840,y,17,COLORS.jade,"right");
+      });
+    }else{
+      const entry=entries[this.archiveIndex-1];
+      this.label(`${entry.category.toUpperCase()}  ${this.archiveIndex+1}/${pages}`,W/2,125,14,COLORS.jade,"center");
+      this.drawGothicBox(90,150,780,410,entry.category==="fragment"?COLORS.jade:COLORS.pink);this.label(entry.title.toUpperCase(),W/2,215,30,COLORS.shine,"center","Georgia");this.label(entry.subtitle.toUpperCase(),W/2,248,14,COLORS.pink,"center");
+      if(entry.category==="profile"){
+        const profile=CHARACTER_PROFILES[entry.unlockId as keyof typeof CHARACTER_PROFILES];this.drawWrappedText(profile.history,W/2,292,650,22,14,COLORS.shine,"center");this.label(`WANTS: ${profile.desire}`,W/2,398,13,COLORS.jade,"center");this.drawWrappedText(`FEAR: ${profile.fear}  •  FLAW: ${profile.flaw}`,W/2,428,660,19,13,COLORS.blue,"center");this.label(profile.gameplay.toUpperCase(),W/2,510,12,COLORS.pink,"center");
+      }else this.drawWrappedText(entry.body,W/2,302,650,24,14,COLORS.shine,"center");
+    }
+    this.label(`HI ${String(this.settings.highScore).padStart(7,"0")}  •  JADE DOORS ${this.settings.fragments.length}/12  •  LOOKS ${this.settings.unlockedSkins.length}/4`,W/2,607,13,COLORS.blue,"center");this.label("← → / JUMP / BUBBLE: TURN PAGE  •  START / PAUSE: RETURN",W/2,656,13,COLORS.shine,"center")
   }
   private drawHeartBubble(x:number,y:number,r:number){const c=this.ctx;c.save();c.fillStyle="rgba(255,42,157,.12)";c.strokeStyle=COLORS.pink;c.lineWidth=5;c.shadowBlur=24;c.shadowColor=COLORS.pink;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.shadowBlur=0;this.drawHeart(x,y+4,r*.55,"#8c164f");c.restore()}
   private drawHeart(x:number,y:number,s:number,color:string){const c=this.ctx;c.fillStyle=color;c.beginPath();c.moveTo(x,y+s*.8);c.bezierCurveTo(x-s*1.2,y,x-s*.7,y-s*.8,x,y-s*.25);c.bezierCurveTo(x+s*.7,y-s*.8,x+s*1.2,y,x,y+s*.8);c.fill()}
@@ -944,12 +1049,12 @@ export class BubbleHexEngine {
   private drawGothicBox(x:number,y:number,w:number,h:number,color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=3;c.strokeRect(x,y,w,h);c.strokeRect(x+10,y+10,w-20,h-20)}
   private banner(text:string,y:number,color:string){const c=this.ctx;c.save();c.fillStyle="rgba(5,5,9,.88)";c.fillRect(90,y-55,780,88);c.strokeStyle=color;c.lineWidth=3;c.strokeRect(95,y-50,770,78);c.shadowBlur=18;c.shadowColor=color;this.label(text,W/2,y,32,color,"center","Georgia");c.restore()}
   private drawWrappedText(text:string,x:number,y:number,maxWidth:number,lineHeight:number,size:number,color:string,align:CanvasTextAlign="left"){
-    const c=this.ctx,readableSize=Math.max(size,13);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
+    const c=this.ctx,readableSize=Math.max(size,14);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
     for(const word of words){const test=line?`${line} ${word}`:word;if(c.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);
     lines.slice(0,6).forEach((value,index)=>this.label(value,x,y+index*Math.max(lineHeight,readableSize+5),readableSize,color,align));
   }
   private label(text:string,x:number,y:number,size:number,color:string,align:CanvasTextAlign="left",family="monospace"){
-    const c=this.ctx,readableSize=Math.max(size,13);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
+    const c=this.ctx,readableSize=Math.max(size,14);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
     c.strokeStyle="rgba(2,3,10,.94)";c.lineWidth=Math.max(2,Math.min(5,readableSize*.16));c.strokeText(text,x,y);c.fillStyle=color;c.fillText(text,x,y);c.restore();
   }
 }

@@ -53,14 +53,15 @@ test("art manifest points at real PNGs with declared dimensions",()=>{
   }
 });
 
-test("legacy settings migrate to v5 without losing preferences, records, mastery, or adaptive enemy consciousness",()=>{
+test("legacy settings migrate to v6 without losing preferences, records, mastery, or adaptive enemy consciousness",()=>{
   const settings=migrateSettings({muted:true,volume:.7,reducedMotion:true,highScore:108000,secrets:3});
-  assert.equal(settings.version,5);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);assert.equal(settings.enemyConsciousness,0);
+  assert.equal(settings.version,6);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);assert.equal(settings.enemyConsciousness,0);
   assert.equal(settings.musicVolume,.7);assert.equal(settings.sfxVolume,.7);
   assert.equal(settings.highScore,108000);assert.equal(settings.secrets,3);assert.deepEqual(settings.selectedSkins,DEFAULT_SKIN);
   assert.ok(Object.values(DEFAULT_SKIN).every(id=>settings.unlockedSkins.includes(id)));
   assert.deepEqual(settings.bestStageTimes,{});assert.equal(settings.perfectClears,0);
   assert.deepEqual(settings.heroProgress,{vesper:{level:1,xp:0},jade:{level:1,xp:0}});
+  assert.equal(settings.checkpoint,null);assert.deepEqual(settings.leaderboard,[]);
 });
 
 test("v4 settings preserve independent music/sfx volumes and best-time records",()=>{
@@ -74,6 +75,23 @@ test("enemy consciousness is validated and can override the campaign threat rank
   assert.equal(migrateSettings({version:5,enemyConsciousness:99}).enemyConsciousness,0);
   assert.equal(enemyRankForStage(0,false,false,5),5);
   assert.equal(enemyRankForStage(11,true,false,1),1);
+});
+
+test("checkpoint is preserved when valid and dropped when malformed",()=>{
+  const valid=migrateSettings({checkpoint:{levelIndex:4,score:12000,hero:"jade",venom:["V","E"],upgrades:{rapid:true,shield:true},lives:3}});
+  assert.deepEqual(valid.checkpoint,{levelIndex:4,score:12000,hero:"jade",venom:["V","E"],
+    upgrades:{speed:false,rapid:true,range:false,velocity:false,shield:true,venom:false,chain:false,crown:false},lives:3});
+  assert.equal(migrateSettings({checkpoint:{levelIndex:4,hero:"gremlin"}}).checkpoint,null);
+  assert.equal(migrateSettings({checkpoint:"nonsense"}).checkpoint,null);
+});
+
+test("leaderboard entries are sorted, capped at 10, and sanitized",()=>{
+  const many=Array.from({length:12},(_,i)=>({name:`p${i}`,score:i*100}));
+  const settings=migrateSettings({leaderboard:[...many,{name:"bad",score:"oops"},{score:500}]});
+  assert.equal(settings.leaderboard.length,10);
+  assert.equal(settings.leaderboard[0].score,1100);
+  assert.ok(settings.leaderboard.every((entry,i)=>i===0||entry.score<=settings.leaderboard[i-1].score));
+  assert.equal(settings.leaderboard[0].name,"P11");
 });
 
 test("invalid selected skins fall back while valid unlocks persist",()=>{
