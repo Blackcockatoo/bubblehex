@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
+import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
 
 const holdActions: Action[] = ["left", "right"];
@@ -13,7 +14,7 @@ const BACKGROUND_BY_LEVEL: Record<string, string> = {
   "Room 108": "/backgrounds/bubble-city.svg",
   "Mirror Teeth": "/backgrounds/hex-storm.svg",
   "Last Lift": "/backgrounds/hex-reactor.svg",
-  "Poison Moon": "/backgrounds/bubble-field.svg",
+  "Poison Moon": "/backgrounds/bubble-moon.svg",
   "Black Roses": "/backgrounds/hex-storm.svg",
   "Serpent Glass": "/backgrounds/hex-tunnel.svg",
   "Thirteen Candles": "/backgrounds/hex-reactor.svg",
@@ -40,6 +41,7 @@ export default function BubbleHex() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.start();
