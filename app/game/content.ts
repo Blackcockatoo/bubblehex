@@ -179,6 +179,19 @@ export const ART_MANIFEST: ArtManifest = {
   heroes: { id:"heroes", src:"/game/art/heroes-anchor.png", width:1536, height:1024, smoothing:true },
   roster: { id:"roster", src:"/game/art/roster-anchor.png", width:1536, height:1024, smoothing:true },
   velvetDrain: { id:"velvetDrain", src:"/game/art/velvet-drain-triptych.png", width:2172, height:724, smoothing:true },
+  bootLogo: { id:"bootLogo", src:"/game/art/boot-logo.png", width:1672, height:941, smoothing:true },
+  // One painted backdrop per remaining chamber/vault; keyed by backgroundId so
+  // drawBackground() can look them up directly off the level data.
+  "hotel-room-108": { id:"hotel-room-108", src:"/game/art/hotel-room-108.png", width:1200, height:816, smoothing:true },
+  "hotel-mirror-teeth": { id:"hotel-mirror-teeth", src:"/game/art/hotel-mirror-teeth.png", width:1200, height:816, smoothing:true },
+  "hotel-last-lift": { id:"hotel-last-lift", src:"/game/art/hotel-last-lift.png", width:1200, height:816, smoothing:true },
+  "garden-poison-moon": { id:"garden-poison-moon", src:"/game/art/garden-poison-moon.png", width:1200, height:816, smoothing:true },
+  "garden-black-roses": { id:"garden-black-roses", src:"/game/art/garden-black-roses.png", width:1200, height:816, smoothing:true },
+  "chapel-serpent-glass": { id:"chapel-serpent-glass", src:"/game/art/chapel-serpent-glass.png", width:1200, height:816, smoothing:true },
+  "chapel-thirteen-candles": { id:"chapel-thirteen-candles", src:"/game/art/chapel-thirteen-candles.png", width:1200, height:816, smoothing:true },
+  "bubble-event-horizon": { id:"bubble-event-horizon", src:"/game/art/bubble-event-horizon.png", width:1200, height:816, smoothing:true },
+  "bubble-widow": { id:"bubble-widow", src:"/game/art/bubble-widow.png", width:1200, height:816, smoothing:true },
+  "velvet-bonus-vault": { id:"velvet-bonus-vault", src:"/game/art/velvet-bonus-vault.png", width:1200, height:816, smoothing:true },
 };
 
 export const CODEX_ENTRIES: CodexEntry[] = [

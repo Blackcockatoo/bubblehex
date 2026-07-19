@@ -566,7 +566,12 @@ export class BubbleHexEngine {
     if(this.state==="boot")this.drawBoot();else if(this.state==="title")this.drawTitle();else if(this.state==="characterSelect")this.drawSelect();else if(this.state==="records/options")this.drawRecords();else if(this.state==="victory")this.drawVictory();else if(this.state==="gameOver")this.drawGameOver();else{this.drawWorld();if(this.state==="stageIntro")this.drawStageIntro();if(this.state==="hurry")this.drawHurry();if(this.state==="paused")this.drawPause();if(this.state==="stageClear")this.drawStageClear();if(this.state==="dying")this.drawDying();if(this.state==="attract")this.label("ATTRACT MODE — PRESS ANY KEY",W/2,700,15,COLORS.shine,"center")}
     if(this.messageLife>0)this.banner(this.message,110,COLORS.jade);c.restore();
   }
-  private drawBoot(){this.label("BLUE $NAKE STUDIO",W/2,306,26,COLORS.blue,"center");this.label("DRESSING THE NIGHT",W/2,350,14,COLORS.jade,"center");this.ctx.strokeStyle="#183860";this.ctx.strokeRect(280,390,400,12);this.ctx.fillStyle=COLORS.pink;this.ctx.fillRect(282,392,396*this.art.progress,8)}
+  private drawBoot(){
+    const c=this.ctx;c.fillStyle="#03040b";c.fillRect(0,0,W,H);
+    c.save();c.globalAlpha=.55;this.art.draw(c,"bootLogo",209,0,1255,941,0,0,W,H);c.restore();
+    c.fillStyle="rgba(3,4,11,.5)";c.fillRect(0,0,W,H);
+    this.label("BLUE $NAKE STUDIO",W/2,306,26,COLORS.blue,"center");this.label("DRESSING THE NIGHT",W/2,350,14,COLORS.jade,"center");this.ctx.strokeStyle="#183860";this.ctx.strokeRect(280,390,400,12);this.ctx.fillStyle=COLORS.pink;this.ctx.fillRect(282,392,396*this.art.progress,8)
+  }
   private drawTitle(){
     const c=this.ctx,t=this.stateTime;c.fillStyle="#03040b";c.fillRect(0,0,W,H);c.save();c.globalAlpha=.42;this.art.draw(c,"heroes",0,0,1536,1024,0,50,W,640);c.restore();c.fillStyle="rgba(3,4,11,.23)";c.fillRect(0,0,W,H);this.drawStars();this.drawGothicFrame(COLORS.blue);
     if(this.cheats.super){c.fillStyle="rgba(0,0,0,.72)";c.fillRect(110,92,740,330);c.strokeStyle=COLORS.crimson;c.lineWidth=8;c.beginPath();c.ellipse(W/2,220,120,58,0,0,Math.PI*2);c.stroke();c.fillStyle=COLORS.pink;c.beginPath();c.arc(W/2,220,28,0,Math.PI*2);c.fill()}
@@ -620,6 +625,14 @@ export class BubbleHexEngine {
   private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,389,25,11,COLORS.jade);this.label(`RANK ${rank} ${ENEMY_RANK_NAMES[rank-1]}`,389,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
   private drawBackground(){const c=this.ctx;c.fillStyle=COLORS.void;c.fillRect(0,0,W,H);c.fillStyle=this.level.world==="JADE GARDEN"?"#06140f":"#050817";c.fillRect(18,70,W-36,H-92);c.globalAlpha=.18;c.strokeStyle=this.level.tint;c.lineWidth=2;
     if(this.level.worldId==="velvet-drain"){const sx=[0,724,1448][this.levelIndex]??0;c.save();c.globalAlpha=.58;this.art.draw(c,"velvetDrain",sx,0,724,724,18,70,W-36,H-92);c.restore();c.fillStyle="rgba(2,5,14,.24)";c.fillRect(18,70,W-36,H-92)}
+    else if(this.art.get(this.level.backgroundId)){
+      // Supplied backdrops are bright painterly vistas; darken hard and wash
+      // in this world's neon tint so they read as the void-black chambers
+      // the rest of the game's visual grammar establishes, not daylight.
+      c.save();c.globalAlpha=.38;this.art.draw(c,this.level.backgroundId,0,0,1200,816,18,70,W-36,H-92);c.restore();
+      c.save();c.globalAlpha=1;c.fillStyle="rgba(1,3,10,.7)";c.fillRect(18,70,W-36,H-92);c.restore();
+      c.save();c.globalAlpha=.24;c.fillStyle=this.level.tint;c.fillRect(18,70,W-36,H-92);c.restore();
+    }
     if(this.level.world==="THE BLACK BUBBLE"){for(let x=40;x<W;x+=55){c.beginPath();c.moveTo(x,75);c.lineTo(W-x/4,H);c.stroke()}for(let y=120;y<H;y+=55){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}c.beginPath();c.arc(W/2,H/2,250,0,Math.PI*2);c.stroke()}
     else{for(let x=45;x<W;x+=90){c.beginPath();c.moveTo(x,80);c.lineTo(x,H);c.stroke()}for(let y=120;y<H;y+=90){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}}
     c.globalAlpha=1;
