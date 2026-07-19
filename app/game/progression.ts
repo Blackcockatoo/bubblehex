@@ -7,6 +7,47 @@ export const ENEMY_CONSCIOUSNESS_NAMES = ["RISING","DORMANT","STIRRING","VICIOUS
 
 export type EnemyConsciousness = 0 | 1 | 2 | 3 | 4 | 5;
 
+// Player-facing difficulty presentation. These map onto the same six underlying
+// consciousness values (never removed) so existing saves and the direct
+// consciousness cycle keep working; "custom" is the only mode where the player
+// picks the consciousness value directly.
+export const DIFFICULTY_MODES = ["story", "arcade", "nightmare", "custom"] as const;
+export type DifficultyMode = typeof DIFFICULTY_MODES[number];
+
+const DIFFICULTY_MODE_CONSCIOUSNESS: Record<Exclude<DifficultyMode,"custom">, EnemyConsciousness> = {
+  story: 0, arcade: 2, nightmare: 5,
+};
+
+export const DIFFICULTY_MODE_LABELS: Record<DifficultyMode, string> = {
+  story: "STORY", arcade: "ARCADE", nightmare: "NIGHTMARE", custom: "CUSTOM CONSCIOUSNESS",
+};
+
+/** Resolves a difficulty mode (plus, for "custom", a directly-chosen consciousness
+ * value) down to the single EnemyConsciousness the simulation actually reads. */
+export function consciousnessForMode(mode: DifficultyMode, customConsciousness: EnemyConsciousness): EnemyConsciousness {
+  return mode === "custom" ? customConsciousness : DIFFICULTY_MODE_CONSCIOUSNESS[mode];
+}
+
+export function isDifficultyMode(value: unknown): value is DifficultyMode {
+  return typeof value === "string" && (DIFFICULTY_MODES as readonly string[]).includes(value);
+}
+
+export type DifficultyStep = { mode: DifficultyMode; consciousness: EnemyConsciousness };
+
+/** Single-control cycle used by the Options screen's "ENEMY LEVEL" button: steps
+ * through Story -> Arcade -> Nightmare -> Custom@0..5 -> back to Story. This keeps
+ * the whole difficulty presentation reachable from the arcade cabinet's existing
+ * button set while still letting the player land on every consciousness value
+ * directly once they reach Custom. */
+export function nextDifficultyStep(current: DifficultyStep): DifficultyStep {
+  if (current.mode === "story") return { mode:"arcade", consciousness: consciousnessForMode("arcade", current.consciousness) };
+  if (current.mode === "arcade") return { mode:"nightmare", consciousness: consciousnessForMode("nightmare", current.consciousness) };
+  if (current.mode === "nightmare") return { mode:"custom", consciousness:0 };
+  const next = current.consciousness + 1;
+  if (next > 5) return { mode:"story", consciousness: consciousnessForMode("story", 0) };
+  return { mode:"custom", consciousness: next as EnemyConsciousness };
+}
+
 export type HeroProgress = { level:number; xp:number };
 export type UpgradeKey = "speed" | "rapid" | "range" | "velocity" | "shield" | "venom" | "chain" | "crown";
 export type HeroMilestone = { level:number; upgrade:UpgradeKey; name:string };
