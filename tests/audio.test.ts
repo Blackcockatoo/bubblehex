@@ -21,6 +21,6 @@ test("every music track has both derivative files present on disk", () => {
 
 test("only the victory fanfare is a one-shot; every other track loops", () => {
   const loopIds = (Object.keys(MUSIC_TRACKS) as MusicTrackId[]).filter(id => MUSIC_TRACKS[id].loop);
-  assert.deepEqual(new Set(loopIds), new Set(["title", "stage", "bonus", "boss"]));
+  assert.deepEqual(new Set(loopIds), new Set(["title", "stage", "hotel", "garden", "chapel", "bonus", "boss"]));
   assert.equal(MUSIC_TRACKS.victory.loop, false);
 });

@@ -1,10 +1,13 @@
-export type MusicTrackId = "title" | "stage" | "bonus" | "boss" | "victory";
+export type MusicTrackId = "title" | "stage" | "hotel" | "garden" | "chapel" | "bonus" | "boss" | "victory";
 
 type MusicSource = { ogg: string; mp3: string; loop: boolean };
 
 export const MUSIC_TRACKS: Record<MusicTrackId, MusicSource> = {
   title: { ogg: "/game/audio/title-jingle.ogg", mp3: "/game/audio/title-jingle.mp3", loop: true },
   stage: { ogg: "/game/audio/stage-theme.ogg", mp3: "/game/audio/stage-theme.mp3", loop: true },
+  hotel: { ogg: "/game/audio/hotel-theme.ogg", mp3: "/game/audio/hotel-theme.mp3", loop: true },
+  garden: { ogg: "/game/audio/garden-theme.ogg", mp3: "/game/audio/garden-theme.mp3", loop: true },
+  chapel: { ogg: "/game/audio/chapel-theme.ogg", mp3: "/game/audio/chapel-theme.mp3", loop: true },
   bonus: { ogg: "/game/audio/bonus-theme.ogg", mp3: "/game/audio/bonus-theme.mp3", loop: true },
   boss: { ogg: "/game/audio/boss-theme.ogg", mp3: "/game/audio/boss-theme.mp3", loop: true },
   victory: { ogg: "/game/audio/victory-fanfare.ogg", mp3: "/game/audio/victory-fanfare.mp3", loop: false },

@@ -62,7 +62,7 @@ deliberately rather than picked blindly:
 | Asset | Used for | Loop |
 |---|---|---|
 | `title-jingle.{ogg,mp3}` | Title screen / character select | Yes |
-| `stage-theme.{ogg,mp3}` | Chambers 1–8 (Velvet Drain → Jade Garden/Crimson Chapel lead-in) | Yes |
+| `stage-theme.{ogg,mp3}` | Velvet Drain (chambers 1–3) | Yes |
 | `bonus-theme.{ogg,mp3}` | Bonus/treasure chamber (Extra Mode) | Yes |
 | `boss-theme.{ogg,mp3}` | Chambers 9–12 (Black Bubble approach + the Widow) | Yes |
 | `victory-fanfare.{ogg,mp3}` | Stage clear roll-up on the final victory screen (normal and true ending) | No |
@@ -77,3 +77,54 @@ and generating them keeps the SFX layer instant and dependency-free.
 The untouched WAV masters (~34MB total) are preserved at `audio-masters/` in
 the repository root — outside `public/`, so they are never bundled or served
 to players — as non-destructive originals for any future remix pass.
+
+## 2026-07-19 addition: per-world stage themes
+
+Four new MP3 masters were supplied ("Hexagonal Sparkle" 4 & 5, and their
+"Remix" 4 & 5 counterparts), pre-mixed at 48kHz stereo. As with the original
+batch, no perceptual audition tool exists in this environment, so tempo,
+spectral brightness (centroid/rolloff), RMS energy, and chroma similarity
+were measured (`librosa`) rather than guessed from filenames.
+
+| File | Duration | Tempo | Centroid (brightness) | Notes |
+|---|---|---|---|---|
+| `1792769a-Hexagonal_Sparkle_4.mp3` | 19.37s | ~92 BPM | 2439 Hz | Mellowest/slowest of the four; sustains cleanly to the end, no fade tail. |
+| `466a516b-Hexagonal_Sparkle_5.mp3` | 20.95s | ~152 BPM | 2433 Hz | Fastest and most keyed-up of the four; short natural fade at the very end. |
+| `b585cf8f-Hexagonal_Sparkle_Remix_5.mp3` | 37.39s | ~108 BPM | 2702 Hz | Mid tempo, brighter mix; ~0.35s fade tail from 37.0s. |
+| `e75c9aa2-Hexagonal_Sparkle_Remix_4.mp3` | 72.67s | ~129 BPM | 2977 Hz | Longest and brightest/most energetic; sustains to the end (soft ~19dB dip in the closing bars, no hard cut). |
+
+Before this addition, chambers 1–10 (Velvet Drain, Heartbreak Hotel, Jade
+Garden, Crimson Chapel — every world before the final Black Bubble boss
+approach) all shared the single `stage-theme` loop. Three of the four new
+tracks close that gap with one distinct theme per intervening world, chosen
+so tempo/brightness escalate in the same order the story escalates toward
+the Widow:
+
+- **Velvet Drain** keeps `stage-theme` (the original arcade-stage loop) as
+  the game's "home" identity track for its opening world.
+- **Heartbreak Hotel** → `hotel-theme` (`1792769a-Hexagonal_Sparkle_4`, the
+  mellowest/slowest track) — fits the faded-glamour, mirrors-and-secrets mood
+  of Room 13 better than a high-energy cue would.
+- **Jade Garden** → `garden-theme` (`b585cf8f-...-Remix_5`, mid tempo/energy)
+  — the VENOM reveal is a rising complication, not yet the climax.
+- **Crimson Chapel** → `chapel-theme` (`e75c9aa2-...-Remix_4`, the
+  longest/brightest/most energetic track) — the staged fight becomes
+  undeniable here, immediately before the Black Bubble `boss-theme`, so this
+  is the most intense of the three new cues.
+- **`466a516b-Hexagonal_Sparkle_5`** (fastest tempo, ~152 BPM) is the one
+  track left unused: its energy actually exceeds the Crimson Chapel cue,
+  which would invert the intended escalation if slotted into an earlier
+  world. It's preserved untouched in `audio-masters/` alongside the other
+  three as a spare for any future remix or new mode.
+
+Processing mirrored the original pipeline: `loudnorm` (I=-16 LUFS, TP=-1.5dB,
+LRA=11), a 350ms equal-power sample-level wrap crossfade for seamless
+`loop=true` playback (tail folded into head, track shortened by one crossfade
+length), then encoded to OGG Vorbis (`-q:a 5`) and MP3 (`-q:a 3` VBR), same as
+every other looping track in the delivery map above.
+
+| Asset | Used for | Loop |
+|---|---|---|
+| `hotel-theme.{ogg,mp3}` | Heartbreak Hotel (chambers 4–6) | Yes |
+| `garden-theme.{ogg,mp3}` | Jade Garden (chambers 7–8) | Yes |
+| `chapel-theme.{ogg,mp3}` | Crimson Chapel (chambers 9–10) | Yes |

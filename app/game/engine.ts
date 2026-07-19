@@ -22,7 +22,7 @@ import {
 } from "./physics";
 import { auditLevelReachability, type PlatformAudit } from "./reachability";
 import { GameArtAssets } from "./assets";
-import { AudioManager } from "./audio";
+import { AudioManager, type MusicTrackId } from "./audio";
 import {
   CHARACTER_PROFILES,
   CODEX_ENTRIES,
@@ -166,7 +166,8 @@ export class BubbleHexEngine {
     if(this.state==="victory"){this.audio.playMusic("victory",1.6);return}
     if(this.state==="title"||this.state==="characterSelect"||this.state==="records/options"||this.state==="attract"){this.audio.playMusic("title");return}
     if(this.state==="dying")return;
-    const track=this.level.bonus?"bonus":(this.level.boss||this.level.approach)?"boss":"stage";
+    const worldTrack:Record<string,MusicTrackId>={"heartbreak-hotel":"hotel","jade-garden":"garden","crimson-chapel":"chapel"};
+    const track=this.level.bonus?"bonus":(this.level.boss||this.level.approach)?"boss":(worldTrack[this.level.worldId]??"stage");
     this.audio.playMusic(track);
   }
   private update(dt:number){
