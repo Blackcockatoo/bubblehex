@@ -7,17 +7,25 @@ on:
     paths:
       - '.github/background-pack-parts/**'
       - '.github/workflows/assemble-background-pack.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '.github/background-pack-parts/**'
+      - '.github/workflows/assemble-background-pack.yml'
 
 permissions:
   contents: write
 
 jobs:
   assemble:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - name: Check out branch
+      - name: Check out source branch
         uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.pull_request.head.ref || github.ref_name }}
           fetch-depth: 0
 
       - name: Assemble and verify ZIP
@@ -38,4 +46,4 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -m "Add first 20 Bubble Hex background previews"
-          git push
+          git push origin HEAD:${{ github.event.pull_request.head.ref || github.ref_name }}
