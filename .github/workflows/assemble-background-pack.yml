@@ -1,0 +1,41 @@
+name: Assemble Bubble Hex background pack
+
+on:
+  push:
+    branches:
+      - agent/add-first-20-background-pack-20260719
+    paths:
+      - '.github/background-pack-parts/**'
+      - '.github/workflows/assemble-background-pack.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  assemble:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Assemble and verify ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public/assets/background-packs
+          cat .github/background-pack-parts/part-*.b64 | base64 --decode > public/assets/background-packs/Bubble_Hex_First_20_Backgrounds_GitHub_Preview.zip
+          echo "f1d052e0c93ef26a7537dc78636fd1336a36dbaf3afc2ce728b55583c0f5cfc3  public/assets/background-packs/Bubble_Hex_First_20_Backgrounds_GitHub_Preview.zip" | sha256sum --check
+          rm -rf .github/background-pack-parts
+          rm .github/workflows/assemble-background-pack.yml
+
+      - name: Commit assembled pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Add first 20 Bubble Hex background previews"
+          git push
