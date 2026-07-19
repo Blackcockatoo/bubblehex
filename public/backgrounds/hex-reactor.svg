@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720">
+<defs><radialGradient id="r"><stop stop-color="#071126"/><stop offset=".7" stop-color="#020309"/></radialGradient><filter id="g"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="960" height="720" fill="url(#r)"/>
+<path d="M210 95H750L905 360 750 625H210L55 360Z" fill="none" stroke="#1a2d55" stroke-width="18"/>
+<path d="M210 95H750L905 360 750 625H210L55 360Z" fill="none" stroke="#756cff" stroke-width="3" stroke-dasharray="18 18"><animate attributeName="stroke-dashoffset" values="0;-72" dur="5s" repeatCount="indefinite"/></path>
+<g filter="url(#g)">
+<g fill="#071126" stroke-width="4"><circle cx="480" cy="95" r="36" stroke="#ff2a9d"/><circle cx="750" cy="235" r="36" stroke="#087cff"/><circle cx="750" cy="485" r="36" stroke="#ff2a9d"/><circle cx="480" cy="625" r="36" stroke="#087cff"/><circle cx="210" cy="485" r="36" stroke="#ff2a9d"/><circle cx="210" cy="235" r="36" stroke="#087cff"/></g>
+<g fill="#ffd6f1"><circle cx="480" cy="95" r="9"><animate attributeName="r" values="6;14;6" dur="2s" repeatCount="indefinite"/></circle><circle cx="750" cy="235" r="9"><animate attributeName="r" values="14;6;14" dur="2s" repeatCount="indefinite"/></circle><circle cx="750" cy="485" r="9"><animate attributeName="r" values="6;14;6" dur="2s" repeatCount="indefinite"/></circle><circle cx="480" cy="625" r="9"><animate attributeName="r" values="14;6;14" dur="2s" repeatCount="indefinite"/></circle><circle cx="210" cy="485" r="9"><animate attributeName="r" values="6;14;6" dur="2s" repeatCount="indefinite"/></circle><circle cx="210" cy="235" r="9"><animate attributeName="r" values="14;6;14" dur="2s" repeatCount="indefinite"/></circle></g>
+</g>
+<path d="M355 250H605L670 360 605 470H355L290 360Z" fill="#010207" stroke="#087cff" stroke-opacity=".25"/>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720">
+<defs><radialGradient id="v"><stop stop-color="#081229"/><stop offset=".58" stop-color="#03050c"/><stop offset="1" stop-color="#010207"/></radialGradient><filter id="g"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+<rect width="960" height="720" fill="url(#v)"/>
+<g fill="none" stroke-linejoin="round" filter="url(#g)" transform-origin="480px 360px">
+<path d="M165 120H795L925 360 795 600H165L35 360Z" stroke="#087cff" stroke-width="4" opacity=".55"><animate attributeName="opacity" values=".25;.68;.25" dur="5s" repeatCount="indefinite"/></path>
+<path d="M215 158H745L850 360 745 562H215L110 360Z" stroke="#ff2a9d" stroke-width="3" opacity=".5"><animate attributeName="opacity" values=".6;.18;.6" dur="5s" repeatCount="indefinite"/></path>
+<path d="M270 202H690L770 360 690 518H270L190 360Z" stroke="#756cff" stroke-width="3"><animateTransform attributeName="transform" type="scale" values="1;1.08;1" dur="6s" additive="sum" repeatCount="indefinite"/></path>
+<path d="M325 245H635L690 360 635 475H325L270 360Z" stroke="#087cff" stroke-width="2" opacity=".65"><animate attributeName="opacity" values=".15;.65;.15" dur="4s" repeatCount="indefinite"/></path>
+<path d="M382 290H578L612 360 578 430H382L348 360Z" stroke="#ff2a9d" stroke-width="2" opacity=".45"/>
+</g>
+<g fill="none" stroke="#087cff" opacity=".38"><path d="M0 92h130l55 95-55 95H0"/><path d="M960 92H830l-55 95 55 95h130"/><path d="M0 438h130l55 95-55 95H0"/><path d="M960 438H830l-55 95 55 95h130"/></g>
+<g fill="#ffd6f1"><circle cx="125" cy="180" r="5"><animate attributeName="cy" values="650;70" dur="7s" repeatCount="indefinite"/></circle><circle cx="830" cy="540" r="4"><animate attributeName="cy" values="660;80" dur="9s" repeatCount="indefinite"/></circle></g>
+</svg>
