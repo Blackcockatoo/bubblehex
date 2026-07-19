@@ -1,10 +1,12 @@
 export type Token = "LEFT" | "RIGHT" | "JUMP" | "BUBBLE" | "START";
-export type CheatKey = "power" | "super" | "extra";
+export type CheatKey = "power" | "super" | "extra" | "nara";
 
 export const CODES: Record<CheatKey, Token[]> = {
   power: ["LEFT","JUMP","LEFT","START","LEFT","BUBBLE","LEFT","START"],
   super: ["START","JUMP","BUBBLE","LEFT","RIGHT","JUMP","START","RIGHT"],
   extra: ["BUBBLE","JUMP","BUBBLE","JUMP","BUBBLE","JUMP","RIGHT","START"],
+  // A quiet keepsake code — no gameplay effect, just a hidden hello.
+  nara: ["RIGHT","LEFT","RIGHT","LEFT","BUBBLE","JUMP","BUBBLE","START"],
 };
 
 export const mirrorCode = (code: Token[]) => code.map(token => token === "LEFT" ? "RIGHT" : token === "RIGHT" ? "LEFT" : token) as Token[];

@@ -10,7 +10,7 @@ const feed = (reader: CheatReader, code: Token[], active: Record<CheatKey, boole
 
 test("all canonical and mirrored title codes match", () => {
   for (const key of Object.keys(CODES) as CheatKey[]) {
-    const active = { power:false, super:false, extra:false };
+    const active = { power:false, super:false, extra:false, nara:false };
     assert.equal(feed(new CheatReader(), CODES[key], active), key);
     assert.equal(feed(new CheatReader(), mirrorCode(CODES[key]), active), key);
   }
@@ -18,26 +18,26 @@ test("all canonical and mirrored title codes match", () => {
 
 test("a plain START does not activate Super and the full Super prefix does", () => {
   const reader = new CheatReader();
-  const active = { power:false, super:false, extra:false };
+  const active = { power:false, super:false, extra:false, nara:false };
   assert.equal(reader.feed("START", 1000, active), null);
   assert.equal(feed(reader, CODES.super.slice(1), active, 1100), "super");
 });
 
 test("codes expire after a 1.5 second gap", () => {
   const reader = new CheatReader();
-  const active = { power:false, super:false, extra:false };
+  const active = { power:false, super:false, extra:false, nara:false };
   CODES.power.slice(0,4).forEach((token,index)=>reader.feed(token,1000+index*100,active));
   assert.equal(feed(reader,CODES.power.slice(4),active,4000),null);
 });
 
-test("all three codes can stack in one title session", () => {
+test("all four codes can stack in one title session", () => {
   const reader = new CheatReader();
-  const active = { power:false, super:false, extra:false };
-  for (const key of ["power","super","extra"] as CheatKey[]) {
+  const active = { power:false, super:false, extra:false, nara:false };
+  for (const key of ["power","super","extra","nara"] as CheatKey[]) {
     assert.equal(feed(reader,CODES[key],active),key);
     active[key]=true;
   }
-  assert.deepEqual(active,{power:true,super:true,extra:true});
+  assert.deepEqual(active,{power:true,super:true,extra:true,nara:true});
 });
 
 test("a mid-sequence START token (as in SUPER) never leaves a dangling start-run grace", () => {

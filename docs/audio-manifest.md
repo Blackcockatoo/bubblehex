@@ -77,3 +77,66 @@ and generating them keeps the SFX layer instant and dependency-free.
 The untouched WAV masters (~34MB total) are preserved at `audio-masters/` in
 the repository root — outside `public/`, so they are never bundled or served
 to players — as non-destructive originals for any future remix pass.
+
+## Addendum 2026-07-19 — per-world music, an Easter egg, and 89 voice lines
+
+### Per-world stage variety
+
+Three additional Suno-generated tracks ("Hexagonal Sparkle 1", "Hexagonal
+Sparkle 3", "Hexagonal Sparkle Remix 2") were supplied as full-length songs,
+not stings. Each was `loudnorm`'d to the same -16 LUFS / -1.5dBTP / LRA 11
+target as the original five, checked for lead-in/trailing silence via
+`silencedetect`, trimmed where a genuine fade tail existed (the remix only —
+the other two run sustained to their natural end, matching the "Neon Hex"
+pattern), and given the same 350ms equal-power wrap-crossfade loop seam
+described above before OGG/MP3 encoding.
+
+They now give three of the "stage" worlds their own flavor instead of
+sharing one loop across chambers 1–8:
+
+| Asset | Used for | Loop |
+|---|---|---|
+| `world-heartbreak-hotel.{ogg,mp3}` | Heartbreak Hotel (chambers 4–6) | Yes |
+| `world-jade-garden.{ogg,mp3}` | Jade Garden (chambers 7–8) | Yes |
+| `world-crimson-chapel.{ogg,mp3}` | Crimson Chapel (chambers 9–10) | Yes |
+
+Velvet Drain (chambers 1–3) keeps the original `stage-theme` loop as the
+game's establishing sound; `boss-theme` (Black Bubble approach + the Widow)
+and `bonus-theme` are unchanged. Selection logic lives in
+`BubbleHexEngine.syncMusic()` in `engine.ts`, keyed off `level.worldId`.
+
+### Hidden Easter egg
+
+A fourth supplied track, "Nara's Bubble 1", had no corresponding character
+or level in the game — trimming a 0.42s lead-in and the standard loudness
+pass was the only processing needed since it plays once, not in a loop. It
+is wired to a new **hidden cheat code** (`nara` in `cheats.ts`:
+`RIGHT,LEFT,RIGHT,LEFT,BUBBLE,JUMP,BUBBLE,START`, mirrorable like the
+existing codes), entered the same way as the other title-screen codes. It
+has no gameplay effect — it just shows a short "FOR NARA & MUM" message and
+plays `nara-bubble.{ogg,mp3}` once as a private keepsake.
+
+### 89 spoken voice lines
+
+A performer-recorded set of 89 short lines (delivered pre-split and named,
+with a manifest CSV giving verbatim text and category) now voices specific
+game moments — title-screen hooks, player/enemy taunts, gameplay callouts
+(trapped/chain/upgrades/boss phases/etc.), damage and low-health warnings,
+boss arrival, victory/death lines, and secret discovery — 29 categories in
+total, `app/game/voice-lines.ts`. Files ship as-is under
+`public/game/audio/voice/` (MP3 only — no OGG pass; they were already
+suitably mastered and this asset class doesn't need format fallback the way
+the five/eight looping beds do).
+
+Playback goes through a new `AudioManager.playVoice(category)`: it decodes
+and caches each clip through the same shared SFX bus (so it obeys the
+existing mute/SFX-volume controls with no new UI), picks a random line from
+the category while never repeating the immediately previous pick, and
+enforces a global cooldown spanning each line's own duration so barks never
+overlap or talk over each other. Every trigger point is an existing,
+already-discrete game event (state transitions, upgrade unlocks, widow
+phase changes, projectile spawns, etc.) — no new gameplay mechanics were
+added to host a line; where the manifest implied a mechanic the game
+doesn't have (a checkpoint save/restore system), the closest existing
+equivalent (world-boundary transitions) was used instead rather than
+inventing one.

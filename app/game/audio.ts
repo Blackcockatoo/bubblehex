@@ -1,4 +1,7 @@
-export type MusicTrackId = "title" | "stage" | "bonus" | "boss" | "victory";
+import { VOICE_LINES, type VoiceCategory } from "./voice-lines.ts";
+
+export type MusicTrackId = "title" | "stage" | "bonus" | "boss" | "victory"
+  | "worldHeartbreakHotel" | "worldJadeGarden" | "worldCrimsonChapel" | "naraBubble";
 
 type MusicSource = { ogg: string; mp3: string; loop: boolean };
 
@@ -8,6 +11,12 @@ export const MUSIC_TRACKS: Record<MusicTrackId, MusicSource> = {
   bonus: { ogg: "/game/audio/bonus-theme.ogg", mp3: "/game/audio/bonus-theme.mp3", loop: true },
   boss: { ogg: "/game/audio/boss-theme.ogg", mp3: "/game/audio/boss-theme.mp3", loop: true },
   victory: { ogg: "/game/audio/victory-fanfare.ogg", mp3: "/game/audio/victory-fanfare.mp3", loop: false },
+  // Per-world stage variety (chambers 4-10) — Velvet Drain keeps the original "stage" loop.
+  worldHeartbreakHotel: { ogg: "/game/audio/world-heartbreak-hotel.ogg", mp3: "/game/audio/world-heartbreak-hotel.mp3", loop: true },
+  worldJadeGarden: { ogg: "/game/audio/world-jade-garden.ogg", mp3: "/game/audio/world-jade-garden.mp3", loop: true },
+  worldCrimsonChapel: { ogg: "/game/audio/world-crimson-chapel.ogg", mp3: "/game/audio/world-crimson-chapel.mp3", loop: true },
+  // Hidden Easter egg track — see the "nara" cheat code.
+  naraBubble: { ogg: "/game/audio/nara-bubble.ogg", mp3: "/game/audio/nara-bubble.mp3", loop: false },
 };
 
 /** Pure so it can be unit tested without a real <audio> element. */
@@ -50,6 +59,11 @@ export class AudioManager {
   private pendingTimers: ReturnType<typeof setTimeout>[] = [];
   private wasPlayingBeforeHidden = false;
   private sfxVoices = 0;
+
+  private voiceBuffers = new Map<string, AudioBuffer>();
+  private voiceLoadState = new Map<string, "loading" | "ready" | "failed">();
+  private voiceLastIndex = new Map<VoiceCategory, number>();
+  private voiceBusyUntil = 0;
 
   muted = false;
   musicVolume = 0.5;
@@ -205,6 +219,54 @@ export class AudioManager {
       this.pendingTimers.push(timer);
     };
     scheduleAt(ctx.currentTime + 0.02);
+  }
+
+  private async loadVoiceBuffer(url: string): Promise<AudioBuffer | null> {
+    const cached = this.voiceBuffers.get(url);
+    if (cached) return cached;
+    if (this.voiceLoadState.get(url) === "failed" || !this.ctx) return null;
+    this.voiceLoadState.set(url, "loading");
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`voice ${url} http ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      const buffer = await this.ctx.decodeAudioData(bytes);
+      this.voiceBuffers.set(url, buffer);
+      this.voiceLoadState.set(url, "ready");
+      return buffer;
+    } catch {
+      this.voiceLoadState.set(url, "failed");
+      return null;
+    }
+  }
+
+  /**
+   * Spoken voice-line bus: picks a random line from `category` (never repeating
+   * the immediately previous pick within that category), routes it through the
+   * shared SFX bus so it obeys mute/volume like every other sound, and imposes
+   * a global cooldown so barks never overlap or talk over each other.
+   */
+  async playVoice(category: VoiceCategory) {
+    if (this.muted || !this.ctx || !this.sfxBus) return;
+    const lines = VOICE_LINES[category];
+    if (!lines || lines.length === 0) return;
+    const t = this.ctx.currentTime;
+    if (t < this.voiceBusyUntil) return;
+    const last = this.voiceLastIndex.get(category) ?? -1;
+    const index = lines.length === 1 ? 0 : (last + 1 + Math.floor(Math.random() * (lines.length - 1))) % lines.length;
+    this.voiceLastIndex.set(category, index);
+    const line = lines[index];
+    this.voiceBusyUntil = t + 0.35;
+    const buffer = await this.loadVoiceBuffer(line.url);
+    if (!buffer || !this.ctx || !this.sfxBus) return;
+    const now = this.ctx.currentTime;
+    const source = this.ctx.createBufferSource();
+    const gain = this.ctx.createGain();
+    source.buffer = buffer;
+    safeParam(() => gain.gain.setValueAtTime(0.9, now));
+    source.connect(gain).connect(this.sfxBus);
+    safeParam(() => source.start(now));
+    this.voiceBusyUntil = now + buffer.duration + 0.3;
   }
 
   /** Procedural SFX layer — cheap, dependency-free, rate-limited so bubble chains never clip. */
