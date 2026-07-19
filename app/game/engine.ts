@@ -36,7 +36,7 @@ import {
 import { DEFAULT_SETTINGS, migrateSettings, type PersistedSettings } from "./persistence";
 import { computeStageBreakdown, isNewCampaignRecord, isNewStageRecord } from "./scoring";
 import {
-  ENEMY_CONSCIOUSNESS_NAMES, ENEMY_RANK_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
+  ENEMY_CONSCIOUSNESS_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
   progressAfterXp, stageClearXp, unlockedHeroUpgrades, type EnemyConsciousness,
 } from "./progression";
 import { blockForPlatform, type PlatformBlockDefinition } from "./blocks";
@@ -48,18 +48,18 @@ type EnemyState = "normal" | "trapped" | "furious" | "dead";
 type BubblePhase = "fired" | "slowing" | "floating" | "occupied" | "warning" | "burst";
 
 type Player = {
-  x:number;y:number;previousY:number;vx:number;vy:number;w:number;h:number;
+  x:number;y:number;previousX:number;previousY:number;vx:number;vy:number;w:number;h:number;
   grounded:boolean;facing:1|-1;invuln:number;flying:number;
   maxJumps:number;jumpsRemaining:number;jumpCut:boolean;jumpAge:number;currentPlatformId:number|null;
   runPhase:number;throwTimer:number;landTimer:number;landPower:number;
 };
-type Enemy = { id:number;x:number;y:number;vx:number;vy:number;w:number;h:number;kind:EnemyKind;state:EnemyState;timer:number;cooldown:number;homeY:number;weakened:boolean;rank:number;elite:boolean };
-type Bubble = { id:number;x:number;y:number;vx:number;vy:number;r:number;age:number;phase:BubblePhase;enemyId?:number;life:number };
+type Enemy = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;w:number;h:number;kind:EnemyKind;state:EnemyState;timer:number;cooldown:number;homeY:number;weakened:boolean;rank:number;elite:boolean };
+type Bubble = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;r:number;age:number;phase:BubblePhase;enemyId?:number;life:number };
 type Reward = { x:number;y:number;vy:number;kind:string;value:number;life:number;letter?:string };
 type Projectile = { x:number;y:number;vx:number;vy:number;life:number;kind:"tear"|"star" };
 type Particle = { x:number;y:number;vx:number;vy:number;life:number;color:string;size:number };
 type WidowPhase = "entrance" | "chase" | "telegraph" | "lunge" | "staggered" | "trapped" | "defeated";
-type WidowState = { x:number;y:number;vx:number;vy:number;age:number;hp:number;maxHp:number;phase:WidowPhase;phaseTimer:number;lungeAngle:number };
+type WidowState = { x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;age:number;hp:number;maxHp:number;phase:WidowPhase;phaseTimer:number;lungeAngle:number };
 type Widow = WidowState | null;
 type Cheats = { power:boolean;super:boolean;extra:boolean };
 const WIDOW_ENEMY_ID = -1;
@@ -69,6 +69,7 @@ const FIXED=1/60;
 const COLORS={void:"#050509",midnight:"#081A3A",blue:"#087CFF",pink:"#FF2A9D",crimson:"#C4133D",jade:"#20C98B",shine:"#FFD6F1"};
 const TOKENS:Record<Action,Token|undefined>={left:"LEFT",right:"RIGHT",jump:"JUMP",bubble:"BUBBLE",start:"START",pause:undefined,consciousness:undefined};
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
+const lerp=(a:number,b:number,t:number)=>a+(b-a)*t;
 const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);
 const overlaps=(a:{x:number;y:number;w:number;h:number},b:{x:number;y:number;w:number;h:number})=>a.x<b.x+b.w&&a.x+a.w>b.x&&a.y<b.y+b.h&&a.y+a.h>b.y;
 
@@ -95,6 +96,10 @@ export class BubbleHexEngine {
   private inBonus=false; private bonusVisited=false; private stageStartScore=0; private stageDamaged=false; private newRecord=false;
   private stageBreakdown={kills:0,speedBonus:0,lifeBonus:0,noDamageBonus:0,secretBonus:0,total:0};
   private stageXp=0;
+  // Fraction of the way from the last completed 60Hz tick to the next one, used to
+  // interpolate on-screen positions between ticks so motion stays smooth even when
+  // the display refreshes faster or slower than the fixed simulation rate.
+  private renderAlpha=0;
 
   constructor(canvas:HTMLCanvasElement,onReady:()=>void){
     this.canvas=canvas; const ctx=canvas.getContext("2d"); if(!ctx)throw new Error("Canvas unavailable"); this.ctx=ctx;this.ctx.imageSmoothingEnabled=false;this.ready=onReady;
@@ -106,7 +111,7 @@ export class BubbleHexEngine {
   setMuted(v:boolean){this.settings.muted=v;this.audio.setMuted(v);this.save()}
   private makePlayer(invuln=0,floorY=650,platformId=0):Player{
     const y=floorY-PLAYER_HEIGHT;
-    return {x:55,y,previousY:y,vx:0,vy:0,w:PLAYER_WIDTH,h:PLAYER_HEIGHT,grounded:true,facing:1,invuln,flying:0,maxJumps:MAX_JUMPS,jumpsRemaining:MAX_JUMPS,jumpCut:false,jumpAge:0,currentPlatformId:platformId,runPhase:0,throwTimer:0,landTimer:0,landPower:0};
+    return {x:55,y,previousX:55,previousY:y,vx:0,vy:0,w:PLAYER_WIDTH,h:PLAYER_HEIGHT,grounded:true,facing:1,invuln,flying:0,maxJumps:MAX_JUMPS,jumpsRemaining:MAX_JUMPS,jumpCut:false,jumpAge:0,currentPlatformId:platformId,runPhase:0,throwTimer:0,landTimer:0,landPower:0};
   }
   private resetPlayer(invuln=0){
     const floorId=this.level.platforms.reduce((best,platform,index)=>platform.y>this.level.platforms[best].y?index:best,0);
@@ -230,7 +235,7 @@ export class BubbleHexEngine {
   }
   private makeWidow(x:number,y:number,boss:boolean):WidowState{
     const hp=boss?(this.cheats.super?4:3):0;
-    return {x,y,vx:0,vy:0,age:0,hp,maxHp:hp,phase:boss?"entrance":"chase",phaseTimer:0,lungeAngle:0};
+    return {x,y,prevX:x,prevY:y,vx:0,vy:0,age:0,hp,maxHp:hp,phase:boss?"entrance":"chase",phaseTimer:0,lungeAngle:0};
   }
   private updatePlaying(dt:number,demo:boolean){
     if(demo){this.attractTime+=dt;if(this.attractTime>11){this.toTitle();return}this.held.right=this.player.x<720;this.held.left=this.player.x>=720;this.held.bubble=Math.floor(this.attractTime*2)%2===0;if(this.player.grounded&&Math.floor(this.attractTime*1.3)%3===0)this.just.add("jump")}
@@ -283,7 +288,7 @@ export class BubbleHexEngine {
     if((this.held.bubble||this.just.has("bubble"))&&this.fireCooldown<=0)this.fireBubble();
     if(p.flying>0){p.vy+=(this.held.jump?-440:160)*dt;p.vy=clamp(p.vy,-230,230)}else p.vy+=GRAVITY*dt;
 
-    p.previousY=p.y;
+    p.previousX=p.x;p.previousY=p.y;
     p.x+=p.vx*dt;p.x=clamp(p.x,24,W-24-p.w);p.y+=p.vy*dt;
     p.grounded=false;p.currentPlatformId=null;this.landedThisFrame=false;
     const previousBottom=p.previousY+p.h,currentBottom=p.y+p.h;
@@ -312,7 +317,7 @@ export class BubbleHexEngine {
   }
   private fireBubble(){
     const p=this.player,fast=this.upgrades.velocity?500:390,bx=p.x+p.w/2+p.facing*28,by=p.y+20;
-    this.bubbles.push({id:this.nextId++,x:bx,y:by,vx:p.facing*fast,vy:0,r:18,age:0,phase:"fired",life:this.upgrades.range?7.8:5.2});
+    this.bubbles.push({id:this.nextId++,x:bx,y:by,prevX:bx,prevY:by,vx:p.facing*fast,vy:0,r:18,age:0,phase:"fired",life:this.upgrades.range?7.8:5.2});
     p.throwTimer=.3;
     if(!this.settings.reducedMotion)for(let i=0;i<4;i++)this.particles.push({x:bx,y:by,vx:p.facing*(60+Math.random()*90),vy:(Math.random()-.5)*70,life:.18+Math.random()*.15,color:this.skinFor(this.hero).bubble,size:2+Math.random()*2});
     this.fireCooldown=this.upgrades.rapid?.17:.36;this.audio.bubble();
@@ -324,7 +329,7 @@ export class BubbleHexEngine {
       if(b.phase==="slowing"){b.vx*=Math.pow(.08,dt);if(Math.abs(b.vx)<48)b.phase="floating"}
       if(b.phase==="floating"){b.vx+=this.level.current.x*85*dt;b.vy+=this.level.current.y*130*dt;b.vy=clamp(b.vy,-70,-16)}
       if(b.phase==="occupied"||b.phase==="warning"){b.vx+=this.level.current.x*45*dt;b.vy=-27+Math.sin(b.age*4)*8;if(b.life<1.2)b.phase="warning"}
-      b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<b.r+25||b.x>W-b.r-25)b.vx*=-.75;if(b.y<94){b.y=94;b.vy=Math.abs(b.vy)*.25}
+      b.prevX=b.x;b.prevY=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<b.r+25||b.x>W-b.r-25)b.vx*=-.75;if(b.y<94){b.y=94;b.vy=Math.abs(b.vy)*.25}
       if((b.phase==="fired"||b.phase==="slowing"||b.phase==="floating"))this.tryTrap(b);
       if((b.phase==="occupied"||b.phase==="warning")&&this.playerBubbleHit(b))this.popChain(b);
       if(b.life<=0){if(b.enemyId)this.releaseEnemy(b);b.phase="burst"}
@@ -380,9 +385,10 @@ export class BubbleHexEngine {
       else if(e.kind==="doll"){const charge=e.timer%3.4>2.55;e.vx=(this.player.x<e.x?-1:1)*(charge?250:55)*rage;e.vy+=1000*dt}
       else if(e.kind==="skull"){e.vx=(this.player.x<e.x?-1:1)*145*rage;e.vy+=900*dt;if(e.timer%2.2<dt)e.vy=-350}
       else{e.vx=(e.vx>=0?1:-1)*70*rage;e.vy+=1000*dt}
-      const oldY=e.y;e.x+=e.vx*dt;e.y+=e.vy*dt;if(e.x<28){e.x=28;e.vx=Math.abs(e.vx)}if(e.x>W-e.w-28){e.x=W-e.w-28;e.vx=-Math.abs(e.vx)}
+      const oldX=e.x,oldY=e.y;e.x+=e.vx*dt;e.y+=e.vy*dt;if(e.x<28){e.x=28;e.vx=Math.abs(e.vx)}if(e.x>W-e.w-28){e.x=W-e.w-28;e.vx=-Math.abs(e.vx)}
       if(e.kind!=="bat"&&e.kind!=="eye")for(const plat of this.level.platforms){if(e.x+e.w>plat.x&&e.x<plat.x+plat.w&&oldY+e.h<=plat.y+4&&e.y+e.h>=plat.y&&e.vy>=0){e.y=plat.y-e.h;e.vy=0;if(e.kind==="love"){const edge=e.vx>0?e.x+e.w+7:e.x-7;if(edge<plat.x||edge>plat.x+plat.w)e.vx*=-1}}}
-      if(e.y>H+50){e.y=100;e.x=100+Math.random()*700;e.vy=0}
+      e.prevX=oldX;e.prevY=oldY;
+      if(e.y>H+50){e.y=100;e.x=100+Math.random()*700;e.vy=0;e.prevX=e.x;e.prevY=e.y}
     }
   }
   private updateProjectiles(dt:number){for(const p of this.projectiles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}this.projectiles=this.projectiles.filter(p=>p.life>0&&p.x>-20&&p.x<W+20&&p.y>-20&&p.y<H+20)}
@@ -393,7 +399,7 @@ export class BubbleHexEngine {
   }
   private updateParticles(dt:number){for(const p of this.particles){p.x+=p.vx*dt;p.y+=p.vy*dt;p.vy+=180*dt;p.life-=dt}this.particles=this.particles.filter(p=>p.life>0)}
   private updateWidow(dt:number){
-    if(!this.widow)return;const w=this.widow;w.age+=dt;this.widowTime+=dt;
+    if(!this.widow)return;const w=this.widow;w.prevX=w.x;w.prevY=w.y;w.age+=dt;this.widowTime+=dt;
     if(!this.level.boss){
       const a=Math.atan2(this.player.y-w.y,this.player.x-w.x);
       w.vx+=Math.cos(a)*(this.cheats.super?110:85)*dt;w.vy+=Math.sin(a)*(this.cheats.super?110:85)*dt;
@@ -518,7 +524,7 @@ export class BubbleHexEngine {
   private loadLevelData(level:Level){
     this.level=level;this.levelTime=level.time;
     const rank=this.threatRank();
-    this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
+    this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,prevX:s.x,prevY:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
     this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];
     this.widow=level.boss?this.makeWidow(W/2,-60,true):null;this.widowTime=0;
     this.platformAudit=auditLevelReachability(level);this.resetPlayer(1.2);
@@ -555,7 +561,7 @@ export class BubbleHexEngine {
   }
   private save(){try{localStorage.setItem("bubble-hex-settings",JSON.stringify(this.settings))}catch{}}
 
-  private render(){const c=this.ctx;c.save();const s=this.shake&&!this.settings.reducedMotion?(Math.random()-.5)*this.shake:0;c.translate(s,s);c.fillStyle=COLORS.void;c.fillRect(-10,-10,W+20,H+20);
+  private render(){const c=this.ctx;this.renderAlpha=clamp(this.acc/FIXED,0,1);c.save();const s=this.shake&&!this.settings.reducedMotion?(Math.random()-.5)*this.shake:0;c.translate(s,s);c.fillStyle=COLORS.void;c.fillRect(-10,-10,W+20,H+20);
     if(this.state==="boot")this.drawBoot();else if(this.state==="title")this.drawTitle();else if(this.state==="characterSelect")this.drawSelect();else if(this.state==="records/options")this.drawRecords();else if(this.state==="victory")this.drawVictory();else if(this.state==="gameOver")this.drawGameOver();else{this.drawWorld();if(this.state==="stageIntro")this.drawStageIntro();if(this.state==="hurry")this.drawHurry();if(this.state==="paused")this.drawPause();if(this.state==="stageClear")this.drawStageClear();if(this.state==="dying")this.drawDying();if(this.state==="attract")this.label("ATTRACT MODE — PRESS ANY KEY",W/2,700,15,COLORS.shine,"center")}
     if(this.messageLife>0)this.banner(this.message,110,COLORS.jade);c.restore();
   }
@@ -589,19 +595,23 @@ export class BubbleHexEngine {
     this.label(hero==="vesper"?"THORN • SPARK • BITE":"MIST • GLASS • TIDE",x+150,y+379,10,skin.secondary,"center");this.label(on?"BUBBLE: CHANGE LOOK":"ALTERNATE",x+150,y+404,10,on?COLORS.pink:COLORS.blue,"center")
   }
   private drawWorld(){
+    const a=this.renderAlpha;
+    const bubbles=this.bubbles.map(b=>({...b,x:lerp(b.prevX,b.x,a),y:lerp(b.prevY,b.y,a)}));
+    const enemies=this.enemies.map(e=>({...e,x:lerp(e.prevX,e.x,a),y:lerp(e.prevY,e.y,a)}));
     this.drawBackground();this.drawPlatforms();
     for(const r of this.rewards)this.drawReward(r);
-    for(const b of this.bubbles)this.drawBubble(b);
-    for(const e of this.enemies)if(e.state!=="dead"&&e.state!=="trapped"&&e.kind!=="bat"&&e.kind!=="eye")this.drawShadowUnder(e.x+e.w/2,e.y+e.h,17);
-    for(const e of this.enemies)if(e.state!=="dead"&&e.state!=="trapped")this.drawEnemy(e);
+    for(const b of bubbles)this.drawBubble(b);
+    for(const e of enemies)if(e.state!=="dead"&&e.state!=="trapped"&&e.kind!=="bat"&&e.kind!=="eye")this.drawShadowUnder(e.x+e.w/2,e.y+e.h,17);
+    for(const e of enemies)if(e.state!=="dead"&&e.state!=="trapped")this.drawEnemy(e);
     for(const p of this.projectiles)this.drawProjectile(p);
-    if(this.widow&&this.widow.phase!=="trapped")this.drawWidow(this.widow);
-    this.drawPlayerShadow();
+    if(this.widow&&this.widow.phase!=="trapped")this.drawWidow({...this.widow,x:lerp(this.widow.prevX,this.widow.x,a),y:lerp(this.widow.prevY,this.widow.y,a)});
     const pl=this.player;
+    const ix=lerp(pl.previousX,pl.x,a),iy=lerp(pl.previousY,pl.y,a);
+    this.drawShadowUnder(ix+pl.w/2,iy+pl.h,21);
     const pose:HeroPose=this.state==="dying"?"hurt":!pl.grounded?(pl.vy<0?"jump":"fall"):Math.abs(pl.vx)>30?"run":"idle";
     const maxSpeed=this.upgrades.speed?POWER_RUN_SPEED:MAX_RUN_SPEED;
     const squash=pl.landTimer>0?(pl.landTimer/.18)*pl.landPower*.55:!pl.grounded?-clamp(Math.abs(pl.vy)/2600,0,.3):0;
-    this.drawHero(pl.x+17,pl.y+24,this.hero,1,pl.invuln>0&&Math.floor(pl.invuln*10)%2===0,
+    this.drawHero(ix+17,iy+24,this.hero,1,pl.invuln>0&&Math.floor(pl.invuln*10)%2===0,
       {facing:pl.facing,pose,runPhase:pl.runPhase,throwT:clamp(pl.throwTimer/.3,0,1),squash,speed:clamp(Math.abs(pl.vx)/maxSpeed,0,1)});
     for(const p of this.particles){this.ctx.globalAlpha=clamp(p.life*2,0,1);this.ctx.fillStyle=p.color;this.ctx.fillRect(p.x,p.y,p.size,p.size);this.ctx.globalAlpha=1}
     this.drawHud();this.drawProgressionHud();
@@ -610,7 +620,7 @@ export class BubbleHexEngine {
     if(this.comboLife>0)this.banner(this.comboText,370,COLORS.pink)
   }
   private drawBossNameplate(){const c=this.ctx,w=this.widow;if(!w)return;const t=clamp(w.phaseTimer/1.8,0,1);const alpha=t<.15?t/.15:t>.8?(1-t)/.2:1;c.save();c.globalAlpha=alpha;this.label("THE WIDOW",W/2,150,44,COLORS.crimson,"center","Georgia");this.label("LAST PATRON OF BUBBLE HEX",W/2,180,14,COLORS.pink,"center");c.restore()}
-  private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,389,25,11,COLORS.jade);this.label(`RANK ${rank} ${ENEMY_RANK_NAMES[rank-1]}`,389,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
+  private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,292,25,11,COLORS.jade);this.label(`RANK ${rank}`,292,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
   private drawBackground(){const c=this.ctx;c.fillStyle=COLORS.void;c.fillRect(0,0,W,H);c.fillStyle=this.level.world==="JADE GARDEN"?"#06140f":"#050817";c.fillRect(18,70,W-36,H-92);c.globalAlpha=.18;c.strokeStyle=this.level.tint;c.lineWidth=2;
     if(this.level.worldId==="velvet-drain"){const sx=[0,724,1448][this.levelIndex]??0;c.save();c.globalAlpha=.58;this.art.draw(c,"velvetDrain",sx,0,724,724,18,70,W-36,H-92);c.restore();c.fillStyle="rgba(2,5,14,.24)";c.fillRect(18,70,W-36,H-92)}
     if(this.level.world==="THE BLACK BUBBLE"){for(let x=40;x<W;x+=55){c.beginPath();c.moveTo(x,75);c.lineTo(W-x/4,H);c.stroke()}for(let y=120;y<H;y+=55){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}c.beginPath();c.arc(W/2,H/2,250,0,Math.PI*2);c.stroke()}
@@ -670,14 +680,13 @@ export class BubbleHexEngine {
       const block=blockForPlatform(this.level.worldId,index,p.y>=640,!!this.level.bonus);
       c.save();c.shadowBlur=12;c.shadowColor=this.widow?COLORS.crimson:block.top;c.fillStyle=block.shadow;c.fillRect(p.x-3,p.y+5,p.w+6,p.h+4);c.shadowBlur=0;
       const face=c.createLinearGradient(0,p.y,0,p.y+p.h);face.addColorStop(0,block.base);face.addColorStop(1,block.side);c.fillStyle=face;c.fillRect(p.x,p.y,p.w,p.h);
-      c.fillStyle=this.widow?COLORS.crimson:block.top;c.fillRect(p.x,p.y,p.w,6);c.fillStyle=block.edge;c.fillRect(p.x,p.y+6,p.w,2);c.fillStyle=block.side;c.fillRect(p.x,p.y+p.h-3,p.w,3);
-      c.strokeStyle=block.highlight;c.globalAlpha=.36;c.lineWidth=1;for(let tx=p.x+block.tileWidth;tx<p.x+p.w;tx+=block.tileWidth){c.beginPath();c.moveTo(tx,p.y+7);c.lineTo(tx,p.y+p.h-3);c.stroke()}c.globalAlpha=1;
-      this.drawBlockMotif(block,p.x,p.y,p.w,p.h);c.strokeStyle=block.edge;c.lineWidth=2;c.strokeRect(p.x,p.y,p.w,p.h);c.restore();
+      c.fillStyle=this.widow?COLORS.crimson:block.top;c.fillRect(p.x,p.y,p.w,7);c.fillStyle=block.edge;c.fillRect(p.x,p.y+7,p.w,2);c.fillStyle=block.side;c.fillRect(p.x,p.y+p.h-3,p.w,3);
+      c.strokeStyle=block.highlight;c.globalAlpha=.32;c.lineWidth=1.4;for(let tx=p.x+block.tileWidth;tx<p.x+p.w;tx+=block.tileWidth){c.beginPath();c.moveTo(tx,p.y+8);c.lineTo(tx,p.y+p.h-3);c.stroke()}c.globalAlpha=1;
+      this.drawBlockMotif(block,p.x,p.y,p.w,p.h);c.strokeStyle=block.edge;c.lineWidth=2.2;c.strokeRect(p.x,p.y,p.w,p.h);c.restore();
     }
   }
   private drawShadowUnder(cx:number,bottom:number,w:number){const c=this.ctx;const platform=this.level.platforms.find(s=>cx>s.x&&cx<s.x+s.w&&s.y>=bottom-6);if(!platform)return;const distance=platform.y-bottom,scale=clamp(1-distance/260,.22,1);c.save();c.globalAlpha=.16*scale;c.fillStyle="#000";c.beginPath();c.ellipse(cx,platform.y-2,w*scale,5*scale,0,0,Math.PI*2);c.fill();c.restore()}
-  private drawPlayerShadow(){const p=this.player;this.drawShadowUnder(p.x+p.w/2,p.y+p.h,21)}
-  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(315,34,this.hero,.55,false);this.label(`× ${this.lives}`,342,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
+  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(215,34,this.hero,.55,false);this.label(`× ${this.lives}`,235,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
   private drawBossHealth(w:WidowState){
     const c=this.ctx,pips=w.maxHp,cx=W/2,y=82,size=16,gap=26,startX=cx-((pips-1)*gap)/2;
     c.save();this.label("THE WIDOW",cx,74,11,COLORS.pink,"center");
@@ -706,7 +715,7 @@ export class BubbleHexEngine {
     const c=this.ctx,x=e.x+e.w/2,y=e.y+e.h/2,fur=e.state==="furious";
     const t=trapped?this.animTime:e.timer;
     const face:1|-1=Math.abs(e.vx)>4?(e.vx>0?1:-1):(this.player.x+17>x?1:-1);
-    c.save();c.translate(x,y);
+    c.save();c.translate(x,y);c.scale(BubbleHexEngine.ENEMY_SCALE,BubbleHexEngine.ENEMY_SCALE);
     if(trapped){c.globalAlpha=.85;c.rotate(Math.sin(this.animTime*2.2)*.16)}
     if(fur)c.rotate(Math.sin(t*18)*.12);
     const col=fur?COLORS.crimson:COLORS.pink;
@@ -880,12 +889,12 @@ export class BubbleHexEngine {
       ["PERFECT (NO DAMAGE)",b.noDamageBonus,"#FFD36A"],
       ["SECRET FOUND",b.secretBonus,COLORS.jade],
     ];
-    let y=278;
-    for(const [label,value,color] of rows){this.label(label,150,y,12,value>0?color:"#3a4a5e");this.label(value>0?`+${value}`:"—",730,y,12,value>0?color:"#3a4a5e","right");y+=24}
-    c.strokeStyle="#26374f";c.lineWidth=1;c.beginPath();c.moveTo(150,y+2);c.lineTo(730,y+2);c.stroke();y+=22;
+    let y=272;
+    for(const [label,value,color] of rows){this.label(label,150,y,12,value>0?color:"#3a4a5e");this.label(value>0?`+${value}`:"—",730,y,12,value>0?color:"#3a4a5e","right");y+=27}
+    c.strokeStyle="#26374f";c.lineWidth=1;c.beginPath();c.moveTo(150,y+2);c.lineTo(730,y+2);c.stroke();y+=24;
     this.label("STAGE TOTAL",150,y,16,COLORS.shine);this.label(`+${b.total}`,730,y,16,COLORS.shine,"right");
-    y+=26;this.label(`BEST CHAIN ×${this.bestChain}`,W/2,y,11,COLORS.blue,"center");y+=24;
-    if(this.secretFound&&fragment){this.label("JADE DOOR OPEN",W/2,y,20,COLORS.jade,"center");y+=28;this.label(fragment.title.toUpperCase(),W/2,y,16,COLORS.shine,"center","Georgia");y+=22;this.drawWrappedText(fragment.text,W/2,y,640,18,11,COLORS.shine,"center")}
+    y+=28;this.label(`BEST CHAIN ×${this.bestChain}`,W/2,y,11,COLORS.blue,"center");y+=26;
+    if(this.secretFound&&fragment){this.label("JADE DOOR OPEN",W/2,y,20,COLORS.jade,"center");y+=28;this.label(fragment.title.toUpperCase(),W/2,y,16,COLORS.shine,"center","Georgia");y+=22;this.drawWrappedText(fragment.text,W/2,y,640,16,10,COLORS.shine,"center")}
     else if(this.secretFound&&this.level.bonus){this.label("THE VAULT YIELDS ITS GOLD",W/2,y,18,"#FFD36A","center")}
     else{this.label(this.level.bonus?"THE VAULT STAYS SHUT — CHAIN THEM ALL NEXT TIME":"THE DOOR REMAINS QUIET",W/2,y,13,"#59687a","center")}
   }
@@ -909,13 +918,19 @@ export class BubbleHexEngine {
   private drawGothicFrame(color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=4;c.strokeRect(14,14,W-28,H-28);c.strokeRect(24,24,W-48,H-48);for(const [x,y,sx,sy] of [[25,25,1,1],[W-25,25,-1,1],[25,H-25,1,-1],[W-25,H-25,-1,-1]]){c.beginPath();c.moveTo(x,y+45*sy);c.lineTo(x,y);c.lineTo(x+45*sx,y);c.stroke();c.strokeRect(x+9*sx-(sx<0?8:0),y+9*sy-(sy<0?8:0),8,8)}}
   private drawGothicBox(x:number,y:number,w:number,h:number,color:string){const c=this.ctx;c.strokeStyle=color;c.lineWidth=3;c.strokeRect(x,y,w,h);c.strokeRect(x+10,y+10,w-20,h-20)}
   private banner(text:string,y:number,color:string){const c=this.ctx;c.save();c.fillStyle="rgba(5,5,9,.88)";c.fillRect(90,y-55,780,88);c.strokeStyle=color;c.lineWidth=3;c.strokeRect(95,y-50,770,78);c.shadowBlur=18;c.shadowColor=color;this.label(text,W/2,y,32,color,"center","Georgia");c.restore()}
+  // Scores, stage names, and story text are drawn ~28% larger than their authored
+  // size so in-canvas writing reads clearly at arcade-cabinet viewing distance.
+  private static readonly TEXT_SCALE=1.28;
+  // Enemies render a little larger than their (unchanged) collision box so they
+  // read clearly at the bigger cabinet size without touching hitboxes or levels.
+  private static readonly ENEMY_SCALE=1.18;
   private drawWrappedText(text:string,x:number,y:number,maxWidth:number,lineHeight:number,size:number,color:string,align:CanvasTextAlign="left"){
-    const c=this.ctx,readableSize=Math.max(size,13);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
+    const c=this.ctx,readableSize=Math.max(size*BubbleHexEngine.TEXT_SCALE,17);c.font=`900 ${readableSize}px monospace`;const words=text.split(/\s+/);const lines:string[]=[];let line="";
     for(const word of words){const test=line?`${line} ${word}`:word;if(c.measureText(test).width>maxWidth&&line){lines.push(line);line=word}else line=test}if(line)lines.push(line);
-    lines.slice(0,6).forEach((value,index)=>this.label(value,x,y+index*Math.max(lineHeight,readableSize+5),readableSize,color,align));
+    lines.slice(0,6).forEach((value,index)=>this.label(value,x,y+index*Math.max(lineHeight*BubbleHexEngine.TEXT_SCALE,readableSize+5),readableSize/BubbleHexEngine.TEXT_SCALE,color,align));
   }
   private label(text:string,x:number,y:number,size:number,color:string,align:CanvasTextAlign="left",family="monospace"){
-    const c=this.ctx,readableSize=Math.max(size,13);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
+    const c=this.ctx,readableSize=Math.max(size*BubbleHexEngine.TEXT_SCALE,17);c.save();c.textAlign=align;c.textBaseline="alphabetic";c.font=`900 ${readableSize}px ${family}, monospace`;c.lineJoin="round";
     c.strokeStyle="rgba(2,3,10,.94)";c.lineWidth=Math.max(2,Math.min(5,readableSize*.16));c.strokeText(text,x,y);c.fillStyle=color;c.fillText(text,x,y);c.restore();
   }
 }
