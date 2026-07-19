@@ -53,6 +53,16 @@ export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
   c.strokeStyle=accent;c.lineWidth=7;c.stroke();
   c.strokeStyle=glass;c.globalAlpha*=.6;c.lineWidth=2.5;c.beginPath();c.moveTo(2,12);c.quadraticCurveTo(mid[0],mid[1]-3,tip[0]+3,tip[1]);c.stroke();c.globalAlpha=o.ghost?.35:1;
   c.fillStyle=secondary;c.beginPath();c.moveTo(tip[0]+2,tip[1]);c.lineTo(tip[0]-8,tip[1]-8);c.lineTo(tip[0]-10,tip[1]+6);c.closePath();c.fill();
+  // Jade's "long tidal tail" gets a trailing glass ribbon on its own slower,
+  // phase-lagged wave — overlapping secondary motion that keeps flowing a
+  // beat after the body settles, reading as weightless follow-through.
+  if(hero==="jade"){
+    const flow=Math.sin((pose==="run"?run:time*1.6)-1.3)*1.4;
+    const fx=tip[0]-9+flow*2,fy=tip[1]+6+flow*3;
+    c.strokeStyle=glass;c.globalAlpha*=.5;c.lineWidth=3;
+    c.beginPath();c.moveTo(tip[0],tip[1]);c.quadraticCurveTo(tip[0]-6+flow,tip[1]+4-flow,fx,fy);c.stroke();
+    c.globalAlpha=o.ghost?.35:1;
+  }
 
   // ---- back arm ----
   let bh:[number,number];
@@ -89,10 +99,14 @@ export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
     c.fillStyle=secondary;c.strokeStyle=outline;c.lineWidth=2;
     c.beginPath();c.moveTo(hx-9,hy-8);c.lineTo(hx-19,hy-2);c.lineTo(hx-9,hy+3);c.closePath();c.fill();c.stroke();
     c.beginPath();c.moveTo(hx+9,hy-8);c.lineTo(hx+17,hy-3);c.lineTo(hx+9,hy+2);c.closePath();c.fill();c.stroke();
+    // Two overlapping sine frequencies (instead of one) read as fluid, circular
+    // veil-fin drift rather than a single metronomic swing.
+    const eddy=Math.sin(time*1.15+.6);
     c.strokeStyle=secondary;c.lineWidth=3;
-    c.beginPath();c.moveTo(hx-6,hy-11);c.quadraticCurveTo(hx-16+drift,hy-4+wave*1.5,hx-15+drift*1.6,hy+9+wave*2.5);c.stroke();
-    c.beginPath();c.moveTo(hx+2,hy-13);c.quadraticCurveTo(hx-8+drift,hy-14+wave,hx-13+drift*1.3,hy-4+wave*2);c.stroke();
+    c.beginPath();c.moveTo(hx-6,hy-11);c.quadraticCurveTo(hx-16+drift,hy-4+wave*1.8+eddy*.8,hx-15+drift*1.6,hy+9+wave*2.8+eddy*1.2);c.stroke();
+    c.beginPath();c.moveTo(hx+2,hy-13);c.quadraticCurveTo(hx-8+drift,hy-14+wave*1.3+eddy*.6,hx-13+drift*1.3,hy-4+wave*2.2+eddy*.9);c.stroke();
     c.strokeStyle="#B9FFF0";c.lineWidth=1.5;c.beginPath();c.moveTo(hx-14,hy-1);c.lineTo(hx-10,hy-4);c.stroke();
+    if(!o.ghost&&Math.sin(time*3.1)>.96)spark(c,hx-15+drift,hy+wave*2,2.2,"#B9FFF0");
   }
 
   // ---- face ----

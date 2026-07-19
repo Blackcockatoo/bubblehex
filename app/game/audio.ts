@@ -23,6 +23,9 @@ export function pickMusicUrl(source: MusicSource, canPlayOgg: boolean): string {
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n));
 const LOOP_CROSSFADE = 0.35;
 const MAX_SFX_VOICES = 14;
+const VOICE_DUCK_LEVEL = 0.32;
+const VOICE_DUCK_ATTACK = 0.12;
+const VOICE_DUCK_RELEASE = 0.35;
 const safePositive = (n: number, fallback: number) => (Number.isFinite(n) && n > 0 ? n : fallback);
 
 /**
@@ -245,6 +248,23 @@ export class AudioManager {
     this.voiceSource = source;
     this.lastVoiceUrl = url;
     this.nextVoiceAt = startAt + buffer.duration;
+    this.duckMusic(buffer.duration);
+  }
+
+  /** Ducks the music bus under a bark so the two never fight for the same frequency range, then restores it. */
+  private duckMusic(duration: number) {
+    if (!this.ctx || !this.musicBus) return;
+    const t = this.ctx.currentTime;
+    const full = this.muted ? 0 : this.musicVolume;
+    const ducked = full * VOICE_DUCK_LEVEL;
+    safeParam(() => {
+      const gain = this.musicBus!.gain;
+      gain.cancelScheduledValues(t);
+      gain.setValueAtTime(gain.value, t);
+      gain.linearRampToValueAtTime(ducked, t + VOICE_DUCK_ATTACK);
+      gain.setValueAtTime(ducked, t + Math.max(VOICE_DUCK_ATTACK, duration - VOICE_DUCK_RELEASE));
+      gain.linearRampToValueAtTime(full, t + duration + VOICE_DUCK_RELEASE);
+    });
   }
 
   private async loadVoiceBuffer(url: string): Promise<AudioBuffer | null> {
