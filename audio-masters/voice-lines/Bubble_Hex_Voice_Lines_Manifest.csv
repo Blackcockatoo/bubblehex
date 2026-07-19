@@ -1,0 +1,90 @@
+clip,category,line,start_seconds,end_seconds,duration_seconds,filename
+1,START_SCREEN,"Come on, bubble boy. Press start.",0.0,5.02,5.02,01_START_SCREEN_Come_on_bubble_boy_Press_start.mp3
+2,START_SCREEN,The Hex is awake.,4.98,7.15,2.17,02_START_SCREEN_The_Hex_is_awake.mp3
+3,START_SCREEN,One hero. Hundreds of monsters. Seems fair.,7.11,10.61,3.5,03_START_SCREEN_One_hero_Hundreds_of_monsters_Seems_fair.mp3
+4,START_SCREEN,Insert courage.,10.57,11.89,1.32,04_START_SCREEN_Insert_courage.mp3
+5,START_SCREEN,Ready to make a mess?,11.85,14.81,2.96,05_START_SCREEN_Ready_to_make_a_mess.mp3
+6,PLAYER_TAUNT,Catch this!,14.77,15.68,0.91,06_PLAYER_TAUNT_Catch_this.mp3
+7,PLAYER_TAUNT,Bubble trouble!,15.64,16.54,0.9,07_PLAYER_TAUNT_Bubble_trouble.mp3
+8,PLAYER_TAUNT,"Too slow, glow-worm!",16.5,18.3,1.8,08_PLAYER_TAUNT_Too_slow_glow_worm.mp3
+9,PLAYER_TAUNT,You call that an attack?,18.26,19.73,1.47,09_PLAYER_TAUNT_You_call_that_an_attack.mp3
+10,PLAYER_TAUNT,Pop goes the ugly!,19.69,21.34,1.65,10_PLAYER_TAUNT_Pop_goes_the_ugly.mp3
+11,PLAYER_TAUNT,Back in your bubble!,21.3,23.43,2.13,11_PLAYER_TAUNT_Back_in_your_bubble.mp3
+12,PLAYER_TAUNT,Hex this!,23.39,23.79,0.4,12_PLAYER_TAUNT_Hex_this.mp3
+13,PLAYER_TAUNT,"Bounce, blast, goodbye!",23.75,25.58,1.83,13_PLAYER_TAUNT_Bounce_blast_goodbye.mp3
+14,PLAYER_TAUNT,Should’ve stayed in the cave!,25.54,26.94,1.4,14_PLAYER_TAUNT_Shouldve_stayed_in_the_cave.mp3
+15,PLAYER_TAUNT,Look out below!,26.9,28.62,1.72,15_PLAYER_TAUNT_Look_out_below.mp3
+16,PLAYER_TAUNT,Nice projectile. Mine’s bubblier.,28.58,31.66,3.08,16_PLAYER_TAUNT_Nice_projectile_Mines_bubblier.mp3
+17,PLAYER_TAUNT,Was that supposed to hurt?,31.62,33.31,1.69,17_PLAYER_TAUNT_Was_that_supposed_to_hurt.mp3
+18,PLAYER_TAUNT,Consider yourself contained.,33.27,35.27,2.0,18_PLAYER_TAUNT_Consider_yourself_contained.mp3
+19,PLAYER_TAUNT,Pop first. Ask questions never.,35.23,40.39,5.16,19_PLAYER_TAUNT_Pop_first_Ask_questions_never.mp3
+20,ENEMY_TAUNT,Little bubble… little chance.,40.35,43.43,3.08,20_ENEMY_TAUNT_Little_bubble_little_chance.mp3
+21,ENEMY_TAUNT,You cannot climb forever.,43.39,46.58,3.19,21_ENEMY_TAUNT_You_cannot_climb_forever.mp3
+22,ENEMY_TAUNT,We learned your jumps.,46.54,48.13,1.59,22_ENEMY_TAUNT_We_learned_your_jumps.mp3
+23,ENEMY_TAUNT,Every bubble eventually bursts.,48.09,50.29,2.2,23_ENEMY_TAUNT_Every_bubble_eventually_bursts.mp3
+24,ENEMY_TAUNT,"Come closer, tiny hero.",50.25,53.39,3.14,24_ENEMY_TAUNT_Come_closer_tiny_hero.mp3
+25,ENEMY_TAUNT,The checkpoint will not save you.,53.35,56.38,3.03,25_ENEMY_TAUNT_The_checkpoint_will_not_save_you.mp3
+26,ENEMY_TAUNT,You are already inside the Hex.,56.34,60.24,3.9,26_ENEMY_TAUNT_You_are_already_inside_the_Hex.mp3
+27,ENEMY_TAUNT,"Run, bounce, struggle—it changes nothing.",60.2,63.43,3.23,27_ENEMY_TAUNT_Run_bounce_struggleit_changes_nothing.mp3
+28,ENEMY_TAUNT,We have been waiting.,63.39,64.93,1.54,28_ENEMY_TAUNT_We_have_been_waiting.mp3
+29,ENEMY_TAUNT,Your fear makes us stronger.,64.89,68.79,3.9,29_ENEMY_TAUNT_Your_fear_makes_us_stronger.mp3
+30,GAMEPLAY_CALLOUT,Enemy trapped!,68.75,69.61,0.86,30_GAMEPLAY_CALLOUT_Enemy_trapped.mp3
+31,GAMEPLAY_CALLOUT,Chain reaction!,69.57,70.26,0.69,31_GAMEPLAY_CALLOUT_Chain_reaction.mp3
+32,GAMEPLAY_CALLOUT,Double jump ready!,70.22,71.14,0.92,32_GAMEPLAY_CALLOUT_Double_jump_ready.mp3
+33,GAMEPLAY_CALLOUT,Rapid fire activated!,71.1,73.09,1.99,33_GAMEPLAY_CALLOUT_Rapid_fire_activated.mp3
+34,GAMEPLAY_CALLOUT,Bubble range increased!,73.05,74.02,0.97,34_GAMEPLAY_CALLOUT_Bubble_range_increased.mp3
+35,GAMEPLAY_CALLOUT,Secret room nearby.,73.98,74.82,0.84,35_GAMEPLAY_CALLOUT_Secret_room_nearby.mp3
+36,GAMEPLAY_CALLOUT,Treasure detected.,74.78,75.27,0.49,36_GAMEPLAY_CALLOUT_Treasure_detected.mp3
+37,GAMEPLAY_CALLOUT,Checkpoint approaching.,75.23,76.18,0.95,37_GAMEPLAY_CALLOUT_Checkpoint_approaching.mp3
+38,GAMEPLAY_CALLOUT,Checkpoint restored!,76.14,76.86,0.72,38_GAMEPLAY_CALLOUT_Checkpoint_restored.mp3
+39,GAMEPLAY_CALLOUT,Ability charged!,76.82,77.67,0.85,39_GAMEPLAY_CALLOUT_Ability_charged.mp3
+40,GAMEPLAY_CALLOUT,Shield weakening!,77.63,78.15,0.52,40_GAMEPLAY_CALLOUT_Shield_weakening.mp3
+41,GAMEPLAY_CALLOUT,Time running out!,78.11,79.08,0.97,41_GAMEPLAY_CALLOUT_Time_running_out.mp3
+42,GAMEPLAY_CALLOUT,Danger above!,79.04,79.95,0.91,42_GAMEPLAY_CALLOUT_Danger_above.mp3
+43,GAMEPLAY_CALLOUT,Projectile incoming!,79.91,81.83,1.92,43_GAMEPLAY_CALLOUT_Projectile_incoming.mp3
+44,GAMEPLAY_CALLOUT,Floor collapsing!,81.79,83.76,1.97,44_GAMEPLAY_CALLOUT_Floor_collapsing.mp3
+45,GAMEPLAY_CALLOUT,Boss armour broken!,83.72,85.05,1.33,45_GAMEPLAY_CALLOUT_Boss_armour_broken.mp3
+46,GAMEPLAY_CALLOUT,Final phase!,85.01,86.77,1.76,46_GAMEPLAY_CALLOUT_Final_phase.mp3
+47,PLAYER_DAMAGE,Ow! Rude!,86.73,87.76,1.03,47_PLAYER_DAMAGE_Ow_Rude.mp3
+48,PLAYER_DAMAGE,That one counted.,87.72,89.25,1.53,48_PLAYER_DAMAGE_That_one_counted.mp3
+49,PLAYER_DAMAGE,I meant to do that.,89.21,90.36,1.15,49_PLAYER_DAMAGE_I_meant_to_do_that.mp3
+50,PLAYER_DAMAGE,Still bubbling!,90.32,91.72,1.4,50_PLAYER_DAMAGE_Still_bubbling.mp3
+51,PLAYER_DAMAGE,Okay… now I’m annoyed.,91.68,94.31,2.63,51_PLAYER_DAMAGE_Okay_now_Im_annoyed.mp3
+52,PLAYER_DAMAGE,Tiny setback!,94.27,95.18,0.91,52_PLAYER_DAMAGE_Tiny_setback.mp3
+53,PLAYER_DAMAGE,Bubble integrity questionable!,95.14,98.39,3.25,53_PLAYER_DAMAGE_Bubble_integrity_questionable.mp3
+54,LOW_HEALTH,Warning: last bubble.,98.35,100.78,2.43,54_LOW_HEALTH_Warning_last_bubble.mp3
+55,LOW_HEALTH,Hero integrity critical.,100.74,102.71,1.97,55_LOW_HEALTH_Hero_integrity_critical.mp3
+56,LOW_HEALTH,One more hit will end the run.,102.67,105.08,2.41,56_LOW_HEALTH_One_more_hit_will_end_the_run.mp3
+57,LOW_HEALTH,Find cover. Find courage. Find something!,105.04,109.7,4.66,57_LOW_HEALTH_Find_cover_Find_courage_Find_something.mp3
+58,LOW_HEALTH,Do not let the last bubble burst.,109.66,115.56,5.9,58_LOW_HEALTH_Do_not_let_the_last_bubble_burst.mp3
+59,BOSS_ARRIVAL,HEX GUARDIAN DETECTED.,115.52,117.15,1.63,59_BOSS_ARRIVAL_HEX_GUARDIAN_DETECTED.mp3
+60,BOSS_ARRIVAL,Large monster. Small arena. Bad combination.,117.11,120.34,3.23,60_BOSS_ARRIVAL_Large_monster_Small_arena_Bad_combination.mp3
+61,BOSS_ARRIVAL,Boss battle initiated.,120.3,122.38,2.08,61_BOSS_ARRIVAL_Boss_battle_initiated.mp3
+62,BOSS_ARRIVAL,Survival probability unavailable.,122.34,124.73,2.39,62_BOSS_ARRIVAL_Survival_probability_unavailable.mp3
+63,BOSS_ARRIVAL,The Guardian has awakened.,124.69,127.77,3.08,63_BOSS_ARRIVAL_The_Guardian_has_awakened.mp3
+64,BOSS_ARRIVAL,Break the armour!,127.73,129.96,2.23,64_BOSS_ARRIVAL_Break_the_armour.mp3
+65,BOSS_ARRIVAL,Watch the mouth!,129.92,130.96,1.04,65_BOSS_ARRIVAL_Watch_the_mouth.mp3
+66,BOSS_ARRIVAL,Jump… NOW!,130.92,133.6,2.68,66_BOSS_ARRIVAL_Jump_NOW.mp3
+67,VICTORY,HEX CLEARED!,133.56,134.63,1.07,67_VICTORY_HEX_CLEARED.mp3
+68,VICTORY,Monster population: dramatically reduced.,134.59,137.7,3.11,68_VICTORY_Monster_population_dramatically_reduced.mp3
+69,VICTORY,Checkpoint secured!,137.66,139.7,2.04,69_VICTORY_Checkpoint_secured.mp3
+70,VICTORY,Perfect chain!,139.66,140.92,1.26,70_VICTORY_Perfect_chain.mp3
+71,VICTORY,Kingdom fragment restored!,140.88,142.53,1.65,71_VICTORY_Kingdom_fragment_restored.mp3
+72,VICTORY,Boss bubbled!,142.49,143.8,1.31,72_VICTORY_Boss_bubbled.mp3
+73,VICTORY,That is how you pop a nightmare.,143.76,146.84,3.08,73_VICTORY_That_is_how_you_pop_a_nightmare.mp3
+74,DEATH_RESTART,The last bubble burst.,146.8,148.45,1.65,74_DEATH_RESTART_The_last_bubble_burst.mp3
+75,DEATH_RESTART,Good attempt. Terrible landing.,148.41,150.25,1.84,75_DEATH_RESTART_Good_attempt_Terrible_landing.mp3
+76,DEATH_RESTART,The Hex remembers.,150.21,151.81,1.6,76_DEATH_RESTART_The_Hex_remembers.mp3
+77,DEATH_RESTART,"Try again, bubble boy.",151.77,153.57,1.8,77_DEATH_RESTART_Try_again_bubble_boy.mp3
+78,DEATH_RESTART,Failure collected.,153.53,154.87,1.34,78_DEATH_RESTART_Failure_collected.mp3
+79,DEATH_RESTART,You nearly looked heroic.,154.83,156.7,1.87,79_DEATH_RESTART_You_nearly_looked_heroic.mp3
+80,DEATH_RESTART,Press start. Fix your mistake.,156.66,160.81,4.15,80_DEATH_RESTART_Press_start_Fix_your_mistake.mp3
+81,SECRET,The wall is lying.,160.77,163.04,2.27,81_SECRET_The_wall_is_lying.mp3
+82,SECRET,There is something beneath this level.,163.0,165.67,2.67,82_SECRET_There_is_something_beneath_this_level.mp3
+83,SECRET,Not every enemy wants to fight.,165.63,168.72,3.09,83_SECRET_Not_every_enemy_wants_to_fight.mp3
+84,SECRET,The bubbles remember the old kingdom.,168.68,171.36,2.68,84_SECRET_The_bubbles_remember_the_old_kingdom.mp3
+85,SECRET,You have been here before.,171.32,173.01,1.69,85_SECRET_You_have_been_here_before.mp3
+86,SECRET,The Hex is watching the player.,172.97,177.22,4.25,86_SECRET_The_Hex_is_watching_the_player.mp3
+87,SECRET,Do not trust the final door.,177.18,183.1,5.92,87_SECRET_Do_not_trust_the_final_door.mp3
+88,FINAL_SECRET,You thought you were playing the Hex?,183.06,186.52,3.46,88_FINAL_SECRET_You_thought_you_were_playing_the_Hex.mp3
+89,FINAL_SECRET,The Hex has been playing you.,186.48,189.37,2.89,89_FINAL_SECRET_The_Hex_has_been_playing_you.mp3

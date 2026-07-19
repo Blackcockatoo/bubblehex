@@ -1,3 +1,5 @@
+import { VOICE_LINES, type VoiceCategory } from "./voice.ts";
+
 export type MusicTrackId = "title" | "stage" | "hotel" | "garden" | "chapel" | "bonus" | "boss" | "victory";
 
 type MusicSource = { ogg: string; mp3: string; loop: boolean };
@@ -53,6 +55,12 @@ export class AudioManager {
   private pendingTimers: ReturnType<typeof setTimeout>[] = [];
   private wasPlayingBeforeHidden = false;
   private sfxVoices = 0;
+
+  private voiceBuffers = new Map<string, AudioBuffer>();
+  private voiceLoadState = new Map<string, "loading" | "ready" | "failed">();
+  private voiceSource: AudioBufferSourceNode | null = null;
+  private nextVoiceAt = 0;
+  private lastVoiceUrl: string | null = null;
 
   muted = false;
   musicVolume = 0.5;
@@ -208,6 +216,54 @@ export class AudioManager {
       this.pendingTimers.push(timer);
     };
     scheduleAt(ctx.currentTime + 0.02);
+  }
+
+  /**
+   * Spoken one-shot barks. Only one plays at a time and a new bark is
+   * dropped (never queued) while the previous one is still speaking, so
+   * rapid-fire triggers (chain pops, damage) can't pile up into a queue of
+   * stale lines. Picks a random clip from the category, avoiding an
+   * immediate repeat of the last line played across any category.
+   */
+  async playVoice(category: VoiceCategory) {
+    if (this.muted || !this.ctx || !this.sfxBus) return;
+    const now = this.ctx.currentTime;
+    if (now < this.nextVoiceAt) return;
+    const urls = VOICE_LINES[category];
+    if (!urls || !urls.length) return;
+    const choices = urls.length > 1 ? urls.filter(u => u !== this.lastVoiceUrl) : urls;
+    const url = choices[Math.floor(Math.random() * choices.length)];
+    const buffer = await this.loadVoiceBuffer(url);
+    if (!buffer || !this.ctx || !this.sfxBus) return;
+    const startAt = this.ctx.currentTime;
+    if (startAt < this.nextVoiceAt) return;
+    safeParam(() => this.voiceSource?.stop());
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(this.sfxBus);
+    safeParam(() => source.start());
+    this.voiceSource = source;
+    this.lastVoiceUrl = url;
+    this.nextVoiceAt = startAt + buffer.duration;
+  }
+
+  private async loadVoiceBuffer(url: string): Promise<AudioBuffer | null> {
+    const cached = this.voiceBuffers.get(url);
+    if (cached) return cached;
+    if (this.voiceLoadState.get(url) === "failed" || !this.ctx) return null;
+    this.voiceLoadState.set(url, "loading");
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`voice ${url} http ${response.status}`);
+      const bytes = await response.arrayBuffer();
+      const buffer = await this.ctx.decodeAudioData(bytes);
+      this.voiceBuffers.set(url, buffer);
+      this.voiceLoadState.set(url, "ready");
+      return buffer;
+    } catch {
+      this.voiceLoadState.set(url, "failed");
+      return null;
+    }
   }
 
   /** Procedural SFX layer — cheap, dependency-free, rate-limited so bubble chains never clip. */

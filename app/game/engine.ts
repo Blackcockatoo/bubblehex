@@ -90,7 +90,7 @@ export class BubbleHexEngine {
   private shake=0; private hitStop=0; private attractTime=0; private secretFound=false; private endingText=""; private animTime=0;
   private gamepadPrev={jump:false,bubble:false,start:false,pause:false};
   private debug=false; private platformAudit:PlatformAudit[]=[]; private landedThisFrame=false;
-  private art=new GameArtAssets(); private archiveIndex=0; private audioReady=false;
+  private art=new GameArtAssets(); private archiveIndex=0; private audioReady=false; private usedDoubleJump=false;
   private readonly devTools:boolean=Boolean(import.meta.env?.DEV);
   private inBonus=false; private bonusVisited=false; private stageStartScore=0; private stageDamaged=false; private newRecord=false;
   private stageBreakdown={kills:0,speedBonus:0,lifeBonus:0,noDamageBonus:0,secretBonus:0,total:0};
@@ -236,7 +236,7 @@ export class BubbleHexEngine {
   private updatePlaying(dt:number,demo:boolean){
     if(demo){this.attractTime+=dt;if(this.attractTime>11){this.toTitle();return}this.held.right=this.player.x<720;this.held.left=this.player.x>=720;this.held.bubble=Math.floor(this.attractTime*2)%2===0;if(this.player.grounded&&Math.floor(this.attractTime*1.3)%3===0)this.just.add("jump")}
     this.updateWorld(dt,true,demo);
-    if(!demo){this.levelTime-=dt;if(this.levelTime<=0&&!this.widow){this.audio.hurry();this.setState("hurry");return}}
+    if(!demo){this.levelTime-=dt;if(this.levelTime<=0&&!this.widow){this.audio.hurry();this.audio.playVoice("hurryUp");this.setState("hurry");return}}
     const bossCleared=this.level.boss?(this.widow?.phase==="defeated"&&this.widow.phaseTimer>1.4):this.enemies.every(e=>e.state==="dead");
     if(bossCleared)this.clearStage(demo);
   }
@@ -276,6 +276,7 @@ export class BubbleHexEngine {
         p.vy=DOUBLE_JUMP_VELOCITY;p.jumpsRemaining=0;p.jumpCut=false;p.jumpAge=0;
         this.jumpBuffer=0;this.audio.tone(420,.11,"triangle",260,.1);
         this.burstParticles(p.x+p.w/2,p.y+p.h,COLORS.jade,12);
+        if(!this.usedDoubleJump){this.usedDoubleJump=true;this.audio.playVoice("doubleJump")}
       }
     }
 
@@ -339,7 +340,7 @@ export class BubbleHexEngine {
       this.audio.trap();this.burstParticles(b.x,b.y,COLORS.crimson,14);
       return;
     }
-    for(const e of this.enemies){if(e.state!=="normal"&&e.state!=="furious")continue;if(dist(b,e)<b.r+26){e.state="trapped";e.timer=0;e.weakened=this.upgrades.venom;b.phase="occupied";b.enemyId=e.id;const resistance=Math.max(.58,1-(e.rank-1)*.08-(e.elite?.08:0));b.life=(e.weakened?6.4:5.4)*resistance;b.vx*=.15;b.vy=-24;b.r=25;this.trappedBeforeFirstPop++;this.audio.trap();this.burstParticles(b.x,b.y,e.weakened?COLORS.jade:COLORS.pink,8);break}}
+    for(const e of this.enemies){if(e.state!=="normal"&&e.state!=="furious")continue;if(dist(b,e)<b.r+26){e.state="trapped";e.timer=0;e.weakened=this.upgrades.venom;b.phase="occupied";b.enemyId=e.id;const resistance=Math.max(.58,1-(e.rank-1)*.08-(e.elite?.08:0));b.life=(e.weakened?6.4:5.4)*resistance;b.vx*=.15;b.vy=-24;b.r=25;this.trappedBeforeFirstPop++;this.audio.trap();if(this.trappedBeforeFirstPop===1)this.audio.playVoice("trapped");this.burstParticles(b.x,b.y,e.weakened?COLORS.jade:COLORS.pink,8);break}}
   }
   private playerBubbleHit(b:Bubble){const p=this.player;return p.x<b.x+b.r&&p.x+p.w>b.x-b.r&&p.y<b.y+b.r&&p.y+p.h>b.y-b.r}
   private popChain(root:Bubble){
@@ -347,8 +348,8 @@ export class BubbleHexEngine {
     while(open.length){const b=open.shift()!;if(seen.has(b.id))continue;seen.add(b.id);chain.push(b);for(const n of this.bubbles)if((n.phase==="occupied"||n.phase==="warning")&&!seen.has(n.id)&&dist(b,n)<link)open.push(n)}
     this.firstPop=true;this.bestChain=Math.max(this.bestChain,chain.length);const mult=[1,2,3,4,6,8,13][Math.min(chain.length-1,6)];
     chain.forEach((b,i)=>setTimeout(()=>{if(!this.alive)return;this.resolveBubble(b,mult,i+1)},i*55));
-    if(chain.length>=6){this.comboText="HEARTBREAK ×6";this.comboLife=1.55;this.hitStop=this.settings.reducedMotion?0:.1;this.shake=this.settings.reducedMotion?0:7}
-    else{this.comboText=`CHAIN ×${mult}`;this.comboLife=.8}
+    if(chain.length>=6){this.comboText="HEARTBREAK ×6";this.comboLife=1.55;this.hitStop=this.settings.reducedMotion?0:.1;this.shake=this.settings.reducedMotion?0:7;this.audio.playVoice("megaChain")}
+    else{this.comboText=`CHAIN ×${mult}`;this.comboLife=.8;if(chain.length>=3&&Math.random()<.4)this.audio.playVoice("playerTaunt")}
   }
   private resolveBubble(b:Bubble,mult:number,chain:number){
     if(b.enemyId===WIDOW_ENEMY_ID){this.hitWidow();b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,COLORS.crimson,18);return}
@@ -360,7 +361,7 @@ export class BubbleHexEngine {
     this.shake=this.settings.reducedMotion?0:10;this.hitStop=this.settings.reducedMotion?0:.12;this.audio.bossHit();
     if(w.hp<=0){this.beginWidowDefeat();return}
     w.phase="chase";w.phaseTimer=0;w.x=clamp(w.x,80,W-80);w.y=clamp(w.y,120,H-120);
-    this.message="THE WIDOW STAGGERS";this.messageLife=1.3;
+    this.message="THE WIDOW STAGGERS";this.messageLife=1.3;this.audio.playVoice("bossArmourBroken");
   }
   private beginWidowDefeat(){
     const w=this.widow;if(!w)return;
@@ -371,7 +372,7 @@ export class BubbleHexEngine {
   }
   private releaseEnemy(b:Bubble){
     if(b.enemyId===WIDOW_ENEMY_ID){if(this.widow){this.widow.phase="chase";this.widow.phaseTimer=0;this.widow.x=b.x;this.widow.y=b.y;this.widow.vx=(this.player.x<b.x?1:-1)*80;this.widow.vy=-40}b.enemyId=undefined;return}
-    const e=this.enemies.find(e=>e.id===b.enemyId);if(e){e.state="furious";e.x=b.x-e.w/2;e.y=b.y-e.h/2;e.vx=(this.player.x<e.x?-1:1)*220*(1+(e.rank-1)*.1+(e.elite?.15:0));e.timer=8}b.enemyId=undefined;
+    const e=this.enemies.find(e=>e.id===b.enemyId);if(e){e.state="furious";e.x=b.x-e.w/2;e.y=b.y-e.h/2;e.vx=(this.player.x<e.x?-1:1)*220*(1+(e.rank-1)*.1+(e.elite?.15:0));e.timer=8;this.audio.playVoice("enemyTaunt")}b.enemyId=undefined;
   }
   private updateEnemies(dt:number){
     for(const e of this.enemies){if(e.state==="dead"||e.state==="trapped")continue;e.timer+=dt;e.cooldown-=dt;const power=1+(e.rank-1)*.1+(e.elite?.15:0);const rage=(e.state==="furious"?(e.weakened?1.1:1.55):(e.weakened?.75:1))*power;
@@ -452,15 +453,15 @@ export class BubbleHexEngine {
     const hit=this.enemies.some(e=>(e.state==="normal"||e.state==="furious")&&overlaps(this.player,e))||this.projectiles.some(p=>p.x>this.player.x&&p.x<this.player.x+this.player.w&&p.y>this.player.y&&p.y<this.player.y+this.player.h)||(widowDangerous&&dist(this.player,this.widow!)<52);
     if(hit)this.damagePlayer();
   }
-  private damagePlayer(){if(this.player.invuln>0)return;this.stageDamaged=true;if(this.upgrades.shield){this.upgrades.shield=false;this.player.invuln=1.2;this.message="COMPACT SHATTERED";this.messageLife=1;this.audio.pop(2);return}this.audio.hurt();this.lives--;this.setState("dying");this.burstParticles(this.player.x+17,this.player.y+24,COLORS.crimson,22)}
-  private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("gameOver")}else{this.resetPlayer(2.2);this.setState("playing")}}
+  private damagePlayer(){if(this.player.invuln>0)return;this.stageDamaged=true;if(this.upgrades.shield){this.upgrades.shield=false;this.player.invuln=1.2;this.message="COMPACT SHATTERED";this.messageLife=1;this.audio.pop(2);return}this.audio.hurt();this.lives--;this.audio.playVoice(this.lives===1?"lowHealth":"playerDamage");this.setState("dying");this.burstParticles(this.player.x+17,this.player.y+24,COLORS.crimson,22)}
+  private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.audio.playVoice("deathRestart");this.setState("gameOver")}else{this.resetPlayer(2.2);this.setState("playing")}}
   private spawnReward(x:number,y:number,chain:number){
     const kinds=["CHERRY","RING","PERFUME","DRAGON FRUIT","BLACKBERRY","CROWN"],values=[100,250,400,600,800,1300];const tier=Math.min(kinds.length-1,Math.floor((chain-1)/2)+(this.upgrades.crown?1:0));
     const n=this.stageKills;if(n%7===0){const letters=["V","E","N","O","M"];const letter=letters.find(l=>!this.venom.has(l))||letters[n%5];this.rewards.push({x,y,vy:-120,kind:"LETTER",value:1080,life:12,letter})}
     else this.rewards.push({x,y,vy:-110,kind:kinds[tier],value:values[tier],life:10});
     if(n%5===0)this.applyPowerup(n);
   }
-  private applyPowerup(n:number){const list=["rapid","range","velocity","speed","shield","venom","chain","crown"] as const;const key=list[(n+this.levelIndex)%list.length];this.upgrades[key]=true;this.message=({rapid:"LIGHTNING CANDY",range:"HEART RANGE",velocity:"BLUE COMET",speed:"CRIMSON HEELS",shield:"HEART COMPACT",venom:"JADE FANG",chain:"SNAKE CHAIN",crown:"THORN CROWN"})[key];this.messageLife=1.25;this.audio.reward()}
+  private applyPowerup(n:number){const list=["rapid","range","velocity","speed","shield","venom","chain","crown"] as const;const key=list[(n+this.levelIndex)%list.length];this.upgrades[key]=true;this.message=({rapid:"LIGHTNING CANDY",range:"HEART RANGE",velocity:"BLUE COMET",speed:"CRIMSON HEELS",shield:"HEART COMPACT",venom:"JADE FANG",chain:"SNAKE CHAIN",crown:"THORN CROWN"})[key];this.messageLife=1.25;this.audio.reward();if(key==="rapid")this.audio.playVoice("rapidFire");else if(key==="range")this.audio.playVoice("rangeUp")}
   private heroProgress(){return this.settings.heroProgress[this.hero]}
   private gainHeroXp(amount:number){
     const before=this.heroProgress();
@@ -496,6 +497,10 @@ export class BubbleHexEngine {
         this.settings.fragments.push(this.level.loreFragmentId);this.settings.secrets++;
       }
       this.unlockContent(this.level.loreFragmentId);this.audio.secret();
+      const isFinalStage=this.levelIndex>=LEVELS.length-1&&!this.level.bonus;
+      this.audio.playVoice(isFinalStage?"finalSecret":"secret");
+    }else{
+      this.audio.playVoice("victory");
     }
     this.recordStageResult();
     if(this.levelIndex===2&&!this.inBonus)this.unlockVelvetSkin(this.hero);
@@ -522,6 +527,7 @@ export class BubbleHexEngine {
     this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
     this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];
     this.widow=level.boss?this.makeWidow(W/2,-60,true):null;this.widowTime=0;
+    if(level.boss)this.audio.playVoice("bossArrival");
     this.platformAudit=auditLevelReachability(level);this.resetPlayer(1.2);
     this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false;this.stageStartScore=this.score;this.stageDamaged=false;this.stageXp=0;
     this.applyMasteryUpgrades(true);
@@ -530,7 +536,7 @@ export class BubbleHexEngine {
   }
   private remixLevel(base:Level):Level{if(!this.cheats.super)return base;return{...base,time:Math.max(45,base.time-12),platforms:base.platforms.map((p,i)=>i===0?p:{...p,y:p.y+(i%2?18:-12)}),enemies:[...base.enemies,...base.enemies.slice(0,2).map((e,i)=>({...e,x:clamp(e.x+150+i*90,60,860),kind:i?"skull" as EnemyKind:"witch" as EnemyKind}))]}}
   private beginAttract(){this.attractTime=0;this.hero="jade";this.levelIndex=1;this.loadLevel(1);this.setState("attract")}
-  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false}}
+  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";const freshStart=resetRun||this.state==="boot";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false};if(freshStart)this.audio.playVoice("startScreen")}
   private recordToken(token:Token,isStartAction:boolean){
     const match=this.cheatReader.feed(token,performance.now(),this.cheats);
     this.startGrace=nextTitleStartGrace(!!match,isStartAction);

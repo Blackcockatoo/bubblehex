@@ -1,0 +1,89 @@
+01 [START_SCREEN] Come on, bubble boy. Press start. | 0.000-5.020s | 01_START_SCREEN_Come_on_bubble_boy_Press_start.mp3
+02 [START_SCREEN] The Hex is awake. | 4.980-7.150s | 02_START_SCREEN_The_Hex_is_awake.mp3
+03 [START_SCREEN] One hero. Hundreds of monsters. Seems fair. | 7.110-10.610s | 03_START_SCREEN_One_hero_Hundreds_of_monsters_Seems_fair.mp3
+04 [START_SCREEN] Insert courage. | 10.570-11.890s | 04_START_SCREEN_Insert_courage.mp3
+05 [START_SCREEN] Ready to make a mess? | 11.850-14.810s | 05_START_SCREEN_Ready_to_make_a_mess.mp3
+06 [PLAYER_TAUNT] Catch this! | 14.770-15.680s | 06_PLAYER_TAUNT_Catch_this.mp3
+07 [PLAYER_TAUNT] Bubble trouble! | 15.640-16.540s | 07_PLAYER_TAUNT_Bubble_trouble.mp3
+08 [PLAYER_TAUNT] Too slow, glow-worm! | 16.500-18.300s | 08_PLAYER_TAUNT_Too_slow_glow_worm.mp3
+09 [PLAYER_TAUNT] You call that an attack? | 18.260-19.730s | 09_PLAYER_TAUNT_You_call_that_an_attack.mp3
+10 [PLAYER_TAUNT] Pop goes the ugly! | 19.690-21.340s | 10_PLAYER_TAUNT_Pop_goes_the_ugly.mp3
+11 [PLAYER_TAUNT] Back in your bubble! | 21.300-23.430s | 11_PLAYER_TAUNT_Back_in_your_bubble.mp3
+12 [PLAYER_TAUNT] Hex this! | 23.390-23.790s | 12_PLAYER_TAUNT_Hex_this.mp3
+13 [PLAYER_TAUNT] Bounce, blast, goodbye! | 23.750-25.580s | 13_PLAYER_TAUNT_Bounce_blast_goodbye.mp3
+14 [PLAYER_TAUNT] Should’ve stayed in the cave! | 25.540-26.940s | 14_PLAYER_TAUNT_Shouldve_stayed_in_the_cave.mp3
+15 [PLAYER_TAUNT] Look out below! | 26.900-28.620s | 15_PLAYER_TAUNT_Look_out_below.mp3
+16 [PLAYER_TAUNT] Nice projectile. Mine’s bubblier. | 28.580-31.660s | 16_PLAYER_TAUNT_Nice_projectile_Mines_bubblier.mp3
+17 [PLAYER_TAUNT] Was that supposed to hurt? | 31.620-33.310s | 17_PLAYER_TAUNT_Was_that_supposed_to_hurt.mp3
+18 [PLAYER_TAUNT] Consider yourself contained. | 33.270-35.270s | 18_PLAYER_TAUNT_Consider_yourself_contained.mp3
+19 [PLAYER_TAUNT] Pop first. Ask questions never. | 35.230-40.390s | 19_PLAYER_TAUNT_Pop_first_Ask_questions_never.mp3
+20 [ENEMY_TAUNT] Little bubble… little chance. | 40.350-43.430s | 20_ENEMY_TAUNT_Little_bubble_little_chance.mp3
+21 [ENEMY_TAUNT] You cannot climb forever. | 43.390-46.580s | 21_ENEMY_TAUNT_You_cannot_climb_forever.mp3
+22 [ENEMY_TAUNT] We learned your jumps. | 46.540-48.130s | 22_ENEMY_TAUNT_We_learned_your_jumps.mp3
+23 [ENEMY_TAUNT] Every bubble eventually bursts. | 48.090-50.290s | 23_ENEMY_TAUNT_Every_bubble_eventually_bursts.mp3
+24 [ENEMY_TAUNT] Come closer, tiny hero. | 50.250-53.390s | 24_ENEMY_TAUNT_Come_closer_tiny_hero.mp3
+25 [ENEMY_TAUNT] The checkpoint will not save you. | 53.350-56.380s | 25_ENEMY_TAUNT_The_checkpoint_will_not_save_you.mp3
+26 [ENEMY_TAUNT] You are already inside the Hex. | 56.340-60.240s | 26_ENEMY_TAUNT_You_are_already_inside_the_Hex.mp3
+27 [ENEMY_TAUNT] Run, bounce, struggle—it changes nothing. | 60.200-63.430s | 27_ENEMY_TAUNT_Run_bounce_struggleit_changes_nothing.mp3
+28 [ENEMY_TAUNT] We have been waiting. | 63.390-64.930s | 28_ENEMY_TAUNT_We_have_been_waiting.mp3
+29 [ENEMY_TAUNT] Your fear makes us stronger. | 64.890-68.790s | 29_ENEMY_TAUNT_Your_fear_makes_us_stronger.mp3
+30 [GAMEPLAY_CALLOUT] Enemy trapped! | 68.750-69.610s | 30_GAMEPLAY_CALLOUT_Enemy_trapped.mp3
+31 [GAMEPLAY_CALLOUT] Chain reaction! | 69.570-70.260s | 31_GAMEPLAY_CALLOUT_Chain_reaction.mp3
+32 [GAMEPLAY_CALLOUT] Double jump ready! | 70.220-71.140s | 32_GAMEPLAY_CALLOUT_Double_jump_ready.mp3
+33 [GAMEPLAY_CALLOUT] Rapid fire activated! | 71.100-73.090s | 33_GAMEPLAY_CALLOUT_Rapid_fire_activated.mp3
+34 [GAMEPLAY_CALLOUT] Bubble range increased! | 73.050-74.020s | 34_GAMEPLAY_CALLOUT_Bubble_range_increased.mp3
+35 [GAMEPLAY_CALLOUT] Secret room nearby. | 73.980-74.820s | 35_GAMEPLAY_CALLOUT_Secret_room_nearby.mp3
+36 [GAMEPLAY_CALLOUT] Treasure detected. | 74.780-75.270s | 36_GAMEPLAY_CALLOUT_Treasure_detected.mp3
+37 [GAMEPLAY_CALLOUT] Checkpoint approaching. | 75.230-76.180s | 37_GAMEPLAY_CALLOUT_Checkpoint_approaching.mp3
+38 [GAMEPLAY_CALLOUT] Checkpoint restored! | 76.140-76.860s | 38_GAMEPLAY_CALLOUT_Checkpoint_restored.mp3
+39 [GAMEPLAY_CALLOUT] Ability charged! | 76.820-77.670s | 39_GAMEPLAY_CALLOUT_Ability_charged.mp3
+40 [GAMEPLAY_CALLOUT] Shield weakening! | 77.630-78.150s | 40_GAMEPLAY_CALLOUT_Shield_weakening.mp3
+41 [GAMEPLAY_CALLOUT] Time running out! | 78.110-79.080s | 41_GAMEPLAY_CALLOUT_Time_running_out.mp3
+42 [GAMEPLAY_CALLOUT] Danger above! | 79.040-79.950s | 42_GAMEPLAY_CALLOUT_Danger_above.mp3
+43 [GAMEPLAY_CALLOUT] Projectile incoming! | 79.910-81.830s | 43_GAMEPLAY_CALLOUT_Projectile_incoming.mp3
+44 [GAMEPLAY_CALLOUT] Floor collapsing! | 81.790-83.760s | 44_GAMEPLAY_CALLOUT_Floor_collapsing.mp3
+45 [GAMEPLAY_CALLOUT] Boss armour broken! | 83.720-85.050s | 45_GAMEPLAY_CALLOUT_Boss_armour_broken.mp3
+46 [GAMEPLAY_CALLOUT] Final phase! | 85.010-86.770s | 46_GAMEPLAY_CALLOUT_Final_phase.mp3
+47 [PLAYER_DAMAGE] Ow! Rude! | 86.730-87.760s | 47_PLAYER_DAMAGE_Ow_Rude.mp3
+48 [PLAYER_DAMAGE] That one counted. | 87.720-89.250s | 48_PLAYER_DAMAGE_That_one_counted.mp3
+49 [PLAYER_DAMAGE] I meant to do that. | 89.210-90.360s | 49_PLAYER_DAMAGE_I_meant_to_do_that.mp3
+50 [PLAYER_DAMAGE] Still bubbling! | 90.320-91.720s | 50_PLAYER_DAMAGE_Still_bubbling.mp3
+51 [PLAYER_DAMAGE] Okay… now I’m annoyed. | 91.680-94.310s | 51_PLAYER_DAMAGE_Okay_now_Im_annoyed.mp3
+52 [PLAYER_DAMAGE] Tiny setback! | 94.270-95.180s | 52_PLAYER_DAMAGE_Tiny_setback.mp3
+53 [PLAYER_DAMAGE] Bubble integrity questionable! | 95.140-98.390s | 53_PLAYER_DAMAGE_Bubble_integrity_questionable.mp3
+54 [LOW_HEALTH] Warning: last bubble. | 98.350-100.780s | 54_LOW_HEALTH_Warning_last_bubble.mp3
+55 [LOW_HEALTH] Hero integrity critical. | 100.740-102.710s | 55_LOW_HEALTH_Hero_integrity_critical.mp3
+56 [LOW_HEALTH] One more hit will end the run. | 102.670-105.080s | 56_LOW_HEALTH_One_more_hit_will_end_the_run.mp3
+57 [LOW_HEALTH] Find cover. Find courage. Find something! | 105.040-109.700s | 57_LOW_HEALTH_Find_cover_Find_courage_Find_something.mp3
+58 [LOW_HEALTH] Do not let the last bubble burst. | 109.660-115.560s | 58_LOW_HEALTH_Do_not_let_the_last_bubble_burst.mp3
+59 [BOSS_ARRIVAL] HEX GUARDIAN DETECTED. | 115.520-117.150s | 59_BOSS_ARRIVAL_HEX_GUARDIAN_DETECTED.mp3
+60 [BOSS_ARRIVAL] Large monster. Small arena. Bad combination. | 117.110-120.340s | 60_BOSS_ARRIVAL_Large_monster_Small_arena_Bad_combination.mp3
+61 [BOSS_ARRIVAL] Boss battle initiated. | 120.300-122.380s | 61_BOSS_ARRIVAL_Boss_battle_initiated.mp3
+62 [BOSS_ARRIVAL] Survival probability unavailable. | 122.340-124.730s | 62_BOSS_ARRIVAL_Survival_probability_unavailable.mp3
+63 [BOSS_ARRIVAL] The Guardian has awakened. | 124.690-127.770s | 63_BOSS_ARRIVAL_The_Guardian_has_awakened.mp3
+64 [BOSS_ARRIVAL] Break the armour! | 127.730-129.960s | 64_BOSS_ARRIVAL_Break_the_armour.mp3
+65 [BOSS_ARRIVAL] Watch the mouth! | 129.920-130.960s | 65_BOSS_ARRIVAL_Watch_the_mouth.mp3
+66 [BOSS_ARRIVAL] Jump… NOW! | 130.920-133.600s | 66_BOSS_ARRIVAL_Jump_NOW.mp3
+67 [VICTORY] HEX CLEARED! | 133.560-134.630s | 67_VICTORY_HEX_CLEARED.mp3
+68 [VICTORY] Monster population: dramatically reduced. | 134.590-137.700s | 68_VICTORY_Monster_population_dramatically_reduced.mp3
+69 [VICTORY] Checkpoint secured! | 137.660-139.700s | 69_VICTORY_Checkpoint_secured.mp3
+70 [VICTORY] Perfect chain! | 139.660-140.920s | 70_VICTORY_Perfect_chain.mp3
+71 [VICTORY] Kingdom fragment restored! | 140.880-142.530s | 71_VICTORY_Kingdom_fragment_restored.mp3
+72 [VICTORY] Boss bubbled! | 142.490-143.800s | 72_VICTORY_Boss_bubbled.mp3
+73 [VICTORY] That is how you pop a nightmare. | 143.760-146.840s | 73_VICTORY_That_is_how_you_pop_a_nightmare.mp3
+74 [DEATH_RESTART] The last bubble burst. | 146.800-148.450s | 74_DEATH_RESTART_The_last_bubble_burst.mp3
+75 [DEATH_RESTART] Good attempt. Terrible landing. | 148.410-150.250s | 75_DEATH_RESTART_Good_attempt_Terrible_landing.mp3
+76 [DEATH_RESTART] The Hex remembers. | 150.210-151.810s | 76_DEATH_RESTART_The_Hex_remembers.mp3
+77 [DEATH_RESTART] Try again, bubble boy. | 151.770-153.570s | 77_DEATH_RESTART_Try_again_bubble_boy.mp3
+78 [DEATH_RESTART] Failure collected. | 153.530-154.870s | 78_DEATH_RESTART_Failure_collected.mp3
+79 [DEATH_RESTART] You nearly looked heroic. | 154.830-156.700s | 79_DEATH_RESTART_You_nearly_looked_heroic.mp3
+80 [DEATH_RESTART] Press start. Fix your mistake. | 156.660-160.810s | 80_DEATH_RESTART_Press_start_Fix_your_mistake.mp3
+81 [SECRET] The wall is lying. | 160.770-163.040s | 81_SECRET_The_wall_is_lying.mp3
+82 [SECRET] There is something beneath this level. | 163.000-165.670s | 82_SECRET_There_is_something_beneath_this_level.mp3
+83 [SECRET] Not every enemy wants to fight. | 165.630-168.720s | 83_SECRET_Not_every_enemy_wants_to_fight.mp3
+84 [SECRET] The bubbles remember the old kingdom. | 168.680-171.360s | 84_SECRET_The_bubbles_remember_the_old_kingdom.mp3
+85 [SECRET] You have been here before. | 171.320-173.010s | 85_SECRET_You_have_been_here_before.mp3
+86 [SECRET] The Hex is watching the player. | 172.970-177.220s | 86_SECRET_The_Hex_is_watching_the_player.mp3
+87 [SECRET] Do not trust the final door. | 177.180-183.100s | 87_SECRET_Do_not_trust_the_final_door.mp3
+88 [FINAL_SECRET] You thought you were playing the Hex? | 183.060-186.520s | 88_FINAL_SECRET_You_thought_you_were_playing_the_Hex.mp3
+89 [FINAL_SECRET] The Hex has been playing you. | 186.480-189.370s | 89_FINAL_SECRET_The_Hex_has_been_playing_you.mp3

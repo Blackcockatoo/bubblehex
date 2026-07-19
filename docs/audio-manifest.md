@@ -128,3 +128,49 @@ every other looping track in the delivery map above.
 | `hotel-theme.{ogg,mp3}` | Heartbreak Hotel (chambers 4–6) | Yes |
 | `garden-theme.{ogg,mp3}` | Jade Garden (chambers 7–8) | Yes |
 | `chapel-theme.{ogg,mp3}` | Crimson Chapel (chambers 9–10) | Yes |
+
+## 2026-07-19 addition: voice-line barks
+
+An 89-clip voice pack (`Bubble_Hex_Voice_Lines_SPLIT_AND_NAMED.zip`, pre-split
+and named per line with an accompanying manifest of exact in/out timestamps)
+was supplied for gameplay barks. These are generic arcade quips ("bubble
+boy", "the Hex", boss/victory/death stings) rather than Vesper/Jade/Widow
+dialogue, so they're used as an announcer/hero-voice layer over the existing
+music and procedural SFX, not as canon character lines.
+
+79 of the 89 clips map onto real game events and are wired into
+`app/game/voice.ts` / `AudioManager.playVoice()`. The other 10 — all in the
+"GAMEPLAY_CALLOUT" category — reference mechanics BUBBLE HEX doesn't have
+(checkpoints, an "ability charge" meter, gradual shield "weakening",
+proximity warnings for secrets/treasure/projectiles/danger, a boss "final
+phase") and were left out entirely rather than mapped to the nearest-sounding
+event, which would have taught players a false mental model of the game's
+systems. They're still preserved in the original zip if a future mechanic
+makes one of them true.
+
+Playback is a single-voice channel layered onto the existing SFX bus (so the
+mute/SFX-volume controls already cover it): only one bark plays at a time,
+a new trigger while one is still speaking is dropped rather than queued, and
+each category avoids repeating its immediately-previous line. No dual-format
+encode — one-shot spoken barks don't need the loop-safe OGG/MP3 treatment
+music does, and MP3 alone covers every target browser.
+
+| Category | Clips | Trigger |
+|---|---|---|
+| `startScreen` | 5 | Title screen after boot, or after a game over / victory reset (not attract-mode loops, to avoid spamming an idle demo) |
+| `playerTaunt` | 14 | ~40% chance on a 3–5 bubble chain pop |
+| `enemyTaunt` | 10 | An enemy escapes its bubble and turns furious |
+| `trapped` | 1 | The first enemy trapped in a stage |
+| `megaChain` | 1 | A 6+ bubble "HEARTBREAK" mega-combo |
+| `doubleJump` | 1 | The first double jump performed all session |
+| `rapidFire` | 1 | The rapid-fire (LIGHTNING CANDY) power-up |
+| `rangeUp` | 1 | The range (HEART RANGE) power-up |
+| `hurryUp` | 1 | The level timer hits zero and HURRY begins |
+| `bossArmourBroken` | 1 | The Widow staggers from a hit (not yet defeated) |
+| `playerDamage` | 7 | Player takes damage with 2+ lives remaining |
+| `lowHealth` | 5 | Player takes damage down to their last life |
+| `bossArrival` | 8 | A boss stage loads |
+| `victory` | 7 | Stage clear, without a secret found |
+| `deathRestart` | 7 | Final life lost — game over |
+| `secret` | 7 | Stage clear with a Jade Door secret found (not the final stage) |
+| `finalSecret` | 2 | The final stage's secret found |
