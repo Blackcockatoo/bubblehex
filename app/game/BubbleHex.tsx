@@ -54,8 +54,8 @@ export default function BubbleHex() {
             <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
           </div>
           <div className="action-controls" aria-label="Action controls">
-            <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span aria-hidden="true">↑</span></button>
             <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span aria-hidden="true">○</span></button>
+            <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span aria-hidden="true">↑</span></button>
           </div>
         </div>
       </div>
