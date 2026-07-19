@@ -2,33 +2,86 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
+import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
+import "./background-motion.css";
 
 const holdActions: Action[] = ["left", "right"];
+
+const BACKGROUND_BY_LEVEL: Record<string, string> = {
+  "The First Sip": "/backgrounds/hex-tunnel.svg",
+  "Chain Letter": "/backgrounds/bubble-field.svg",
+  "Blue Pressure": "/backgrounds/hex-reactor.svg",
+  "Room 108": "/backgrounds/bubble-city.svg",
+  "Mirror Teeth": "/backgrounds/hex-storm.svg",
+  "Last Lift": "/backgrounds/hex-reactor.svg",
+  "Poison Moon": "/backgrounds/bubble-moon.svg",
+  "Black Roses": "/backgrounds/hex-storm.svg",
+  "Serpent Glass": "/backgrounds/hex-tunnel.svg",
+  "Thirteen Candles": "/backgrounds/hex-reactor.svg",
+  "Event Horizon": "/backgrounds/hex-tunnel.svg",
+  "The Widow Unveiled": "/backgrounds/hex-reactor.svg",
+  "The Dirty Gold Vault": "/backgrounds/bubble-city.svg",
+};
+
+const PLAY_STATES = new Set(["attract", "stageIntro", "playing", "hurry", "dying", "stageClear", "paused"]);
+const MENU_BACKGROUND = "/backgrounds/bubble-city.svg";
+
+function backgroundFor(gameState: string, levelName: string) {
+  if (!PLAY_STATES.has(gameState)) return MENU_BACKGROUND;
+  return BACKGROUND_BY_LEVEL[levelName] ?? "/backgrounds/hex-tunnel.svg";
+}
 
 export default function BubbleHex() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<BubbleHexEngine | null>(null);
   const [muted, setMuted] = useState(false);
   const [running, setRunning] = useState(false);
+  const [backgroundSrc, setBackgroundSrc] = useState(MENU_BACKGROUND);
+  const [gameState, setGameState] = useState("boot");
 
   useEffect(() => {
     if (!canvasRef.current) return;
+    installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
-    engineRef.current = engine; engine.start();
+    engineRef.current = engine;
+    engine.start();
+
     const stopScroll = (event: KeyboardEvent) => {
-      if (["ArrowLeft","ArrowRight","ArrowUp"," "].includes(event.key)) event.preventDefault();
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault();
     };
-    window.addEventListener("keydown", stopScroll, { passive:false });
-    return () => { window.removeEventListener("keydown", stopScroll); engine.destroy(); };
+    const syncBackground = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const nextState = canvas.dataset.gameState ?? "boot";
+      const nextBackground = backgroundFor(nextState, canvas.dataset.levelName ?? "");
+      setGameState((current) => current === nextState ? current : nextState);
+      setBackgroundSrc((current) => current === nextBackground ? current : nextBackground);
+    };
+
+    window.addEventListener("keydown", stopScroll, { passive: false });
+    const backgroundTimer = window.setInterval(syncBackground, 250);
+    syncBackground();
+
+    return () => {
+      window.clearInterval(backgroundTimer);
+      window.removeEventListener("keydown", stopScroll);
+      engine.destroy();
+    };
   }, []);
 
   const press = useCallback((action: Action) => engineRef.current?.press(action), []);
   const release = useCallback((action: Action) => engineRef.current?.release(action), []);
   const bind = (action: Action) => ({
-    onPointerDown:(event:React.PointerEvent<HTMLButtonElement>)=>{event.currentTarget.setPointerCapture(event.pointerId);press(action);},
-    onPointerUp:()=>release(action), onPointerCancel:()=>release(action),
-    onPointerLeave:()=>holdActions.includes(action)&&release(action),
+    onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.currentTarget.setPointerCapture(event.pointerId);
+      press(action);
+    },
+    onPointerUp: () => release(action),
+    onPointerCancel: () => release(action),
+    onPointerLeave: () => holdActions.includes(action) && release(action),
   });
+
+  const motionMode = PLAY_STATES.has(gameState) ? "is-playing" : "is-menu";
 
   return <main className="arcade-page">
     <header className="top-rail">
@@ -40,6 +93,8 @@ export default function BubbleHex() {
       <div className="play-layout">
         <div className="screen-bezel"><div className="screen-wrap">
           <canvas ref={canvasRef} width={960} height={720} aria-label="Playable Bubble Hex game" tabIndex={0}/>
+          <img key={backgroundSrc} className={`game-background-motion ${motionMode}`} src={backgroundSrc} alt="" aria-hidden="true" />
+          <div className="game-background-vignette" aria-hidden="true" />
           <div className="scanlines" aria-hidden="true" />
         </div></div>
         <div className="control-deck">
@@ -48,10 +103,10 @@ export default function BubbleHex() {
             <button type="button" aria-label="Move right" {...bind("right")}><span aria-hidden="true">▶</span></button>
           </div>
           <div className="mini-controls">
-            <button type="button" onClick={()=>press("start")}>START</button>
-            <button type="button" onClick={()=>press("consciousness")}>ENEMY LEVEL</button>
-            <button type="button" onClick={()=>press("pause")}>ARCHIVE / PAUSE</button>
-            <button type="button" aria-pressed={muted} onClick={()=>{const n=!muted;setMuted(n);engineRef.current?.setMuted(n);}}>{muted?"SOUND OFF":"SOUND ON"}</button>
+            <button type="button" onClick={() => press("start")}>START</button>
+            <button type="button" onClick={() => press("consciousness")}>ENEMY LEVEL</button>
+            <button type="button" onClick={() => press("pause")}>ARCHIVE / PAUSE</button>
+            <button type="button" aria-pressed={muted} onClick={() => { const next = !muted; setMuted(next); engineRef.current?.setMuted(next); }}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
           </div>
           <div className="action-controls" aria-label="Action controls">
             <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span aria-hidden="true">○</span></button>
@@ -61,10 +116,9 @@ export default function BubbleHex() {
       </div>
     </section>
     <footer className="machine-footer">
-      <p>{running?"CABINET ONLINE":"WARMING TUBES"} · ONE PLAYER · LOCAL HIGH SCORE</p>
+      <p>{running ? "CABINET ONLINE" : "WARMING TUBES"} · ONE PLAYER · LOCAL HIGH SCORE</p>
       <p className="desktop-hint">MOVE A/D OR ←/→ · JUMP SPACE/C · BUBBLE X/Z · ENTER START · P ARCHIVE/PAUSE</p>
       <p className="mobile-hint">MULTI-TOUCH READY · TURN LANDSCAPE FOR A BIGGER CHAMBER</p>
     </footer>
   </main>;
 }
-

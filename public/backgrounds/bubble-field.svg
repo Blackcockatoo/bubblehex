@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 720">
+<defs><radialGradient id="b"><stop stop-color="#07142e"/><stop offset=".55" stop-color="#03040d"/><stop offset="1" stop-color="#010207"/></radialGradient><radialGradient id="orb" cx="32%" cy="25%"><stop stop-color="#ffd6f1" stop-opacity=".9"/><stop offset=".18" stop-color="#087cff" stop-opacity=".4"/><stop offset=".72" stop-color="#ff2a9d" stop-opacity=".12"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>
+<rect width="960" height="720" fill="url(#b)"/>
+<g fill="none" stroke="#756cff" opacity=".18"><path d="M0 90h150l55 95-55 95H0M0 420h150l55 95-55 95H0M960 90H810l-55 95 55 95h150M960 420H810l-55 95 55 95h150"/></g>
+<g fill="url(#orb)" stroke="#9bc9ff" stroke-opacity=".45">
+<circle cx="90" cy="760" r="42"><animate attributeName="cy" values="760;-70" dur="10s" repeatCount="indefinite"/></circle>
+<circle cx="190" cy="690" r="18"><animate attributeName="cy" values="720;-40" dur="7s" repeatCount="indefinite"/></circle>
+<circle cx="285" cy="760" r="28"><animate attributeName="cy" values="780;-60" dur="12s" repeatCount="indefinite"/></circle>
+<circle cx="760" cy="735" r="34"><animate attributeName="cy" values="760;-60" dur="9s" repeatCount="indefinite"/></circle>
+<circle cx="865" cy="680" r="20"><animate attributeName="cy" values="720;-40" dur="6.5s" repeatCount="indefinite"/></circle>
+<circle cx="925" cy="780" r="50"><animate attributeName="cy" values="790;-80" dur="13s" repeatCount="indefinite"/></circle>
+<circle cx="420" cy="740" r="8"><animate attributeName="cy" values="740;-20" dur="5s" repeatCount="indefinite"/></circle>
+<circle cx="550" cy="700" r="7"><animate attributeName="cy" values="730;-20" dur="6s" repeatCount="indefinite"/></circle>
+</g>
+</svg>
