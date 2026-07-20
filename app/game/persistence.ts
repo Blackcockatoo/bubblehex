@@ -3,8 +3,10 @@ import type { EnemyConsciousness, HeroProgress } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
+export type LeaderboardEntry = { name:string; score:number };
+
 export type PersistedSettings = {
-  version:5;
+  version:6;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -19,13 +21,17 @@ export type PersistedSettings = {
   bestStageTimes:Record<string,number>;
   perfectClears:number;
   heroProgress:Record<HeroId,HeroProgress>;
+  leaderboard:LeaderboardEntry[];
 };
 
+export const LEADERBOARD_SIZE = 10;
+
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:5,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:6,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
+  leaderboard:[],
 };
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
@@ -44,6 +50,14 @@ const normalizePersistedHeroProgress=(value:unknown):HeroProgress=>{
   while(level<20&&xp>=150*level*(level+1))level++;
   return {level,xp};
 };
+const normalizeLeaderboard=(value:unknown):LeaderboardEntry[]=>{
+  if(!Array.isArray(value))return[];
+  return value
+    .filter((entry):entry is LeaderboardEntry=>!!entry&&typeof entry==="object"&&typeof (entry as LeaderboardEntry).name==="string"&&typeof (entry as LeaderboardEntry).score==="number")
+    .map(entry=>({name:entry.name.slice(0,3).toUpperCase(),score:Math.max(0,Math.floor(entry.score))}))
+    .sort((a,b)=>b.score-a.score)
+    .slice(0,LEADERBOARD_SIZE);
+};
 
 export function migrateSettings(input:unknown,prefersReducedMotion=false):PersistedSettings {
   const raw=input&&typeof input==="object"?input as Partial<PersistedSettings>&{volume?:number}:{};
@@ -53,7 +67,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
   return {
-    ...DEFAULT_SETTINGS,...raw,version:5,
+    ...DEFAULT_SETTINGS,...raw,version:6,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -67,5 +81,6 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     bestStageTimes:positiveRecord(raw.bestStageTimes),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
+    leaderboard:normalizeLeaderboard(raw.leaderboard),
   };
 }

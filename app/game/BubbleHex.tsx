@@ -7,28 +7,40 @@ import "./background-motion.css";
 
 const holdActions: Action[] = ["left", "right"];
 
-const BACKGROUND_BY_LEVEL: Record<string, string> = {
-  "The First Sip": "/backgrounds/hex-tunnel.svg",
-  "Chain Letter": "/backgrounds/bubble-field.svg",
-  "Blue Pressure": "/backgrounds/hex-reactor.svg",
-  "Room 108": "/backgrounds/bubble-city.svg",
-  "Mirror Teeth": "/backgrounds/hex-storm.svg",
-  "Last Lift": "/backgrounds/hex-reactor.svg",
-  "Poison Moon": "/backgrounds/bubble-moon.svg",
-  "Black Roses": "/backgrounds/hex-storm.svg",
-  "Serpent Glass": "/backgrounds/hex-tunnel.svg",
-  "Thirteen Candles": "/backgrounds/hex-reactor.svg",
-  "Event Horizon": "/backgrounds/hex-tunnel.svg",
-  "The Widow Unveiled": "/backgrounds/hex-reactor.svg",
-  "The Dirty Gold Vault": "/backgrounds/bubble-city.svg",
+type BackgroundKey = "hexTunnel" | "bubbleField" | "hexReactor" | "bubbleCity" | "hexStorm" | "bubbleMoon" | "vaultCave";
+
+const BACKGROUNDS: Record<BackgroundKey, { svg: string; webm: string; mp4: string }> = {
+  hexTunnel: { svg: "/backgrounds/hex-tunnel.svg", webm: "/backgrounds/video/hex-tunnel.webm", mp4: "/backgrounds/video/hex-tunnel.mp4" },
+  bubbleField: { svg: "/backgrounds/bubble-field.svg", webm: "/backgrounds/video/bubble-field.webm", mp4: "/backgrounds/video/bubble-field.mp4" },
+  hexReactor: { svg: "/backgrounds/hex-reactor.svg", webm: "/backgrounds/video/hex-reactor.webm", mp4: "/backgrounds/video/hex-reactor.mp4" },
+  bubbleCity: { svg: "/backgrounds/bubble-city.svg", webm: "/backgrounds/video/bubble-city.webm", mp4: "/backgrounds/video/bubble-city.mp4" },
+  hexStorm: { svg: "/backgrounds/hex-storm.svg", webm: "/backgrounds/video/hex-storm.webm", mp4: "/backgrounds/video/hex-storm.mp4" },
+  bubbleMoon: { svg: "/backgrounds/bubble-moon.svg", webm: "/backgrounds/video/bubble-moon.webm", mp4: "/backgrounds/video/bubble-moon.mp4" },
+  vaultCave: { svg: "/backgrounds/bubble-city.svg", webm: "/backgrounds/video/vault-cave.webm", mp4: "/backgrounds/video/vault-cave.mp4" },
+};
+
+const BACKGROUND_BY_LEVEL: Record<string, BackgroundKey> = {
+  "The First Sip": "hexTunnel",
+  "Chain Letter": "bubbleField",
+  "Blue Pressure": "hexReactor",
+  "Room 108": "bubbleCity",
+  "Mirror Teeth": "hexStorm",
+  "Last Lift": "hexReactor",
+  "Poison Moon": "bubbleMoon",
+  "Black Roses": "hexStorm",
+  "Serpent Glass": "hexTunnel",
+  "Thirteen Candles": "hexReactor",
+  "Event Horizon": "hexTunnel",
+  "The Widow Unveiled": "hexReactor",
+  "The Dirty Gold Vault": "vaultCave",
 };
 
 const PLAY_STATES = new Set(["attract", "stageIntro", "playing", "hurry", "dying", "stageClear", "paused"]);
-const MENU_BACKGROUND = "/backgrounds/bubble-city.svg";
+const MENU_BACKGROUND: BackgroundKey = "bubbleCity";
 
-function backgroundFor(gameState: string, levelName: string) {
+function backgroundFor(gameState: string, levelName: string): BackgroundKey {
   if (!PLAY_STATES.has(gameState)) return MENU_BACKGROUND;
-  return BACKGROUND_BY_LEVEL[levelName] ?? "/backgrounds/hex-tunnel.svg";
+  return BACKGROUND_BY_LEVEL[levelName] ?? "hexTunnel";
 }
 
 export default function BubbleHex() {
@@ -36,8 +48,13 @@ export default function BubbleHex() {
   const engineRef = useRef<BubbleHexEngine | null>(null);
   const [muted, setMuted] = useState(false);
   const [running, setRunning] = useState(false);
-  const [backgroundSrc, setBackgroundSrc] = useState(MENU_BACKGROUND);
+  const [backgroundKey, setBackgroundKey] = useState<BackgroundKey>(MENU_BACKGROUND);
   const [gameState, setGameState] = useState("boot");
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  useEffect(() => {
+    setReducedMotion(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -55,7 +72,7 @@ export default function BubbleHex() {
       const nextState = canvas.dataset.gameState ?? "boot";
       const nextBackground = backgroundFor(nextState, canvas.dataset.levelName ?? "");
       setGameState((current) => current === nextState ? current : nextState);
-      setBackgroundSrc((current) => current === nextBackground ? current : nextBackground);
+      setBackgroundKey((current) => current === nextBackground ? current : nextBackground);
     };
 
     window.addEventListener("keydown", stopScroll, { passive: false });
@@ -93,7 +110,12 @@ export default function BubbleHex() {
       <div className="play-layout">
         <div className="screen-bezel"><div className="screen-wrap">
           <canvas ref={canvasRef} width={960} height={720} aria-label="Playable Bubble Hex game" tabIndex={0}/>
-          <img key={backgroundSrc} className={`game-background-motion ${motionMode}`} src={backgroundSrc} alt="" aria-hidden="true" />
+          {reducedMotion
+            ? <img key={backgroundKey} className={`game-background-motion ${motionMode}`} src={BACKGROUNDS[backgroundKey].svg} alt="" aria-hidden="true" />
+            : <video key={backgroundKey} className={`game-background-motion ${motionMode}`} poster={BACKGROUNDS[backgroundKey].svg} autoPlay loop muted playsInline aria-hidden="true">
+                <source src={BACKGROUNDS[backgroundKey].webm} type="video/webm" />
+                <source src={BACKGROUNDS[backgroundKey].mp4} type="video/mp4" />
+              </video>}
           <div className="game-background-vignette" aria-hidden="true" />
           <div className="scanlines" aria-hidden="true" />
         </div></div>
