@@ -5,6 +5,19 @@ Sharni's modern-retro single-player arcade game from Blue $nake Studio.
 Trap enemies in bubbles, chain-pop them for score multipliers, collect VENOM
 letters, uncover secret rooms, and survive twelve gothic neon chambers.
 
+## Where this is published
+
+This game deploys from this repository to `https://bubblehex.vercel.app` and is
+listed on the Blue Snake Studios arcade hub at `/arcade`, where `/bubblehex`
+hands players off to the deployment above.
+
+The hub keeps its own copy of that URL in `src/lib/arcade/games.ts` in the `bss`
+repository, overridable with `NEXT_PUBLIC_BUBBLE_HEX_URL`. If the production
+domain for this game changes, update that registry entry too.
+
+Bubble Hex is intentionally **not** part of the child-safe route surface, so it
+is not reachable from MetaPet.school.
+
 ## Controls
 
 - Move: `A` / `D` or arrow keys
