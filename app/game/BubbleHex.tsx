@@ -23,12 +23,24 @@ const BACKGROUND_BY_LEVEL: Record<string, string> = {
   "The Dirty Gold Vault": "/backgrounds/bubble-city.svg",
 };
 
-const PLAY_STATES = new Set(["attract", "stageIntro", "playing", "hurry", "dying", "stageClear", "paused"]);
+const PLAY_STATES = new Set([
+  "attract",
+  "stageIntro",
+  "playing",
+  "hurry",
+  "dying",
+  "stageClear",
+  "paused",
+]);
 const MENU_BACKGROUND = "/backgrounds/bubble-city.svg";
 
 function backgroundFor(gameState: string, levelName: string) {
   if (!PLAY_STATES.has(gameState)) return MENU_BACKGROUND;
   return BACKGROUND_BY_LEVEL[levelName] ?? "/backgrounds/hex-tunnel.svg";
+}
+
+function stateLabel(gameState: string) {
+  return gameState.replace(/([a-z])([A-Z])/g, "$1 $2").toUpperCase();
 }
 
 export default function BubbleHex() {
@@ -38,6 +50,7 @@ export default function BubbleHex() {
   const [running, setRunning] = useState(false);
   const [backgroundSrc, setBackgroundSrc] = useState(MENU_BACKGROUND);
   const [gameState, setGameState] = useState("boot");
+  const [levelName, setLevelName] = useState("THE VEIL");
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -47,15 +60,23 @@ export default function BubbleHex() {
     engine.start();
 
     const stopScroll = (event: KeyboardEvent) => {
-      if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) event.preventDefault();
+      if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) {
+        event.preventDefault();
+      }
     };
     const syncBackground = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const nextState = canvas.dataset.gameState ?? "boot";
-      const nextBackground = backgroundFor(nextState, canvas.dataset.levelName ?? "");
-      setGameState((current) => current === nextState ? current : nextState);
-      setBackgroundSrc((current) => current === nextBackground ? current : nextBackground);
+      const nextLevelName = canvas.dataset.levelName || "THE VEIL";
+      const nextBackground = backgroundFor(nextState, nextLevelName);
+      setGameState((current) => (current === nextState ? current : nextState));
+      setLevelName((current) =>
+        current === nextLevelName ? current : nextLevelName
+      );
+      setBackgroundSrc((current) =>
+        current === nextBackground ? current : nextBackground
+      );
     };
 
     window.addEventListener("keydown", stopScroll, { passive: false });
@@ -69,8 +90,14 @@ export default function BubbleHex() {
     };
   }, []);
 
-  const press = useCallback((action: Action) => engineRef.current?.press(action), []);
-  const release = useCallback((action: Action) => engineRef.current?.release(action), []);
+  const press = useCallback(
+    (action: Action) => engineRef.current?.press(action),
+    []
+  );
+  const release = useCallback(
+    (action: Action) => engineRef.current?.release(action),
+    []
+  );
   const bind = (action: Action) => ({
     onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
       event.currentTarget.setPointerCapture(event.pointerId);
@@ -82,43 +109,133 @@ export default function BubbleHex() {
   });
 
   const motionMode = PLAY_STATES.has(gameState) ? "is-playing" : "is-menu";
+  const cabinetSignal = running ? "ONLINE" : "WARMING";
 
-  return <main className="arcade-page">
-    <header className="top-rail">
-      <div className="studio-mark"><span>B$S</span> BLUE $NAKE STUDIO</div>
-      <div className="machine-status"><i /> ORIGINAL ARCADE SIGNAL <strong>108</strong></div>
-    </header>
-    <section className="cabinet" aria-label="Bubble Hex arcade cabinet">
-      <div className="cabinet-crown" aria-hidden="true"><span>✦</span><b>BUBBLE HEX</b><span>✦</span></div>
-      <div className="play-layout">
-        <div className="screen-bezel"><div className="screen-wrap">
-          <canvas ref={canvasRef} width={960} height={720} aria-label="Playable Bubble Hex game" tabIndex={0}/>
-          <img key={backgroundSrc} className={`game-background-motion ${motionMode}`} src={backgroundSrc} alt="" aria-hidden="true" />
-          <div className="game-background-vignette" aria-hidden="true" />
-          <div className="scanlines" aria-hidden="true" />
-        </div></div>
-        <div className="control-deck">
-          <div className="dpad" aria-label="Movement controls">
-            <button type="button" aria-label="Move left" {...bind("left")}><span aria-hidden="true">◀</span></button>
-            <button type="button" aria-label="Move right" {...bind("right")}><span aria-hidden="true">▶</span></button>
+  return (
+    <main className="arcade-page" data-game-state={gameState}>
+      <header className="top-rail">
+        <div className="studio-mark">
+          <span>B$S</span> BLUE $NAKE STUDIO
+        </div>
+        <div className="machine-status">
+          <i /> ORIGINAL ARCADE SIGNAL <strong>108</strong>
+        </div>
+      </header>
+
+      <section className="cabinet" aria-label="Bubble Hex arcade cabinet">
+        <div className="cabinet-crown" aria-hidden="true">
+          <span>✦</span>
+          <b>BUBBLE HEX</b>
+          <span>✦</span>
+        </div>
+
+        <div className="hex-data-rail" aria-label="Live cabinet status">
+          <span>
+            <small>CHAMBER</small>
+            <b>{levelName}</b>
+          </span>
+          <span>
+            <small>RITUAL STATE</small>
+            <b>{stateLabel(gameState)}</b>
+          </span>
+          <span>
+            <small>CABINET SIGNAL</small>
+            <b>{cabinetSignal} · 108</b>
+          </span>
+        </div>
+
+        <div className="play-layout">
+          <div className="screen-bezel">
+            <div className="screen-wrap">
+              <canvas
+                ref={canvasRef}
+                width={960}
+                height={720}
+                aria-label="Playable Bubble Hex game"
+                tabIndex={0}
+              />
+              <img
+                key={backgroundSrc}
+                className={`game-background-motion ${motionMode}`}
+                src={backgroundSrc}
+                alt=""
+                aria-hidden="true"
+              />
+              <div className="game-background-vignette" aria-hidden="true" />
+              <div className="scanlines" aria-hidden="true" />
+            </div>
           </div>
-          <div className="mini-controls">
-            <button type="button" onClick={() => press("start")}>START</button>
-            <button type="button" onClick={() => press("consciousness")}>ENEMY LEVEL</button>
-            <button type="button" onClick={() => press("pause")}>ARCHIVE / PAUSE</button>
-            <button type="button" aria-pressed={muted} onClick={() => { const next = !muted; setMuted(next); engineRef.current?.setMuted(next); }}>{muted ? "SOUND OFF" : "SOUND ON"}</button>
-          </div>
-          <div className="action-controls" aria-label="Action controls">
-            <button className="bubble" type="button" aria-label="Blow bubble" {...bind("bubble")}><span aria-hidden="true">○</span></button>
-            <button className="jump" type="button" aria-label="Jump" {...bind("jump")}><span aria-hidden="true">↑</span></button>
+
+          <div className="control-deck">
+            <div className="dpad" aria-label="Movement controls">
+              <button type="button" aria-label="Move left" {...bind("left")}>
+                <span aria-hidden="true">◀</span>
+              </button>
+              <button type="button" aria-label="Move right" {...bind("right")}>
+                <span aria-hidden="true">▶</span>
+              </button>
+            </div>
+
+            <div className="mini-controls">
+              <button type="button" onClick={() => press("start")}>
+                START
+              </button>
+              <button type="button" onClick={() => press("consciousness")}>
+                ENEMY LEVEL
+              </button>
+              <button type="button" onClick={() => press("pause")}>
+                ARCHIVE / PAUSE
+              </button>
+              <button
+                type="button"
+                aria-pressed={muted}
+                onClick={() => {
+                  const next = !muted;
+                  setMuted(next);
+                  engineRef.current?.setMuted(next);
+                }}
+              >
+                {muted ? "SOUND OFF" : "SOUND ON"}
+              </button>
+            </div>
+
+            <div className="action-controls" aria-label="Action controls">
+              <button
+                className="bubble"
+                type="button"
+                aria-label="Blow bubble"
+                {...bind("bubble")}
+              >
+                <span aria-hidden="true">○</span>
+                <small>BUBBLE</small>
+              </button>
+              <button
+                className="jump"
+                type="button"
+                aria-label="Jump"
+                {...bind("jump")}
+              >
+                <span aria-hidden="true">↑</span>
+                <small>JUMP</small>
+              </button>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-    <footer className="machine-footer">
-      <p>{running ? "CABINET ONLINE" : "WARMING TUBES"} · ONE PLAYER · LOCAL HIGH SCORE</p>
-      <p className="desktop-hint">MOVE A/D OR ←/→ · JUMP SPACE/C · BUBBLE X/Z · ENTER START · P ARCHIVE/PAUSE</p>
-      <p className="mobile-hint">MULTI-TOUCH READY · TURN LANDSCAPE FOR A BIGGER CHAMBER</p>
-    </footer>
-  </main>;
+      </section>
+
+      <footer className="machine-footer">
+        <p>
+          {running ? "CABINET ONLINE" : "WARMING TUBES"} · ONE PLAYER · LOCAL
+          HIGH SCORE
+        </p>
+        <p className="desktop-hint">
+          MOVE A/D OR ←/→ · JUMP SPACE/C · BUBBLE X/Z · ENTER START · P
+          ARCHIVE/PAUSE
+        </p>
+        <p className="mobile-hint">
+          MULTI-TOUCH READY · TURN LANDSCAPE FOR A BIGGER CHAMBER
+        </p>
+      </footer>
+    </main>
+  );
 }
