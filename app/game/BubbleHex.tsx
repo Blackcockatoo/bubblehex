@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
+import "./cabinet-polish.css";
 
 const holdActions: Action[] = ["left", "right"];
 
