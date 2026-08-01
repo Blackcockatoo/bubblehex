@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
-import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
 import "./cabinet-polish.css";
 
@@ -22,6 +21,11 @@ const BACKGROUND_BY_LEVEL: Record<string, string> = {
   "Event Horizon": "/backgrounds/hex-tunnel.svg",
   "The Widow Unveiled": "/backgrounds/hex-reactor.svg",
   "The Dirty Gold Vault": "/backgrounds/bubble-city.svg",
+  "Pressure Encore": "/backgrounds/hex-reactor.svg",
+  "Mirror Encore": "/backgrounds/hex-storm.svg",
+  "Garden Encore": "/backgrounds/bubble-moon.svg",
+  "Contract Encore": "/backgrounds/hex-tunnel.svg",
+  "Time Encore": "/backgrounds/hex-reactor.svg",
 };
 
 const PLAY_STATES = new Set([
@@ -55,7 +59,6 @@ export default function BubbleHex() {
 
   useEffect(() => {
     if (!canvasRef.current) return;
-    installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.start();
@@ -183,6 +186,9 @@ export default function BubbleHex() {
               </button>
               <button type="button" onClick={() => press("consciousness")}>
                 ENEMY LEVEL
+              </button>
+              <button type="button" onClick={() => press("mode")}>
+                STORY / ENCORE
               </button>
               <button type="button" onClick={() => press("pause")}>
                 ARCHIVE / PAUSE

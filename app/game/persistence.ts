@@ -1,10 +1,10 @@
-import type { HeroId } from "./content";
+import type { HeroId, WorldId } from "./content";
 import type { EnemyConsciousness, HeroProgress } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
 export type PersistedSettings = {
-  version:5;
+  version:6;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -17,15 +17,22 @@ export type PersistedSettings = {
   unlockedCodex:string[];
   fragments:string[];
   bestStageTimes:Record<string,number>;
+  bestChamberScores:Record<string,number>;
+  bestChains:Record<string,number>;
   perfectClears:number;
+  storyClears:number;
+  encoreMedals:Partial<Record<WorldId,EncoreMedal[]>>;
   heroProgress:Record<HeroId,HeroProgress>;
 };
 
+export type EncoreMedal = "clear" | "noDamage" | "targetScore" | "fullChain";
+
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:5,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:6,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
-  bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
+  bestStageTimes:{},bestChamberScores:{},bestChains:{},perfectClears:0,storyClears:0,encoreMedals:{},
+  heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
 };
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
@@ -35,6 +42,17 @@ const positiveRecord=(value:unknown):Record<string,number>=>{
   if(!value||typeof value!=="object")return{};
   const out:Record<string,number>={};
   for(const [key,entry] of Object.entries(value as Record<string,unknown>))if(typeof entry==="number"&&entry>=0)out[key]=entry;
+  return out;
+};
+const ENCORE_MEDALS = new Set<EncoreMedal>(["clear","noDamage","targetScore","fullChain"]);
+const WORLD_IDS:WorldId[]=["velvet-drain","heartbreak-hotel","jade-garden","crimson-chapel","black-bubble"];
+const normalizeEncoreMedals=(value:unknown):Partial<Record<WorldId,EncoreMedal[]>>=>{
+  if(!value||typeof value!=="object")return{};
+  const raw=value as Record<string,unknown>,out:Partial<Record<WorldId,EncoreMedal[]>>={};
+  for(const worldId of WORLD_IDS){
+    const entries=raw[worldId];
+    if(Array.isArray(entries))out[worldId]=[...new Set(entries.filter((entry):entry is EncoreMedal=>typeof entry==="string"&&ENCORE_MEDALS.has(entry as EncoreMedal)))];
+  }
   return out;
 };
 const normalizePersistedHeroProgress=(value:unknown):HeroProgress=>{
@@ -52,8 +70,10 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   for(const hero of ["vesper","jade"] as HeroId[])if(!unlockedSkins.includes(selectedSkins[hero]))selectedSkins[hero]=DEFAULT_SKIN[hero];
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
+  const bestStageTimes=positiveRecord(raw.bestStageTimes);
+  const legacyStoryClear=bestStageTimes.dawn!==undefined||unique(raw.fragments,[]).includes("dawn")||unique(raw.unlockedCodex,[]).includes("dawn");
   return {
-    ...DEFAULT_SETTINGS,...raw,version:5,
+    ...DEFAULT_SETTINGS,...raw,version:6,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -64,8 +84,12 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     selectedSkins,unlockedSkins,
     unlockedCodex:[...new Set([...DEFAULT_SETTINGS.unlockedCodex,...unique(raw.unlockedCodex,[])])],
     fragments:unique(raw.fragments,[]),
-    bestStageTimes:positiveRecord(raw.bestStageTimes),
+    bestStageTimes,
+    bestChamberScores:positiveRecord(raw.bestChamberScores),
+    bestChains:positiveRecord(raw.bestChains),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
+    storyClears:typeof raw.storyClears==="number"?Math.max(0,Math.floor(raw.storyClears)):legacyStoryClear?1:0,
+    encoreMedals:normalizeEncoreMedals(raw.encoreMedals),
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
   };
 }
