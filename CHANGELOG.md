@@ -41,6 +41,10 @@ file.
 - Added authored-level validation and targeted tests for chains, collision,
   environments, variants, heroes, persistence, checkpoints, Encore and boss
   transitions.
+- Fixed authored risk pickups using the timed-drop spawn lifetime, which could
+  produce a massive negative canvas scale and repaint every chamber jade green.
+  Reward spawn transforms are now bounded and covered by a focused regression
+  test.
 
 ### Preserved
 

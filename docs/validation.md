@@ -24,4 +24,4 @@ npm run lint
 npm run build
 ```
 
-The Node playthrough matrix is deterministic and supplements hands-on tuning; it does not claim to replace a human dodge or score-routing pass. Browser automation was unavailable in the implementation environment because no compatible browser binary could be installed, so final feel and visual-density tuning remains an explicit PR review item.
+The Node playthrough matrix is deterministic and supplements hands-on tuning; it does not claim to replace a human dodge or score-routing pass. A temporary headless Chromium audit also captured all twelve canonical chambers after the reward-transform regression fix. The audit confirmed distinct world palettes, visible platforms and hazards, readable memory shards, and no browser console errors. Final feel and score-routing tuning remains an explicit PR review item.

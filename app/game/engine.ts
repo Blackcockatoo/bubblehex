@@ -56,6 +56,7 @@ import {
   findVowBridgeAnchor, hostAnchorsComplete, makeWidowPhaseCheckpoint, registerVowChain, splitClauseCopies,
   type WidowAct, type WidowBossPhase, type WidowPhaseCheckpoint,
 } from "./widow-boss";
+import { rewardSpawnScale } from "./reward-render";
 
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness" | "mode";
 type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
@@ -70,7 +71,7 @@ type Player = {
 };
 type Enemy = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;w:number;h:number;kind:EnemyKind;variant:EnemyVariant;group?:string;state:EnemyState;timer:number;cooldown:number;homeX:number;homeY:number;weakened:boolean;rank:number;elite:boolean;portalCooldown:number;turns:number;roostAwake:boolean };
 type Bubble = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;r:number;age:number;phase:BubblePhase;enemyId?:number;life:number;lifeMax:number;portalCooldown:number;anchored:boolean;boundEcho?:number };
-type Reward = { x:number;y:number;vy:number;kind:string;value:number;life:number;letter?:string;risk?:boolean;id?:string };
+type Reward = { x:number;y:number;vy:number;kind:string;value:number;life:number;initialLife:number;letter?:string;risk?:boolean;id?:string };
 type Projectile = { x:number;y:number;vx:number;vy:number;life:number;kind:"tear"|"star" };
 type Particle = { x:number;y:number;vx:number;vy:number;life:number;color:string;size:number };
 type WidowState = { x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;age:number;hp:number;maxHp:number;phase:WidowBossPhase;phaseTimer:number;lungeAngle:number;act:WidowAct;chargedAnchors:number;vowEchoes:number };
@@ -632,8 +633,8 @@ export class BubbleHexEngine {
   }
   private spawnReward(x:number,y:number,chain:number){
     const kinds=["CHERRY","RING","PERFUME","DRAGON FRUIT","BLACKBERRY","CROWN"],values=[100,250,400,600,800,1300];const tier=Math.min(kinds.length-1,Math.floor((chain-1)/2)+(this.upgrades.crown?1:0));
-    const n=this.stageKills;if(n%7===0){const letters=["V","E","N","O","M"];const letter=letters.find(l=>!this.venom.has(l))||letters[n%5];this.rewards.push({x,y,vy:-120,kind:"LETTER",value:1080,life:12,letter})}
-    else this.rewards.push({x,y,vy:-110,kind:kinds[tier],value:values[tier],life:10});
+    const n=this.stageKills;if(n%7===0){const letters=["V","E","N","O","M"];const letter=letters.find(l=>!this.venom.has(l))||letters[n%5];this.rewards.push({x,y,vy:-120,kind:"LETTER",value:1080,life:12,initialLife:12,letter})}
+    else this.rewards.push({x,y,vy:-110,kind:kinds[tier],value:values[tier],life:10,initialLife:10});
     if(n%5===0)this.applyPowerup(n);
   }
   private applyPowerup(n:number){
@@ -742,7 +743,7 @@ export class BubbleHexEngine {
     this.bossCheckpoint=this.widow?makeWidowPhaseCheckpoint(this.widow,this.score):null;
     this.platformAudit=auditLevelReachability(level);this.resetPlayer(1.2);
     this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false;this.stageStartScore=this.score;this.stageDamaged=false;this.damageTaken=0;this.stageXp=0;this.stageTrapScore=0;this.stageReleaseScore=0;this.stagePickupScore=0;this.stageChainBonus=0;this.stageRiskScore=0;this.pendingChain=null;this.chainBursts=[];this.echoPops=[];this.enemyEchoes=[];this.briars=[];this.timeFractureClock=0;this.medalsEarned=[];this.valveContacts.clear();
-    for(const pickup of level.environment?.riskPickups??[])this.rewards.push({x:pickup.x,y:pickup.y,vy:0,kind:"MEMORY SHARD",value:pickup.value,life:999,risk:true,id:pickup.id});
+    for(const pickup of level.environment?.riskPickups??[])this.rewards.push({x:pickup.x,y:pickup.y,vy:0,kind:"MEMORY SHARD",value:pickup.value,life:999,initialLife:999,risk:true,id:pickup.id});
     this.applyMasteryUpgrades(true);
     this.unlockContent(level.worldId);for(const enemy of level.enemies)this.unlockContent(enemy.kind);if(level.boss)this.unlockContent("widow");
     this.save();
@@ -1099,8 +1100,8 @@ export class BubbleHexEngine {
     c.shadowBlur=0;c.restore()}
   private drawReward(r:Reward){
     const c=this.ctx,T=this.animTime;
-    const age=(r.letter?12:10)-r.life,pop=Math.min(1,age/.22);
-    c.save();c.translate(r.x,r.y);c.scale(.4+.6*pop,.4+.6*pop);
+    const scale=rewardSpawnScale(r.life,r.initialLife);
+    c.save();c.translate(r.x,r.y);c.scale(scale,scale);
     if(r.life<2)c.globalAlpha=.4+.5*Math.abs(Math.sin(T*10));
     c.shadowBlur=10;c.shadowColor=r.letter?"#FFD36A":COLORS.pink;
     if(r.letter){
