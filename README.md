@@ -12,6 +12,7 @@ letters, uncover secret rooms, and survive twelve gothic neon chambers.
 - Blow bubble: `X` or `Z`
 - Start: `Enter`
 - Pause: `P` or `Escape`
+- Story / Encore mode: `S`, down arrow, or gamepad face button 3 (Encore unlocks after the first story clear)
 - Gameplay diagnostics: `F3` or backtick
 
 Touch controls and gamepads are supported. The cabinet scales responsively for
@@ -30,7 +31,8 @@ npm run dev
 Quality checks:
 
 ```bash
-node --experimental-strip-types --test tests/cheats.test.ts tests/levels.test.ts tests/physics.test.ts
+npm run typecheck
+npm test
 npm run lint
 npm run build
 ```
@@ -41,7 +43,16 @@ npm run build
 - Proportional 150.8 px primary jump and weaker recovery double jump
 - Coyote time, jump buffering, variable jump height, and swept feet collision
 - Twelve audited, traversable chambers
+- Five optional post-story Encore score chambers
+- Data-driven world mechanics and selective enemy mutations
+- Stable bubble collision, chain preview and fixed-step chain grace
+- Three-act Widow encounter with fair phase restarts
 - Title-screen arcade cheat sequences
 - Local high score and accessibility settings
 
 Built with React, TypeScript, Canvas 2D, and B$S neon-gothic arcade styling.
+
+Content schema and future balance rules are documented in
+`docs/gameplay-schema.md`, `docs/chamber-design.md`, and
+`docs/balancing-guide.md`. Baseline and post-change verification are recorded in
+`docs/validation.md`.

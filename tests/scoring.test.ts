@@ -28,6 +28,11 @@ test("no bonuses accrue for a damaged, secretless, timed-out clear", () => {
   assert.equal(result.total, 500);
 });
 
+test("full-room chains and risk-route sources remain explicit in results",()=>{
+  const result=computeStageBreakdown({kills:3200,trapScore:200,releaseScore:2200,pickupScore:800,chainBonus:900,riskScore:600,largestChain:5,enemyCount:5,remainingTime:0,lives:0,noDamage:false,secretFound:false,bonusRoom:false});
+  assert.equal(result.fullRoomBonus,4250);assert.equal(result.chainBonus,900);assert.equal(result.riskScore,600);assert.equal(result.total,7450);
+});
+
 test("a first clear of any stage is always a new stage-time record", () => {
   assert.equal(isNewStageRecord(undefined, 999), true);
 });
