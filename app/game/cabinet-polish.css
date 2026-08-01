@@ -1,0 +1,237 @@
+.arcade-page[data-game-state] {
+  --hex-blue: #087cff;
+  --hex-pink: #ff2a9d;
+  --hex-violet: #756cff;
+  --hex-gold: #ffd36a;
+  --hex-jade: #63f5c8;
+}
+
+.arcade-page[data-game-state]::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 50% 8%, rgba(117, 108, 255, 0.1), transparent 34rem),
+    repeating-linear-gradient(60deg, rgba(255, 255, 255, 0.012) 0 1px, transparent 1px 10px),
+    repeating-linear-gradient(-60deg, rgba(255, 42, 157, 0.01) 0 1px, transparent 1px 10px);
+}
+
+.arcade-page[data-game-state="playing"] .machine-status i,
+.arcade-page[data-game-state="hurry"] .machine-status i {
+  animation: hex-heartbeat 0.9s steps(2, end) infinite;
+}
+
+.arcade-page[data-game-state="hurry"] .machine-status i {
+  background: #ff4a66;
+  box-shadow: 0 0 14px #ff4a66;
+}
+
+.arcade-page[data-game-state="paused"] .machine-status i {
+  background: var(--hex-gold);
+  box-shadow: 0 0 14px var(--hex-gold);
+}
+
+.cabinet {
+  overflow: hidden;
+}
+
+.cabinet-crown {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.cabinet-crown::before {
+  content: "";
+  position: absolute;
+  inset: 3px 14%;
+  z-index: -1;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(255, 42, 157, 0.18), rgba(8, 124, 255, 0.08) 45%, transparent 72%);
+  filter: blur(8px);
+}
+
+.cabinet-crown::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: -28%;
+  width: 22%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+  transform: skewX(-22deg);
+  animation: hex-marquee-sweep 7s ease-in-out infinite;
+}
+
+.hex-data-rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0 clamp(2px, 0.8vw, 10px) clamp(7px, 1vw, 12px);
+  border: 1px solid rgba(117, 108, 255, 0.38);
+  background: #02030a;
+  box-shadow: inset 0 0 18px #000, 0 0 16px rgba(255, 42, 157, 0.1);
+}
+
+.hex-data-rail > span {
+  min-width: 0;
+  padding: 6px clamp(7px, 1vw, 14px) 7px;
+  background: linear-gradient(180deg, rgba(18, 16, 39, 0.94), rgba(3, 4, 12, 0.98));
+  border-right: 1px solid rgba(255, 255, 255, 0.045);
+}
+
+.hex-data-rail > span:last-child {
+  border-right: 0;
+}
+
+.hex-data-rail small,
+.hex-data-rail b {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hex-data-rail small {
+  color: #8a7aa5;
+  font-size: clamp(8px, 0.75vw, 10px);
+  font-weight: 900;
+  letter-spacing: 0.16em;
+}
+
+.hex-data-rail b {
+  margin-top: 2px;
+  color: #fff5fc;
+  font-size: clamp(10px, 1vw, 14px);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 10px rgba(255, 42, 157, 0.48);
+}
+
+.screen-bezel {
+  position: relative;
+}
+
+.screen-bezel::after {
+  content: "BLACK HEART SIGNAL";
+  position: absolute;
+  right: clamp(9px, 1.4vw, 18px);
+  bottom: clamp(8px, 1.1vw, 14px);
+  z-index: 5;
+  padding: 3px 6px;
+  border: 1px solid rgba(255, 42, 157, 0.24);
+  color: rgba(255, 204, 236, 0.72);
+  background: rgba(3, 3, 10, 0.72);
+  font-size: clamp(7px, 0.62vw, 9px);
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  pointer-events: none;
+}
+
+.control-deck {
+  background:
+    linear-gradient(180deg, rgba(20, 13, 35, 0.86), rgba(3, 3, 10, 0.98)),
+    repeating-linear-gradient(90deg, transparent 0 11px, rgba(255, 255, 255, 0.017) 12px);
+  border-radius: 0 0 18px 18px;
+}
+
+.dpad button,
+.action-controls button,
+.mini-controls button {
+  position: relative;
+  overflow: hidden;
+  transition: transform 100ms ease, filter 140ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.dpad button::after,
+.action-controls button::after,
+.mini-controls button::after {
+  content: "";
+  position: absolute;
+  inset: 1px 9% auto;
+  height: 34%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.17), transparent);
+  pointer-events: none;
+}
+
+.dpad button:hover,
+.action-controls button:hover,
+.mini-controls button:hover {
+  filter: brightness(1.13) saturate(1.08);
+}
+
+.dpad button:active,
+.action-controls button:active,
+.mini-controls button:active {
+  transform: translateY(3px) scale(0.985);
+}
+
+.action-controls button small {
+  display: block;
+  margin-top: 3px;
+  font-size: clamp(8px, 0.8vw, 11px);
+  font-weight: 1000;
+  letter-spacing: 0.12em;
+}
+
+.action-controls .bubble {
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.05),
+    0 0 0 6px rgba(0, 0, 0, 0.55),
+    inset 0 -9px 0 rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(255, 42, 157, 0.28),
+    0 7px 19px #000;
+}
+
+.action-controls .jump {
+  box-shadow:
+    0 0 0 4px rgba(255, 255, 255, 0.05),
+    0 0 0 6px rgba(0, 0, 0, 0.55),
+    inset 0 -9px 0 rgba(0, 0, 0, 0.3),
+    0 0 30px rgba(8, 124, 255, 0.3),
+    0 7px 19px #000;
+}
+
+.arcade-page[data-game-state="hurry"] .cabinet {
+  box-shadow:
+    0 0 0 2px #010207,
+    0 0 0 4px rgba(255, 74, 102, 0.62),
+    0 24px 70px #000,
+    0 0 70px rgba(255, 42, 88, 0.24);
+}
+
+@keyframes hex-marquee-sweep {
+  0%, 66% { left: -28%; opacity: 0; }
+  73% { opacity: 0.82; }
+  88% { left: 110%; opacity: 0.4; }
+  100% { left: 110%; opacity: 0; }
+}
+
+@keyframes hex-heartbeat {
+  50% { opacity: 0.42; }
+}
+
+@media (max-width: 660px) {
+  .hex-data-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .hex-data-rail > span {
+    border-right: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  }
+
+  .hex-data-rail > span:last-child {
+    border-bottom: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cabinet-crown::after,
+  .arcade-page[data-game-state="playing"] .machine-status i,
+  .arcade-page[data-game-state="hurry"] .machine-status i {
+    animation: none;
+  }
+}
