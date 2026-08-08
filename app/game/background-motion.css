@@ -1,7 +1,38 @@
 .screen-wrap canvas{position:relative;z-index:0}
-.game-background-motion{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:screen;filter:saturate(.9) contrast(1.12) brightness(.62);transition:opacity .4s ease}
-.game-background-motion.is-playing{opacity:.16}
-.game-background-motion.is-menu{opacity:.3}
-.game-background-vignette{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,5,9,.52) 0%,rgba(5,5,9,.2) 46%,rgba(5,5,9,.02) 80%)}
+
+/* The chamber plate sits over the canvas on screen blend, so it reads as light
+   inside the tube rather than as a picture behind it. It drifts slowly to keep
+   the chamber feeling alive without competing with the sprites. */
+.game-background-motion{
+  position:absolute;inset:-3%;z-index:1;
+  width:106%;height:106%;object-fit:cover;
+  pointer-events:none;mix-blend-mode:screen;
+  filter:saturate(.9) contrast(1.12) brightness(.62);
+  transition:opacity .5s ease,filter .5s ease;
+  will-change:transform;
+}
+.game-background-motion.is-playing{opacity:.16;animation:hex-chamber-drift 34s ease-in-out infinite alternate}
+.game-background-motion.is-menu{opacity:.3;animation:hex-chamber-drift 52s ease-in-out infinite alternate}
+
+/* Hurry-up floods the chamber red; a stage clear cools it back down. */
+.arcade-page[data-game-state="hurry"] .game-background-motion{
+  filter:saturate(1.35) contrast(1.2) brightness(.8) hue-rotate(-22deg);
+  opacity:.26;
+}
+.arcade-page[data-game-state="stageClear"] .game-background-motion{opacity:.24}
+
+.game-background-vignette{
+  position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:radial-gradient(ellipse at center,rgba(5,5,9,.52) 0%,rgba(5,5,9,.2) 46%,rgba(5,5,9,.02) 80%);
+}
 .screen-wrap .scanlines{z-index:3}
-@media(prefers-reduced-motion:reduce){.game-background-motion{display:none}}
+
+@keyframes hex-chamber-drift{
+  0%{transform:translate3d(-1.4%,-0.8%,0) scale(1.02)}
+  50%{transform:translate3d(0.9%,0.6%,0) scale(1.05)}
+  100%{transform:translate3d(1.5%,-0.5%,0) scale(1.03)}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .game-background-motion{display:none}
+}

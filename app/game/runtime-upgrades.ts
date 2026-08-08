@@ -101,6 +101,8 @@ export function installBubbleHexRuntimeUpgrades(EngineClass:EngineConstructor){
   proto.clearStage=function(this:AnyEngine,demo:boolean){
     originalClearStage.call(this,demo);
     if(demo)return;
+    // Original Hex is the unforgiving mode: it never banks a resume.
+    if(this.settings?.campaignMode==="original"){checkpoints.delete(this);return}
     const resumeLevel=checkpointLevelAfterClear(this.levelIndex,LEVELS.length,!!this.inBonus);
     if(resumeLevel===null)return;
     checkpoints.set(this,snapshot(this,resumeLevel));
@@ -111,15 +113,16 @@ export function installBubbleHexRuntimeUpgrades(EngineClass:EngineConstructor){
 
   const originalAfterDeath=proto.afterDeath;
   proto.afterDeath=function(this:AnyEngine){
-    const checkpoint=checkpoints.get(this);
+    const checkpoint=this.settings?.campaignMode==="original"?undefined:checkpoints.get(this);
     if((this.lives??0)<=0&&checkpoint){restoreCheckpoint(this,checkpoint);return}
     return originalAfterDeath.call(this);
   };
 
   const originalBeginRun=proto.beginRun;
-  proto.beginRun=function(this:AnyEngine){
+  // Forward every argument: the chamber map starts a run at a chosen stage.
+  proto.beginRun=function(this:AnyEngine,...args:unknown[]){
     checkpoints.delete(this);
-    return originalBeginRun.call(this);
+    return originalBeginRun.apply(this,args);
   };
 
   const originalSyncAuditData=proto.syncAuditData;
@@ -132,6 +135,7 @@ export function installBubbleHexRuntimeUpgrades(EngineClass:EngineConstructor){
   const originalDrawHud=proto.drawHud;
   proto.drawHud=function(this:AnyEngine){
     originalDrawHud.call(this);
+    if(this.settings?.campaignMode==="original"){this.label("ORIGINAL",190,53,9,"#FF4A66","center");return}
     const checkpoint=checkpoints.get(this);
     if(checkpoint)this.label(`CP STAGE ${checkpoint.levelIndex+1}`,190,53,9,"#FFD36A","center");
   };
