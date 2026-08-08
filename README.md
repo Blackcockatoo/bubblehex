@@ -12,11 +12,46 @@ letters, uncover secret rooms, and survive twelve gothic neon chambers.
 - Blow bubble: `X` or `Z`
 - Start: `Enter`
 - Pause: `P` or `Escape`
-- Gameplay diagnostics: `F3` or backtick
+- Chamber map and mode: `M` or `Tab`
+- Enemy consciousness: `W` or `Up`
+- Gameplay diagnostics: `F3` or backtick (development builds)
 
-Touch controls and gamepads are supported. The cabinet scales responsively for
-mobile and desktop while gameplay remains deterministic on a 960×720 internal
-canvas.
+Touch controls and gamepads are supported. Gameplay stays deterministic on a
+960x720 internal canvas; only the presentation scales.
+
+## Screens and devices
+
+The cabinet is sized from one pair of numbers — the effective width and height
+of the play surface — so the 4:3 screen and the controls always fit together
+without scrolling:
+
+- **Wide layout** (desktop, laptops, tablets): the screen sits above a deck with
+  the movement pad and action buttons at the outer thumb corners.
+- **Split layout** (phones and any short landscape window): the pads flank the
+  screen so both thumbs rest on the edges of the device and never cover the
+  picture.
+- **Portrait phones play horizontally.** `Full screen` requests a real
+  landscape orientation lock where the browser allows it; where it does not
+  (every iOS browser), the cabinet rotates itself a quarter turn so the game is
+  horizontal either way.
+
+Every control target is at least 52 px, and scales up to ~104 px on roomy
+screens.
+
+## Modes and the chamber map
+
+- **Chronicle** is the forgiving default: clearing a chamber records it, the
+  chamber map lets you return to anything you have already opened, checkpoints
+  are banked every five chambers, and hero mastery perks carry between runs.
+- **Original Hex** is the unforgiving arcade rule set: no map jumps, no
+  checkpoints, no chamber retries from the pause screen, no carried-over
+  mastery, shorter timers and angrier enemies. Losing your last life sends you
+  back to chamber one. Points are worth x1.5 and are recorded on a separate
+  board.
+
+Progress, records and the chosen mode are saved to `localStorage` and survive a
+reload. Toggle modes with the deck button or with `Up` on the chamber map
+(`M` / `Tab` opens the map).
 
 ## Development
 
@@ -30,9 +65,8 @@ npm run dev
 Quality checks:
 
 ```bash
-node --experimental-strip-types --test tests/cheats.test.ts tests/levels.test.ts tests/physics.test.ts
+npm test
 npm run lint
-npm run build
 ```
 
 ## Gameplay systems
@@ -40,7 +74,9 @@ npm run build
 - Fixed 60 Hz simulation with bounded frame deltas
 - Proportional 150.8 px primary jump and weaker recovery double jump
 - Coyote time, jump buffering, variable jump height, and swept feet collision
-- Twelve audited, traversable chambers
+- Twelve audited, traversable chambers plus a hidden bonus vault
+- A saved chamber map with per-chamber best times and jade-door progress
+- Chronicle and Original Hex rule sets with separate record boards
 - Title-screen arcade cheat sequences
 - Local high score and accessibility settings
 

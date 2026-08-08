@@ -34,6 +34,10 @@ import {
   type SkinDefinition,
 } from "./content";
 import { DEFAULT_SETTINGS, migrateSettings, type PersistedSettings } from "./persistence";
+import {
+  ORIGINAL_MODE, campaignCompletion, highestUnlockedLevel, isLevelUnlocked, modeLabel,
+  originalStageTime, withClearedStage, type CampaignMode,
+} from "./campaign";
 import { computeStageBreakdown, isNewCampaignRecord, isNewStageRecord } from "./scoring";
 import {
   ENEMY_CONSCIOUSNESS_NAMES, enemyRankForStage, enemyXp, isEliteEnemy, nextHeroMilestone,
@@ -42,8 +46,8 @@ import {
 import { blockForPlatform, type PlatformBlockDefinition } from "./blocks";
 import { drawHeroArt, type HeroMotion, type HeroPose } from "./hero-art";
 
-export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness";
-type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
+export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness" | "map";
+type GameState = "boot" | "title" | "attract" | "characterSelect" | "levelMap" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
 type EnemyState = "normal" | "trapped" | "furious" | "dead";
 type BubblePhase = "fired" | "slowing" | "floating" | "occupied" | "warning" | "burst";
 
@@ -67,7 +71,8 @@ type Settings = PersistedSettings;
 
 const FIXED=1/60;
 const COLORS={void:"#050509",midnight:"#081A3A",blue:"#087CFF",pink:"#FF2A9D",crimson:"#C4133D",jade:"#20C98B",shine:"#FFD6F1"};
-const TOKENS:Record<Action,Token|undefined>={left:"LEFT",right:"RIGHT",jump:"JUMP",bubble:"BUBBLE",start:"START",pause:undefined,consciousness:undefined};
+const TOKENS:Record<Action,Token|undefined>={left:"LEFT",right:"RIGHT",jump:"JUMP",bubble:"BUBBLE",start:"START",pause:undefined,consciousness:undefined,map:undefined};
+const NO_INPUT:Record<Action,boolean>={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false,map:false};
 const clamp=(n:number,a:number,b:number)=>Math.max(a,Math.min(b,n));
 const lerp=(a:number,b:number,t:number)=>a+(b-a)*t;
 const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);
@@ -77,7 +82,7 @@ export class BubbleHexEngine {
   private canvas:HTMLCanvasElement; private ctx:CanvasRenderingContext2D; private audio=new AudioManager();
   private frame=0; private last=0; private acc=0; private alive=true; private ready:()=>void;
   private state:GameState="boot"; private stateTime=0; private titleIdle=0; private startGrace=0;
-  private held:Record<Action,boolean>={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false};
+  private held:Record<Action,boolean>={...NO_INPUT};
   private just=new Set<Action>(); private hero:HeroId="vesper"; private selected:HeroId="vesper";
   private player:Player=this.makePlayer();
   private enemies:Enemy[]=[]; private bubbles:Bubble[]=[]; private rewards:Reward[]=[]; private projectiles:Projectile[]=[]; private particles:Particle[]=[];
@@ -89,11 +94,12 @@ export class BubbleHexEngine {
   private coyote=0; private jumpBuffer=0;
   private settings:Settings={...DEFAULT_SETTINGS,selectedSkins:{...DEFAULT_SETTINGS.selectedSkins},unlockedSkins:[...DEFAULT_SETTINGS.unlockedSkins],unlockedCodex:[...DEFAULT_SETTINGS.unlockedCodex],fragments:[]}; private musicClock=0;
   private shake=0; private hitStop=0; private attractTime=0; private secretFound=false; private endingText=""; private animTime=0;
-  private gamepadPrev={jump:false,bubble:false,start:false,pause:false};
+  private gamepadPrev={jump:false,bubble:false,start:false,pause:false,left:false,right:false};
   private debug=false; private platformAudit:PlatformAudit[]=[]; private landedThisFrame=false;
   private art=new GameArtAssets(); private archiveIndex=0; private audioReady=false;
   private readonly devTools:boolean=Boolean(import.meta.env?.DEV);
   private inBonus=false; private bonusVisited=false; private stageStartScore=0; private stageDamaged=false; private newRecord=false;
+  private mapIndex=0; private mapNotice=""; private mapNoticeLife=0;
   private stageBreakdown={kills:0,speedBonus:0,lifeBonus:0,noDamageBonus:0,secretBonus:0,total:0};
   private stageXp=0;
   // Fraction of the way from the last completed 60Hz tick to the next one, used to
@@ -128,6 +134,8 @@ export class BubbleHexEngine {
       widowX:this.widow?.x.toFixed(1)??"",widowY:this.widow?.y.toFixed(1)??"",playerX:p.x.toFixed(1),
       levelName:this.level.name,levelBonus:String(!!this.level.bonus),cheatsExtra:String(this.cheats.extra),enemiesLeft:String(this.enemies.filter(e=>e.state!=="dead").length),
       enemyConsciousness:String(this.settings.enemyConsciousness),enemyRank:String(this.threatRank()),
+      campaignMode:this.settings.campaignMode,mapIndex:String(this.mapIndex+1),
+      unlockedThrough:String(this.unlockedThrough()+1),muted:String(this.settings.muted),
     });
   }
   private onKeyDown(e:KeyboardEvent){
@@ -146,6 +154,7 @@ export class BubbleHexEngine {
     if(code==="ArrowLeft"||code==="KeyA")return"left";if(code==="ArrowRight"||code==="KeyD")return"right";
     if(code==="Space"||code==="KeyC")return"jump";if(code==="KeyX"||code==="KeyZ")return"bubble";
     if(code==="Enter")return"start";if(code==="Escape"||code==="KeyP")return"pause";if(code==="ArrowUp"||code==="KeyW")return"consciousness";
+    if(code==="KeyM"||code==="Tab")return"map";
   }
   press(action:Action){
     const wasUnlocked=this.audioReady;this.audio.unlock();this.audioReady=true;if(!wasUnlocked)this.syncMusic();
@@ -158,6 +167,8 @@ export class BubbleHexEngine {
       if(this.state==="playing"||this.state==="hurry")this.setState("paused");
       else if(this.state==="paused")this.setState("playing");
     }
+    if(action==="map"&&(this.state==="title"||this.state==="characterSelect"||this.state==="records/options"||this.state==="gameOver"||this.state==="victory"))this.openLevelMap();
+    else if(action==="map"&&this.state==="levelMap")this.toTitle();
   }
   release(action:Action){this.held[action]=false}
   private loop=(t:number)=>{
@@ -181,6 +192,7 @@ export class BubbleHexEngine {
     if(this.state==="boot"&&this.stateTime>.55&&this.art.state!=="loading")this.toTitle();
     else if(this.state==="title")this.updateTitle(dt);
     else if(this.state==="characterSelect")this.updateSelect();
+    else if(this.state==="levelMap")this.updateLevelMap(dt);
     else if(this.state==="stageIntro"&&this.stateTime>1.65)this.setState("playing");
     else if(this.state==="playing")this.updatePlaying(dt,false);
     else if(this.state==="hurry")this.updateHurry(dt);
@@ -206,6 +218,44 @@ export class BubbleHexEngine {
     if(this.just.has("start")||this.just.has("jump")){this.hero=this.selected;this.beginRun()}
     if(this.just.has("pause"))this.toTitle();
   }
+
+  // ---- Chamber map ---------------------------------------------------------
+  /** Chambers the save file says are open; Original Hex ignores it entirely. */
+  private unlockedThrough(){return highestUnlockedLevel(this.settings.clearedStages,LEVELS.length)}
+  private isOriginal(){return this.settings.campaignMode==="original"}
+  openLevelMap(){
+    this.mapIndex=clamp(this.mapIndex||this.unlockedThrough(),0,LEVELS.length-1);
+    this.mapNotice="";this.mapNoticeLife=0;
+    this.setState("levelMap");
+  }
+  private updateLevelMap(dt:number){
+    this.mapNoticeLife=Math.max(0,this.mapNoticeLife-dt);
+    const step=(delta:number)=>{
+      this.mapIndex=clamp(this.mapIndex+delta,0,LEVELS.length-1);
+      this.audio.tone(300+this.mapIndex*14,.05,"square",0,.05);
+    };
+    if(this.just.has("left"))step(-1);
+    if(this.just.has("right"))step(1);
+    if(this.just.has("consciousness"))this.toggleCampaignMode();
+    if(this.just.has("bubble"))step(this.mapIndex>=LEVELS.length-1?-(LEVELS.length-1):1);
+    if(this.just.has("pause"))this.toTitle();
+    if(this.just.has("start")||this.just.has("jump")){
+      if(this.isOriginal()&&this.mapIndex!==0){
+        this.mapNotice="ORIGINAL HEX STARTS AT CHAMBER ONE";this.mapNoticeLife=2.2;this.audio.hurt();return;
+      }
+      if(!isLevelUnlocked(this.mapIndex,this.settings.clearedStages,LEVELS.length)){
+        this.mapNotice="THAT DOOR IS STILL SEALED";this.mapNoticeLife=2.2;this.audio.hurt();return;
+      }
+      this.hero=this.selected;this.beginRun(this.mapIndex);
+    }
+  }
+  toggleCampaignMode(){
+    const next:CampaignMode=this.isOriginal()?"chronicle":"original";
+    this.settings.campaignMode=next;
+    if(next==="original")this.mapIndex=0;
+    this.message=next==="original"?"ORIGINAL HEX — NO MAP, NO CHECKPOINTS":"CHRONICLE — MAP AND CHECKPOINTS ON";
+    this.messageLife=2.2;this.audio.secret();this.save();
+  }
   private updateArchive(){
     const entries=this.archiveEntries();
     if(this.just.has("left"))this.archiveIndex=(this.archiveIndex-1+entries.length)%entries.length;
@@ -226,7 +276,11 @@ export class BubbleHexEngine {
     }
     if(this.just.has("bubble")){this.settings.muted=!this.settings.muted;this.audio.setMuted(this.settings.muted);this.save()}
     if(this.just.has("jump")){this.settings.reducedMotion=!this.settings.reducedMotion;this.save()}
-    if(this.just.has("start"))this.restartCurrentStage();
+    if(this.just.has("start")){
+      // A free chamber retry would defeat the whole point of Original Hex.
+      if(this.isOriginal()){this.message="ORIGINAL HEX — NO RETRIES";this.messageLife=1.6;this.audio.hurt()}
+      else this.restartCurrentStage();
+    }
   }
   private updateHurry(dt:number){
     if(this.stateTime>.85&&!this.widow){this.widow=this.makeWidow(W-90,120,false);this.widowTime=0}
@@ -356,11 +410,11 @@ export class BubbleHexEngine {
   }
   private resolveBubble(b:Bubble,mult:number,chain:number){
     if(b.enemyId===WIDOW_ENEMY_ID){this.hitWidow();b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,COLORS.crimson,18);return}
-    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy){enemy.state="dead";this.stageKills++;this.score+=100*mult*enemy.rank*(enemy.elite?2:1);if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
+    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy){enemy.state="dead";this.stageKills++;this.award(100*mult*enemy.rank*(enemy.elite?2:1));if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
   }
   private hitWidow(){
     const w=this.widow;if(!w)return;
-    w.hp=Math.max(0,w.hp-1);this.score+=2500;
+    w.hp=Math.max(0,w.hp-1);this.award(2500);
     this.shake=this.settings.reducedMotion?0:10;this.hitStop=this.settings.reducedMotion?0:.12;this.audio.bossHit();
     if(w.hp<=0){this.beginWidowDefeat();return}
     w.phase="chase";w.phaseTimer=0;w.x=clamp(w.x,80,W-80);w.y=clamp(w.y,120,H-120);
@@ -368,7 +422,7 @@ export class BubbleHexEngine {
   }
   private beginWidowDefeat(){
     const w=this.widow;if(!w)return;
-    w.phase="defeated";w.phaseTimer=0;w.vx=0;w.vy=0;this.score+=6000;
+    w.phase="defeated";w.phaseTimer=0;w.vx=0;w.vy=0;this.award(6000);
     this.shake=this.settings.reducedMotion?0:14;this.hitStop=this.settings.reducedMotion?0:.22;
     this.burstParticles(w.x,w.y,COLORS.crimson,40);this.burstParticles(w.x,w.y,COLORS.pink,26);
     this.message="THE WIDOW UNRAVELS";this.messageLife=2.4;this.audio.secret();
@@ -458,7 +512,7 @@ export class BubbleHexEngine {
     if(hit)this.damagePlayer();
   }
   private damagePlayer(){if(this.player.invuln>0)return;this.stageDamaged=true;if(this.upgrades.shield){this.upgrades.shield=false;this.player.invuln=1.2;this.message="COMPACT SHATTERED";this.messageLife=1;this.audio.pop(2);return}this.audio.hurt();this.lives--;this.setState("dying");this.burstParticles(this.player.x+17,this.player.y+24,COLORS.crimson,22)}
-  private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("gameOver")}else{this.resetPlayer(2.2);this.setState("playing")}}
+  private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.bestScore(),this.score);if(this.newRecord)this.audio.recordSting();this.commitHighScore();this.save();this.setState("gameOver")}else{this.resetPlayer(2.2);this.setState("playing")}}
   private spawnReward(x:number,y:number,chain:number){
     const kinds=["CHERRY","RING","PERFUME","DRAGON FRUIT","BLACKBERRY","CROWN"],values=[100,250,400,600,800,1300];const tier=Math.min(kinds.length-1,Math.floor((chain-1)/2)+(this.upgrades.crown?1:0));
     const n=this.stageKills;if(n%7===0){const letters=["V","E","N","O","M"];const letter=letters.find(l=>!this.venom.has(l))||letters[n%5];this.rewards.push({x,y,vy:-120,kind:"LETTER",value:1080,life:12,letter})}
@@ -466,6 +520,13 @@ export class BubbleHexEngine {
     if(n%5===0)this.applyPowerup(n);
   }
   private applyPowerup(n:number){const list=["rapid","range","velocity","speed","shield","venom","chain","crown"] as const;const key=list[(n+this.levelIndex)%list.length];this.upgrades[key]=true;this.message=({rapid:"LIGHTNING CANDY",range:"HEART RANGE",velocity:"BLUE COMET",speed:"CRIMSON HEELS",shield:"HEART COMPACT",venom:"JADE FANG",chain:"SNAKE CHAIN",crown:"THORN CROWN"})[key];this.messageLife=1.25;this.audio.reward()}
+  /** All points funnel through here so Original Hex's risk premium applies once. */
+  private award(points:number){this.score+=Math.round(points*(this.isOriginal()?ORIGINAL_MODE.scoreMultiplier:1))}
+  private bestScore(){return this.isOriginal()?this.settings.originalHighScore:this.settings.highScore}
+  private commitHighScore(){
+    if(this.isOriginal())this.settings.originalHighScore=Math.max(this.settings.originalHighScore,this.score);
+    else this.settings.highScore=Math.max(this.settings.highScore,this.score);
+  }
   private heroProgress(){return this.settings.heroProgress[this.hero]}
   private gainHeroXp(amount:number){
     const before=this.heroProgress();
@@ -480,21 +541,26 @@ export class BubbleHexEngine {
     }
   }
   private applyMasteryUpgrades(refreshShield=false){
+    // Original Hex earns nothing from past runs — every attempt starts bare.
+    if(this.isOriginal())return;
     const progress=this.heroProgress();
     for(const key of unlockedHeroUpgrades(this.hero,progress.level))if(key!=="shield"||refreshShield||!this.upgrades.shield)this.upgrades[key]=true;
   }
-  private threatRank(){return enemyRankForStage(this.levelIndex,!!this.level.boss,!!this.level.bonus,this.settings.enemyConsciousness)}
+  private threatRank(){
+    const base=enemyRankForStage(this.levelIndex,!!this.level.boss,!!this.level.bonus,this.settings.enemyConsciousness);
+    return this.isOriginal()?Math.min(5,base+ORIGINAL_MODE.rankBoost):base;
+  }
   private cycleEnemyConsciousness(){
     this.settings.enemyConsciousness=((this.settings.enemyConsciousness+1)%ENEMY_CONSCIOUSNESS_NAMES.length) as EnemyConsciousness;
     this.message=`ENEMY CONSCIOUSNESS: ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`;this.messageLife=1.4;this.audio.reward();this.save();
   }
-  private collectReward(r:Reward){this.score+=r.value;this.audio.reward();this.burstParticles(r.x,r.y,r.letter?"#FFD36A":COLORS.pink,8);if(r.letter){this.venom.add(r.letter);if(this.venom.size===5){this.lives++;this.score+=10000;this.player.flying=6;this.venom.clear();this.message="VENOM ASCENSION +1 LIFE";this.messageLife=2.2;this.shake=this.settings.reducedMotion?0:5;this.audio.secret()}}}
+  private collectReward(r:Reward){this.award(r.value);this.audio.reward();this.burstParticles(r.x,r.y,r.letter?"#FFD36A":COLORS.pink,8);if(r.letter){this.venom.add(r.letter);if(this.venom.size===5){this.lives++;this.award(10000);this.player.flying=6;this.venom.clear();this.message="VENOM ASCENSION +1 LIFE";this.messageLife=2.2;this.shake=this.settings.reducedMotion?0:5;this.audio.secret()}}}
   private clearStage(demo:boolean){
     if(demo){this.toTitle();return}
     const secret=this.cheats.extra||(this.level.secret==="trapFirst"&&this.trappedBeforeFirstPop>=this.level.enemies.length)||(this.level.secret==="oneChain"&&this.bestChain>=this.level.enemies.length)||(this.level.secret==="noFloor"&&!this.touchedFloor)||(this.level.secret==="widow13"&&this.widowTime>=13);
     this.secretFound=secret;
     this.stageBreakdown=computeStageBreakdown({kills:this.score-this.stageStartScore,remainingTime:this.levelTime,lives:this.lives,noDamage:!this.stageDamaged,secretFound:secret,bonusRoom:!!this.level.bonus});
-    this.score+=this.stageBreakdown.speedBonus+this.stageBreakdown.lifeBonus+this.stageBreakdown.noDamageBonus+this.stageBreakdown.secretBonus;
+    this.award(this.stageBreakdown.speedBonus+this.stageBreakdown.lifeBonus+this.stageBreakdown.noDamageBonus+this.stageBreakdown.secretBonus);
     this.gainHeroXp(stageClearXp(this.threatRank(),!this.stageDamaged,!!this.level.boss));
     if(secret){
       if(!this.level.bonus&&!this.settings.fragments.includes(this.level.loreFragmentId)){
@@ -503,6 +569,11 @@ export class BubbleHexEngine {
       this.unlockContent(this.level.loreFragmentId);this.audio.secret();
     }
     this.recordStageResult();
+    if(!this.inBonus){
+      // The chamber map only ever opens forward, and it remembers across reloads.
+      this.settings.clearedStages=withClearedStage(this.settings.clearedStages,this.levelIndex,LEVELS.length);
+      if(this.isOriginal())this.settings.originalBestStage=Math.max(this.settings.originalBestStage,this.levelIndex+1);
+    }
     if(this.levelIndex===2&&!this.inBonus)this.unlockVelvetSkin(this.hero);
     this.save();this.setState("stageClear");
   }
@@ -515,14 +586,20 @@ export class BubbleHexEngine {
   private nextStage(){
     if(this.inBonus){this.inBonus=false;this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro");return}
     if(this.cheats.extra&&!this.bonusVisited&&this.levelIndex===2){this.bonusVisited=true;this.loadBonusLevel();this.setState("stageIntro");return}
-    if(this.levelIndex>=LEVELS.length-1){this.endingText=this.cheats.super?"TRUE ENDING — THE HEX DREAMS YOU BACK":"THE NIGHTCLUB OPENS AT DAWN";this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("victory")}else{this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro")}
+    if(this.levelIndex>=LEVELS.length-1){this.endingText=this.cheats.super?"TRUE ENDING — THE HEX DREAMS YOU BACK":"THE NIGHTCLUB OPENS AT DAWN";this.newRecord=isNewCampaignRecord(this.bestScore(),this.score);if(this.newRecord)this.audio.recordSting();this.commitHighScore();this.save();this.setState("victory")}else{this.levelIndex++;this.loadLevel(this.levelIndex);this.setState("stageIntro")}
   }
-  private beginRun(){this.lives=3;this.score=0;this.levelIndex=0;this.venom.clear();this.bonusVisited=false;this.stageStartScore=0;this.upgrades={speed:this.cheats.power,rapid:this.cheats.power,range:this.cheats.power,velocity:false,shield:false,venom:false,chain:false,crown:false};this.loadLevel(0);this.setState("stageIntro")}
+  private beginRun(startLevel=0){
+    const original=this.isOriginal();
+    const from=original?0:clamp(startLevel,0,LEVELS.length-1);
+    this.lives=original?ORIGINAL_MODE.lives:3;this.score=0;this.levelIndex=from;this.venom.clear();this.bonusVisited=false;this.stageStartScore=0;
+    this.upgrades={speed:this.cheats.power,rapid:this.cheats.power,range:this.cheats.power,velocity:false,shield:false,venom:false,chain:false,crown:false};
+    this.loadLevel(from);this.setState("stageIntro");
+  }
   private restartCurrentStage(){if(this.inBonus)this.loadBonusLevel();else this.loadLevel(this.levelIndex);this.setState("stageIntro")}
   private loadLevel(i:number){this.levelIndex=i;this.inBonus=false;this.loadLevelData(this.remixLevel(LEVELS[i]))}
   private loadBonusLevel(){this.inBonus=true;this.loadLevelData(this.remixLevel(BONUS_LEVEL))}
   private loadLevelData(level:Level){
-    this.level=level;this.levelTime=level.time;
+    this.level=level;this.levelTime=this.isOriginal()?originalStageTime(level.time):level.time;
     const rank=this.threatRank();
     this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,prevX:s.x,prevY:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
     this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];
@@ -535,7 +612,7 @@ export class BubbleHexEngine {
   }
   private remixLevel(base:Level):Level{if(!this.cheats.super)return base;return{...base,time:Math.max(45,base.time-12),platforms:base.platforms.map((p,i)=>i===0?p:{...p,y:p.y+(i%2?18:-12)}),enemies:[...base.enemies,...base.enemies.slice(0,2).map((e,i)=>({...e,x:clamp(e.x+150+i*90,60,860),kind:i?"skull" as EnemyKind:"witch" as EnemyKind}))]}}
   private beginAttract(){this.attractTime=0;this.hero="jade";this.levelIndex=1;this.loadLevel(1);this.setState("attract")}
-  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false}}
+  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={...NO_INPUT}}
   private recordToken(token:Token,isStartAction:boolean){
     const match=this.cheatReader.feed(token,performance.now(),this.cheats);
     this.startGrace=nextTitleStartGrace(!!match,isStartAction);
@@ -547,7 +624,22 @@ export class BubbleHexEngine {
   private unlockVelvetSkin(hero:HeroId){const skin=SKINS.find(item=>item.heroId===hero&&item.unlock==="clear-velvet-drain");if(!skin)return;if(!this.settings.unlockedSkins.includes(skin.id)){this.settings.unlockedSkins.push(skin.id);this.unlockContent(skin.id);this.message=`${skin.name.toUpperCase()} UNLOCKED`;this.messageLife=2}}
   private unlockContent(id:string){if(!this.settings.unlockedCodex.includes(id))this.settings.unlockedCodex.push(id)}
   private archiveEntries(){const entries=CODEX_ENTRIES.filter(entry=>this.settings.unlockedCodex.includes(entry.unlockId));return entries.length?entries:CODEX_ENTRIES.slice(0,2)}
-  private pollGamepad(){const g=navigator.getGamepads?.()[0];if(!g)return;this.held.left=(g.axes[0]||0)<-.35;this.held.right=(g.axes[0]||0)>.35;const next={jump:!!g.buttons[0]?.pressed,bubble:!!g.buttons[1]?.pressed,start:!!g.buttons[9]?.pressed,pause:!!g.buttons[8]?.pressed};for(const key of Object.keys(next) as (keyof typeof next)[]){if(next[key]&&!this.gamepadPrev[key])this.press(key);if(!next[key]&&this.gamepadPrev[key])this.release(key)}this.gamepadPrev=next}
+  private pollGamepad(){
+    const g=navigator.getGamepads?.().find(pad=>pad?.connected);if(!g)return;
+    // A plugged-in-but-idle pad must not fight the keyboard or the touch pad, so
+    // steering is only overridden while the stick/d-pad is actually deflected,
+    // and released only on the frame the pad lets go.
+    const axis=g.axes[0]||0;
+    const padLeft=axis<-.35||!!g.buttons[14]?.pressed,padRight=axis>.35||!!g.buttons[15]?.pressed;
+    if(padLeft)this.held.left=true;else if(this.gamepadPrev.left)this.held.left=false;
+    if(padRight)this.held.right=true;else if(this.gamepadPrev.right)this.held.right=false;
+    const next={jump:!!g.buttons[0]?.pressed,bubble:!!g.buttons[1]?.pressed,start:!!g.buttons[9]?.pressed,pause:!!g.buttons[8]?.pressed,left:padLeft,right:padRight};
+    for(const key of ["jump","bubble","start","pause"] as const){
+      if(next[key]&&!this.gamepadPrev[key])this.press(key);
+      if(!next[key]&&this.gamepadPrev[key])this.release(key);
+    }
+    this.gamepadPrev=next;
+  }
   private dust(x:number,y:number,count:number){
     if(this.settings.reducedMotion)return;
     for(let i=0;i<count;i++){const a=-Math.PI/2+(Math.random()-.5)*1.7,s=20+Math.random()*70;this.particles.push({x:x+(Math.random()-.5)*18,y:y-2,vx:Math.cos(a)*s,vy:Math.sin(a)*s*.4-25,life:.22+Math.random()*.3,color:"#7d90b5",size:2+Math.random()*3})}
@@ -562,7 +654,7 @@ export class BubbleHexEngine {
   private save(){try{localStorage.setItem("bubble-hex-settings",JSON.stringify(this.settings))}catch{}}
 
   private render(){const c=this.ctx;this.renderAlpha=clamp(this.acc/FIXED,0,1);c.save();const s=this.shake&&!this.settings.reducedMotion?(Math.random()-.5)*this.shake:0;c.translate(s,s);c.fillStyle=COLORS.void;c.fillRect(-10,-10,W+20,H+20);
-    if(this.state==="boot")this.drawBoot();else if(this.state==="title")this.drawTitle();else if(this.state==="characterSelect")this.drawSelect();else if(this.state==="records/options")this.drawRecords();else if(this.state==="victory")this.drawVictory();else if(this.state==="gameOver")this.drawGameOver();else{this.drawWorld();if(this.state==="stageIntro")this.drawStageIntro();if(this.state==="hurry")this.drawHurry();if(this.state==="paused")this.drawPause();if(this.state==="stageClear")this.drawStageClear();if(this.state==="dying")this.drawDying();if(this.state==="attract")this.label("ATTRACT MODE — PRESS ANY KEY",W/2,700,15,COLORS.shine,"center")}
+    if(this.state==="boot")this.drawBoot();else if(this.state==="title")this.drawTitle();else if(this.state==="characterSelect")this.drawSelect();else if(this.state==="levelMap")this.drawLevelMap();else if(this.state==="records/options")this.drawRecords();else if(this.state==="victory")this.drawVictory();else if(this.state==="gameOver")this.drawGameOver();else{this.drawWorld();if(this.state==="stageIntro")this.drawStageIntro();if(this.state==="hurry")this.drawHurry();if(this.state==="paused")this.drawPause();if(this.state==="stageClear")this.drawStageClear();if(this.state==="dying")this.drawDying();if(this.state==="attract")this.label("ATTRACT MODE — PRESS ANY KEY",W/2,700,15,COLORS.shine,"center")}
     if(this.messageLife>0)this.banner(this.message,110,COLORS.jade);c.restore();
   }
   private drawBoot(){this.label("BLUE $NAKE STUDIO",W/2,306,26,COLORS.blue,"center");this.label("DRESSING THE NIGHT",W/2,350,14,COLORS.jade,"center");this.ctx.strokeStyle="#183860";this.ctx.strokeRect(280,390,400,12);this.ctx.fillStyle=COLORS.pink;this.ctx.fillRect(282,392,396*this.art.progress,8)}
@@ -576,12 +668,14 @@ export class BubbleHexEngine {
     if(this.cheats.power)for(let i=0;i<3;i++){const a=t*2+i*Math.PI*2/3;c.strokeStyle=i===0?COLORS.pink:i===1?COLORS.blue:COLORS.jade;c.lineWidth=3;c.beginPath();c.arc(W/2+Math.cos(a)*115,475+Math.sin(a)*70,13,0,Math.PI*2);c.stroke()}
     if(this.cheats.extra){c.strokeStyle=COLORS.jade;c.lineWidth=5;c.beginPath();c.arc(W/2,475,18,Math.PI,0);c.lineTo(W/2+12,515);c.lineTo(W/2-12,515);c.closePath();c.stroke()}
     const all=this.cheats.power&&this.cheats.super&&this.cheats.extra;
-    this.label(`ENEMY CONSCIOUSNESS  ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,570,13,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
-    this.label("UP / ENEMY LEVEL TO CHANGE",W/2,592,11,COLORS.jade,"center");
-    this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,622,all?20:25,all?COLORS.crimson:COLORS.shine,"center");
-    if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,650,12,COLORS.pink,"center");
+    const original=this.isOriginal();
+    this.label(`ENEMY CONSCIOUSNESS  ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,556,13,this.settings.enemyConsciousness>=4?COLORS.crimson:COLORS.blue,"center");
+    this.label(`MODE  ${modeLabel(this.settings.campaignMode)}`,W/2,580,13,original?COLORS.crimson:COLORS.jade,"center");
+    this.label(original?"NO CHECKPOINTS · NO MAP JUMPS · DEATH SENDS YOU BACK TO CHAMBER ONE":"MAP / TAB — CHAMBER MAP & MODE   •   UP — ENEMY LEVEL",W/2,602,10,original?COLORS.pink:"#7d8fae","center");
+    this.label(all?"BUBBLE HEX: VENOM EDITION":"PRESS START",W/2,634,all?20:25,all?COLORS.crimson:COLORS.shine,"center");
+    if(Math.floor(t*2)%2===0)this.label("ENTER / START",W/2,660,12,COLORS.pink,"center");
     this.label("ONE PLAYER",65,699,12,COLORS.blue);this.label("BLUE $NAKE STUDIO",895,699,12,COLORS.jade,"right");
-    const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,676,12,COLORS.shine,"center");
+    const active=[this.cheats.power&&"POWER",this.cheats.super&&"SUPER",this.cheats.extra&&"EXTRA"].filter(Boolean).join(" + ");if(active)this.label(active,W/2,684,12,COLORS.shine,"center");
   }
   private drawSelect(){this.drawStars();this.drawGothicFrame(COLORS.pink);this.label("CHOOSE YOUR HEX",W/2,105,42,COLORS.shine,"center","Georgia");
     this.drawSelectCard(150,155,"vesper",this.selected==="vesper");this.drawSelectCard(510,155,"jade",this.selected==="jade");this.label("← HERO →   •   BUBBLE: LOOK   •   UP: ENEMY LEVEL",W/2,635,13,COLORS.blue,"center");this.label(`START / JUMP TO CONFIRM   •   ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`,W/2,675,13,COLORS.jade,"center")}
@@ -593,6 +687,67 @@ export class BubbleHexEngine {
     if(on){c.shadowBlur=18;c.shadowColor=col;c.strokeRect(x+9,y+9,282,402);c.shadowBlur=0}
     this.label(hero.toUpperCase(),x+150,y+326,30,col,"center","Georgia");this.label(skin.name.toUpperCase(),x+150,y+354,11,COLORS.shine,"center");
     this.label(hero==="vesper"?"THORN • SPARK • BITE":"MIST • GLASS • TIDE",x+150,y+379,10,skin.secondary,"center");this.label(on?"BUBBLE: CHANGE LOOK":"ALTERNATE",x+150,y+404,10,on?COLORS.pink:COLORS.blue,"center")
+  }
+  /** Serpentine node positions for the twelve canonical chambers. */
+  private static mapNode(index:number):{x:number;y:number}{
+    const row=Math.floor(index/4),col=index%4;
+    const order=row%2===0?col:3-col;
+    return {x:168+order*208,y:262+row*136};
+  }
+  private drawLevelMap(){
+    const c=this.ctx,cleared=this.settings.clearedStages,open=this.unlockedThrough(),original=this.isOriginal();
+    this.drawStars();this.drawGothicFrame(original?COLORS.crimson:COLORS.blue);
+    this.label("CHAMBER MAP",W/2,88,36,COLORS.shine,"center","Georgia");
+    this.label(`${campaignCompletion(cleared,LEVELS.length)}% OPENED  •  JADE DOORS ${this.settings.fragments.length}/12`,W/2,118,11,COLORS.jade,"center");
+    this.label(`MODE  ${modeLabel(this.settings.campaignMode)}`,W/2,146,14,original?COLORS.crimson:COLORS.blue,"center");
+    this.label(original?"NO MAP JUMPS · NO CHECKPOINTS · NO CARRIED MASTERY · ×1.5 SCORE":"REVISIT ANY CHAMBER YOU HAVE ALREADY OPENED",W/2,168,10,original?COLORS.pink:"#7d8fae","center");
+
+    // Route between chambers, dimming past the furthest opened door.
+    c.save();c.lineWidth=4;c.lineCap="round";
+    for(let i=0;i<LEVELS.length-1;i++){
+      const a=BubbleHexEngine.mapNode(i),b=BubbleHexEngine.mapNode(i+1);
+      c.strokeStyle=i+1<=open?"rgba(8,124,255,.5)":"rgba(60,70,96,.35)";
+      c.setLineDash(i+1<=open?[]:[7,9]);
+      c.beginPath();c.moveTo(a.x,a.y);
+      if(Math.abs(a.y-b.y)>4)c.quadraticCurveTo(a.x+(a.x>W/2?66:-66),(a.y+b.y)/2,b.x,b.y);
+      else c.lineTo(b.x,b.y);
+      c.stroke();
+    }
+    c.setLineDash([]);c.restore();
+
+    for(let i=0;i<LEVELS.length;i++){
+      const level=LEVELS[i],node=BubbleHexEngine.mapNode(i);
+      const unlocked=original?i===0:isLevelUnlocked(i,cleared,LEVELS.length);
+      const done=cleared.includes(i),active=i===this.mapIndex;
+      const radius=active?38:30;
+      c.save();
+      if(active&&!this.settings.reducedMotion)c.translate(0,Math.sin(this.animTime*3.4)*3);
+      c.beginPath();c.arc(node.x,node.y,radius,0,Math.PI*2);
+      // A chamber cleared in Chronicle still reads as sealed under Original Hex.
+      const lit=done&&unlocked;
+      c.fillStyle=lit?level.tint:unlocked?"#0b1226":"#0a0a12";c.globalAlpha=lit?.32:1;c.fill();c.globalAlpha=1;
+      c.lineWidth=active?5:3;c.strokeStyle=unlocked?level.tint:"#39405a";
+      if(active){c.shadowBlur=20;c.shadowColor=level.tint}
+      c.stroke();c.shadowBlur=0;
+      if(level.boss){c.lineWidth=2;c.strokeStyle=COLORS.crimson;c.beginPath();c.arc(node.x,node.y,radius+7,0,Math.PI*2);c.stroke()}
+      c.restore();
+      if(!unlocked){
+        c.save();c.strokeStyle="#5a6280";c.lineWidth=3;
+        c.strokeRect(node.x-8,node.y-2,16,14);
+        c.beginPath();c.arc(node.x,node.y-2,6,Math.PI,0);c.stroke();c.restore();
+      }else{
+        this.label(String(i+1),node.x,node.y+8,lit?20:18,lit?COLORS.shine:level.tint,"center","Georgia");
+        if(lit)this.label("✦",node.x+radius-6,node.y-radius+16,12,"#FFD36A","center");
+      }
+    }
+
+    const selected=LEVELS[this.mapIndex];
+    const selectedOpen=original?this.mapIndex===0:isLevelUnlocked(this.mapIndex,cleared,LEVELS.length);
+    const best=this.settings.bestStageTimes[selected.loreFragmentId];
+    c.fillStyle="rgba(4,5,13,.9)";c.fillRect(96,590,768,96);this.drawGothicBox(96,590,768,96,selectedOpen?selected.tint:"#39405a");
+    this.label(`${this.mapIndex+1}. ${selected.name.toUpperCase()}`,W/2,624,22,selectedOpen?COLORS.shine:"#6a7288","center","Georgia");
+    this.label(`${selected.world}${selected.boss?"  •  BOSS":""}${best!==undefined?`  •  BEST ${best.toFixed(1)}s`:"  •  NO RECORD"}  •  HERO ${this.selected.toUpperCase()}`,W/2,650,11,selected.tint,"center");
+    this.label(this.mapNoticeLife>0?this.mapNotice:"← → CHOOSE  •  START / JUMP ENTER  •  UP SWAPS MODE  •  PAUSE BACK",W/2,674,11,this.mapNoticeLife>0?COLORS.crimson:COLORS.jade,"center");
   }
   private drawWorld(){
     const a=this.renderAlpha;
@@ -686,7 +841,7 @@ export class BubbleHexEngine {
     }
   }
   private drawShadowUnder(cx:number,bottom:number,w:number){const c=this.ctx;const platform=this.level.platforms.find(s=>cx>s.x&&cx<s.x+s.w&&s.y>=bottom-6);if(!platform)return;const distance=platform.y-bottom,scale=clamp(1-distance/260,.22,1);c.save();c.globalAlpha=.16*scale;c.fillStyle="#000";c.beginPath();c.ellipse(cx,platform.y-2,w*scale,5*scale,0,0,Math.PI*2);c.fill();c.restore()}
-  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(215,34,this.hero,.55,false);this.label(`× ${this.lives}`,235,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
+  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.bestScore())).padStart(7,"0")}`,24,53,12,this.isOriginal()?COLORS.crimson:COLORS.blue);this.drawHero(215,34,this.hero,.55,false);this.label(`× ${this.lives}`,235,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
   private drawBossHealth(w:WidowState){
     const c=this.ctx,pips=w.maxHp,cx=W/2,y=82,size=16,gap=26,startX=cx-((pips-1)*gap)/2;
     c.save();this.label("THE WIDOW",cx,74,11,COLORS.pink,"center");
@@ -874,7 +1029,7 @@ export class BubbleHexEngine {
     c.restore()}
   private drawStageIntro(){const fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId);this.ctx.fillStyle="rgba(5,5,9,.84)";this.ctx.fillRect(110,225,740,235);this.label(this.level.bonus?"ORIGINAL MODE SECRET":`STAGE ${this.levelIndex+1}`,W/2,280,20,this.level.tint,"center");this.label(this.level.name.toUpperCase(),W/2,338,38,COLORS.shine,"center","Georgia");this.label(this.level.world,W/2,378,15,COLORS.pink,"center");if(this.level.bonus)this.label("CHAIN THEM ALL BEFORE THE VAULT SEALS",W/2,425,12,COLORS.jade,"center");else if(fragment)this.label(`JADE DOOR: ${fragment.title.toUpperCase()}`,W/2,425,12,COLORS.jade,"center")}
   private drawHurry(){this.ctx.fillStyle="rgba(196,19,61,.2)";this.ctx.fillRect(0,70,W,H-70);this.banner("HURRY, DARLING!",300,COLORS.crimson)}
-  private drawPause(){this.ctx.fillStyle="rgba(5,5,9,.9)";this.ctx.fillRect(130,135,700,490);this.drawGothicBox(130,135,700,490,COLORS.pink);this.label("PAUSED",W/2,205,42,COLORS.shine,"center","Georgia");this.label("P / PAUSE — RESUME",W/2,270,15,COLORS.jade,"center");this.label("← →  MUSIC VOLUME  "+Math.round(this.settings.musicVolume*10),W/2,312,15,COLORS.blue,"center");this.label("HOLD JUMP + ← →  SFX VOLUME  "+Math.round(this.settings.sfxVolume*10),W/2,340,13,COLORS.blue,"center");this.label(`BUBBLE  SOUND ${this.settings.muted?"OFF":"ON"}`,W/2,378,15,COLORS.pink,"center");this.label(`JUMP (TAP)  REDUCED MOTION ${this.settings.reducedMotion?"ON":"OFF"}`,W/2,418,15,COLORS.pink,"center");this.label("START — RESTART CHAMBER",W/2,458,15,COLORS.crimson,"center");this.label("MOVE A/D OR ARROWS · JUMP SPACE/C · BUBBLE X/Z",W/2,533,12,COLORS.shine,"center");this.label("TOUCH CONTROLS SUPPORT MULTI-TOUCH",W/2,568,12,COLORS.jade,"center")}
+  private drawPause(){this.ctx.fillStyle="rgba(5,5,9,.9)";this.ctx.fillRect(130,135,700,490);this.drawGothicBox(130,135,700,490,COLORS.pink);this.label("PAUSED",W/2,205,42,COLORS.shine,"center","Georgia");this.label("P / PAUSE — RESUME",W/2,270,15,COLORS.jade,"center");this.label("← →  MUSIC VOLUME  "+Math.round(this.settings.musicVolume*10),W/2,312,15,COLORS.blue,"center");this.label("HOLD JUMP + ← →  SFX VOLUME  "+Math.round(this.settings.sfxVolume*10),W/2,340,13,COLORS.blue,"center");this.label(`BUBBLE  SOUND ${this.settings.muted?"OFF":"ON"}`,W/2,378,15,COLORS.pink,"center");this.label(`JUMP (TAP)  REDUCED MOTION ${this.settings.reducedMotion?"ON":"OFF"}`,W/2,418,15,COLORS.pink,"center");this.label(this.isOriginal()?"START — NO RETRIES IN ORIGINAL HEX":"START — RESTART CHAMBER",W/2,458,15,COLORS.crimson,"center");this.label(`MODE  ${modeLabel(this.settings.campaignMode)}`,W/2,494,13,this.isOriginal()?COLORS.crimson:COLORS.jade,"center");this.label("MOVE A/D OR ARROWS · JUMP SPACE/C · BUBBLE X/Z",W/2,533,12,COLORS.shine,"center");this.label("TOUCH CONTROLS SUPPORT MULTI-TOUCH · M OPENS THE CHAMBER MAP",W/2,568,11,COLORS.jade,"center")}
   private drawStageClear(){
     const c=this.ctx,fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId),b=this.stageBreakdown;
     const elapsed=Math.max(0,this.level.time-Math.max(0,this.levelTime));
@@ -899,7 +1054,7 @@ export class BubbleHexEngine {
     else{this.label(this.level.bonus?"THE VAULT STAYS SHUT — CHAIN THEM ALL NEXT TIME":"THE DOOR REMAINS QUIET",W/2,y,13,"#59687a","center")}
   }
   private drawDying(){this.ctx.fillStyle=`rgba(196,19,61,${.2+Math.sin(this.stateTime*18)*.1})`;this.ctx.fillRect(0,70,W,H-70);this.label("HEART BROKEN",W/2,360,38,COLORS.crimson,"center","Georgia")}
-  private drawGameOver(){this.drawStars();this.drawGothicFrame(COLORS.crimson);this.label("GAME OVER",W/2,265,80,COLORS.crimson,"center","Georgia");this.drawHeart(W/2,370,45,"#16070d");this.label(`SCORE ${String(this.score).padStart(7,"0")}`,W/2,475,22,COLORS.shine,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,505,14,"#FFD36A","center");else this.label(`CAMPAIGN BEST ${String(this.settings.highScore).padStart(7,"0")}`,W/2,505,12,COLORS.blue,"center");this.label("PRESS START — THE NIGHT REMEMBERS",W/2,560,16,COLORS.pink,"center")}
+  private drawGameOver(){this.drawStars();this.drawGothicFrame(COLORS.crimson);this.label("GAME OVER",W/2,265,80,COLORS.crimson,"center","Georgia");this.drawHeart(W/2,370,45,"#16070d");this.label(`SCORE ${String(this.score).padStart(7,"0")}`,W/2,475,22,COLORS.shine,"center");if(this.newRecord)this.label(`★ NEW ${modeLabel(this.settings.campaignMode)} BEST ★`,W/2,505,14,"#FFD36A","center");else this.label(`${modeLabel(this.settings.campaignMode)} BEST ${String(this.bestScore()).padStart(7,"0")}`,W/2,505,12,COLORS.blue,"center");this.label(this.isOriginal()?"NO CHECKPOINTS — PRESS START TO BEGIN AGAIN AT CHAMBER ONE":"PRESS START — THE NIGHT REMEMBERS",W/2,560,this.isOriginal()?13:16,COLORS.pink,"center");this.label("MAP / TAB — CHAMBER MAP",W/2,596,11,COLORS.jade,"center")}
   private drawVictory(){this.drawStars();this.drawGothicFrame(this.cheats.super?COLORS.crimson:COLORS.jade);this.drawHero(310,300,this.hero,2.2,false,{pose:"jump"});this.drawHeartBubble(650,300,90);this.label(this.cheats.super?"VENOM EDITION CLEARED":"DAWN SURVIVED",W/2,495,45,this.cheats.super?COLORS.crimson:COLORS.jade,"center","Georgia");this.label(this.endingText,W/2,545,15,COLORS.shine,"center");this.label(`FINAL SCORE ${this.score}`,W/2,590,18,COLORS.pink,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,615,14,"#FFD36A","center");this.label("PRESS START",W/2,650,15,COLORS.blue,"center")}
   private drawRecords(){
     const c=this.ctx,entries=this.archiveEntries();this.archiveIndex=((this.archiveIndex%entries.length)+entries.length)%entries.length;const entry=entries[this.archiveIndex];
@@ -909,7 +1064,7 @@ export class BubbleHexEngine {
     if(entry.category==="profile"){
       const profile=CHARACTER_PROFILES[entry.unlockId as keyof typeof CHARACTER_PROFILES];this.drawWrappedText(profile.history,W/2,292,650,21,13,COLORS.shine,"center");this.label(`WANTS: ${profile.desire}`,W/2,398,11,COLORS.jade,"center");this.drawWrappedText(`FEAR: ${profile.fear}  •  FLAW: ${profile.flaw}`,W/2,428,660,18,10,COLORS.blue,"center");this.label(profile.gameplay.toUpperCase(),W/2,510,9,COLORS.pink,"center");
     }else this.drawWrappedText(entry.body,W/2,302,650,24,14,COLORS.shine,"center");
-    this.label(`HI ${String(this.settings.highScore).padStart(7,"0")}  •  JADE DOORS ${this.settings.fragments.length}/12  •  LOOKS ${this.settings.unlockedSkins.length}/4`,W/2,605,11,COLORS.blue,"center");this.label("← → / JUMP / BUBBLE: TURN PAGE  •  START / PAUSE: RETURN",W/2,655,11,COLORS.shine,"center")
+    this.label(`HI ${String(this.settings.highScore).padStart(7,"0")}  •  ORIGINAL HI ${String(this.settings.originalHighScore).padStart(7,"0")}  •  JADE DOORS ${this.settings.fragments.length}/12  •  LOOKS ${this.settings.unlockedSkins.length}/4`,W/2,605,11,COLORS.blue,"center");this.label("← → / JUMP / BUBBLE: TURN PAGE  •  START / PAUSE: RETURN",W/2,655,11,COLORS.shine,"center")
   }
   private drawHeartBubble(x:number,y:number,r:number){const c=this.ctx;c.save();c.fillStyle="rgba(255,42,157,.12)";c.strokeStyle=COLORS.pink;c.lineWidth=5;c.shadowBlur=24;c.shadowColor=COLORS.pink;c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fill();c.stroke();c.shadowBlur=0;this.drawHeart(x,y+4,r*.55,"#8c164f");c.restore()}
   private drawHeart(x:number,y:number,s:number,color:string){const c=this.ctx;c.fillStyle=color;c.beginPath();c.moveTo(x,y+s*.8);c.bezierCurveTo(x-s*1.2,y,x-s*.7,y-s*.8,x,y-s*.25);c.bezierCurveTo(x+s*.7,y-s*.8,x+s*1.2,y,x,y+s*.8);c.fill()}

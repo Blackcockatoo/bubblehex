@@ -1,10 +1,14 @@
+import { normalizeClearedStages, type CampaignMode } from "./campaign.ts";
 import type { HeroId } from "./content";
 import type { EnemyConsciousness, HeroProgress } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
+/** Canonical chamber count; kept here so persistence stays free of level data. */
+export const CAMPAIGN_LEVEL_COUNT = 12;
+
 export type PersistedSettings = {
-  version:5;
+  version:6;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -19,13 +23,24 @@ export type PersistedSettings = {
   bestStageTimes:Record<string,number>;
   perfectClears:number;
   heroProgress:Record<HeroId,HeroProgress>;
+  /** Chamber indices cleared at least once — drives the chamber map. */
+  clearedStages:number[];
+  /** Last mode the player chose on the title screen. */
+  campaignMode:CampaignMode;
+  /** Separate record board for the unforgiving mode. */
+  originalHighScore:number;
+  /** Deepest chamber ever reached in Original Hex, for bragging rights. */
+  originalBestStage:number;
+  /** Player preference for the on-screen touch pad ("auto" follows the device). */
+  touchControls:"auto"|"on"|"off";
 };
 
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:5,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:6,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
+  clearedStages:[],campaignMode:"chronicle",originalHighScore:0,originalBestStage:0,touchControls:"auto",
 };
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
@@ -45,6 +60,10 @@ const normalizePersistedHeroProgress=(value:unknown):HeroProgress=>{
   return {level,xp};
 };
 
+const normalizeCampaignMode=(value:unknown):CampaignMode=>value==="original"?"original":"chronicle";
+const normalizeTouchPreference=(value:unknown):PersistedSettings["touchControls"]=>
+  value==="on"||value==="off"?value:"auto";
+
 export function migrateSettings(input:unknown,prefersReducedMotion=false):PersistedSettings {
   const raw=input&&typeof input==="object"?input as Partial<PersistedSettings>&{volume?:number}:{};
   const selectedSkins={...DEFAULT_SKIN,...(raw.selectedSkins&&typeof raw.selectedSkins==="object"?raw.selectedSkins:{})};
@@ -53,7 +72,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
   return {
-    ...DEFAULT_SETTINGS,...raw,version:5,
+    ...DEFAULT_SETTINGS,...raw,version:6,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -67,5 +86,10 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     bestStageTimes:positiveRecord(raw.bestStageTimes),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
+    clearedStages:normalizeClearedStages(raw.clearedStages,CAMPAIGN_LEVEL_COUNT),
+    campaignMode:normalizeCampaignMode(raw.campaignMode),
+    originalHighScore:typeof raw.originalHighScore==="number"?Math.max(0,raw.originalHighScore):0,
+    originalBestStage:typeof raw.originalBestStage==="number"?Math.max(0,Math.min(CAMPAIGN_LEVEL_COUNT,Math.floor(raw.originalBestStage))):0,
+    touchControls:normalizeTouchPreference(raw.touchControls),
   };
 }
