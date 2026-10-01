@@ -38,6 +38,22 @@ test('input sources preserve other fingers, keyboard aliases and gamepads',()=>{
   assert.equal(input.release('left','gamepad'),true);assert.equal(input.release('left','touch:1'),true);assert.equal(input.release('left','keyboard:A'),false);
   input.press('jump','touch:2');input.clear();assert.equal(input.release('jump','touch:2'),false);
 });
+test('stalled optional artwork cannot keep the game locked at boot',()=>{
+  const e=make();e.art.state='loading';
+  for(let i=0;i<190;i++)e.update(1/60);
+  assert.equal(e.state,'title');e.press('start');e.release('start');
+  for(let i=0;i<20;i++)e.update(1/60);
+  assert.equal(e.state,'characterSelect');e.press('jump');e.release('jump');e.update(1/60);
+  assert.equal(e.state,'stageIntro');e.destroy();
+});
+test('audio device failure does not swallow Start, jump or held movement',()=>{
+  const e=make();e.audio.unlock=()=>{throw new Error('audio device unavailable')};
+  e.state='title';e.press('start');e.release('start');
+  for(let i=0;i<20;i++)e.update(1/60);
+  assert.equal(e.state,'characterSelect');e.press('jump');e.release('jump');e.update(1/60);
+  assert.equal(e.state,'stageIntro');e.state='playing';e.press('right');e.press('jump');
+  e.update(1/60);assert.ok(e.player.vx>0);assert.ok(e.player.vy<0);e.destroy();
+});
 test('connected neutral gamepad preserves held touch movement; disconnect releases only gamepad',()=>{
   const e=make();e.press('left','pointer:1');navigator.getGamepads=()=>[{axes:[0],buttons:[]}];e.pollGamepad();assert.equal(e.held.left,true);
   navigator.getGamepads=()=>[{axes:[.8],buttons:[]}];e.pollGamepad();assert.equal(e.held.right,true);

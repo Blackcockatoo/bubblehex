@@ -72,3 +72,24 @@ Final automated result: 49 tests pass (35 existing unit/content checks, 13 engin
 5. **Replay/progression feedback:** review a compact chamber performance recap using existing records and mastery.
 
 No new gameplay modes, mechanics or experimental progression systems were implemented. No deployment is part of this pass.
+
+## Corrective pass — 2 October 2026
+
+User feedback: retain the older large diagonal action layout; the released game did not respond reliably on their device.
+
+### FIX NOW — implemented
+- Restored the earlier diagonal relationship: Bubble above/left of Jump. Action targets are 76–104px on portrait phones, 83–101px at the tested landscape sizes, and 124px on desktop. Landscape uses the earlier vertically staggered thumb pair and leaves more room for the chamber.
+- Reserved height for the larger controls; kept all controls visible at 320×568 and the other ten tested sizes. Removed the duplicate decorative signal line on phones and kept movement targets at least 60×72px in portrait.
+- A stalled optional artwork request previously kept the engine at boot with Start disabled indefinitely. Startup now proceeds with the existing procedural art after three simulation seconds; late art can still load.
+- Audio-device initialization exceptions previously interrupted input before the action was recorded. Input now continues silently.
+- Added click-only activation fallback while suppressing duplicate pointer clicks. Expiring the legacy suppression record fixes switching from earlier touch input to click-only activation.
+- Focus gameplay after menu clicks so Space/Enter do not remain captured by menu buttons. Retain native keyboard activation for explicitly focused controls.
+- Clear touch indicators/input when the page is hidden; tolerate pointer-capture cancellation and release uncaptured input on pointer exit.
+
+### Verification
+- 51 automated tests pass (35 existing unit/content tests, 15 engine regressions, one built-HTML check); game typecheck passes. Lint has no errors and the existing image advisory.
+- Development browser suite passes all eleven layouts, diagonal/size regression checks, multi-touch, native keyboard, pause/restart, saved progress, reduced motion and fixture-assisted campaign flow.
+- New `tests/production-controls.mjs` serves and exercises the actual static Vercel artifact: eleven layouts, real touch Start/hero confirmation, simultaneous movement/fire and independent finger release, click-only activation, pause/resume, keyboard jump after touch menus, restart and reduced motion. No page errors.
+- Live desktop startup, selection and gameplay worked during diagnosis. The user's precise device-specific failure was not reproduced; the concrete startup and input failure paths above are covered by regression tests. Full physical-device testing remains POLISH NEXT.
+
+POLISH NEXT and FUTURE IDEAS from the earlier audit remain unchanged. No game rules, levels, scoring, progression or artwork were replaced.
