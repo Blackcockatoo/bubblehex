@@ -1,7 +1,10 @@
 .screen-wrap canvas{position:relative;z-index:0}
 .game-background-motion{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;pointer-events:none;mix-blend-mode:screen;filter:saturate(.9) contrast(1.12) brightness(.62);transition:opacity .4s ease}
-.game-background-motion.is-playing{opacity:.16}
-.game-background-motion.is-menu{opacity:.3}
-.game-background-vignette{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,5,9,.52) 0%,rgba(5,5,9,.2) 46%,rgba(5,5,9,.02) 80%)}
+.game-background-motion.is-playing{opacity:.08;animation:hex-ambient-drift 24s ease-in-out infinite alternate}
+.game-background-motion.is-menu{opacity:.2;animation:hex-ambient-drift 30s ease-in-out infinite alternate}
+.game-background-vignette{position:absolute;inset:0;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,rgba(5,5,9,.12) 0%,rgba(5,5,9,.08) 46%,rgba(5,5,9,.02) 80%)}
 .screen-wrap .scanlines{z-index:3}
 @media(prefers-reduced-motion:reduce){.game-background-motion{display:none}}
+
+@keyframes hex-ambient-drift{from{transform:scale(1.01) translateX(-.3%)}to{transform:scale(1.035) translateX(.3%)}}
+.arcade-page[data-reduced-motion="true"] .game-background-motion{animation:none}

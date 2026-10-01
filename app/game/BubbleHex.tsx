@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
+import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
 import "./cabinet-polish.css";
+import "./comfort-polish.css";
 
-const holdActions: Action[] = ["left", "right"];
 
 const BACKGROUND_BY_LEVEL: Record<string, string> = {
   "The First Sip": "/backgrounds/hex-tunnel.svg",
@@ -52,6 +53,18 @@ export default function BubbleHex() {
   const [backgroundSrc, setBackgroundSrc] = useState(MENU_BACKGROUND);
   const [gameState, setGameState] = useState("boot");
   const [levelName, setLevelName] = useState("THE VEIL");
+  const [score, setScore] = useState("0");
+  const [volumes, setVolumes] = useState({music:"5",sfx:"6"});
+  const [combo, setCombo] = useState("");
+  const [reducedMotion, setReducedMotion] = useState(false);
+  const pointers = useRef(new Map<number, {action: Action; button: HTMLButtonElement}>());
+  const clearPointers = useCallback(() => {
+    for (const [id, {action, button}] of pointers.current) {
+      engineRef.current?.release(action, `pointer:${id}`);
+      delete button.dataset.held;
+    }
+    pointers.current.clear();
+  }, []);
 
   useEffect(() => {
     if (!canvasRef.current) return;
@@ -61,16 +74,26 @@ export default function BubbleHex() {
     engine.start();
 
     const stopScroll = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLButtonElement) return;
       if (["ArrowLeft", "ArrowRight", "ArrowUp", " "].includes(event.key)) {
         event.preventDefault();
       }
     };
+    let previousState = "";
     const syncBackground = () => {
       const canvas = canvasRef.current;
       if (!canvas) return;
       const nextState = canvas.dataset.gameState ?? "boot";
       const nextLevelName = canvas.dataset.levelName || "THE VEIL";
       const nextBackground = backgroundFor(nextState, nextLevelName);
+      setMuted(canvas.dataset.muted === "true");
+      const music = canvas.dataset.musicVolume ?? "5", sfx = canvas.dataset.sfxVolume ?? "6";
+      setVolumes(current => current.music === music && current.sfx === sfx ? current : {music,sfx});
+      setScore(canvas.dataset.score ?? "0");
+      setCombo(canvas.dataset.combo ?? "");
+      setReducedMotion(canvas.dataset.reducedMotion === "true");
+      if (nextState !== previousState && !["playing", "hurry", "attract"].includes(nextState)) clearPointers();
+      previousState = nextState;
       setGameState((current) => (current === nextState ? current : nextState));
       setLevelName((current) =>
         current === nextLevelName ? current : nextLevelName
@@ -81,39 +104,68 @@ export default function BubbleHex() {
     };
 
     window.addEventListener("keydown", stopScroll, { passive: false });
+    window.addEventListener("blur", clearPointers);
     const backgroundTimer = window.setInterval(syncBackground, 250);
     syncBackground();
 
     return () => {
       window.clearInterval(backgroundTimer);
       window.removeEventListener("keydown", stopScroll);
+      window.removeEventListener("blur", clearPointers);
+      clearPointers();
+      engineRef.current = null;
       engine.destroy();
     };
-  }, []);
+  }, [clearPointers]);
 
   const press = useCallback(
     (action: Action) => engineRef.current?.press(action),
     []
   );
-  const release = useCallback(
-    (action: Action) => engineRef.current?.release(action),
-    []
-  );
-  const bind = (action: Action) => ({
-    onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+  const endPointer = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const held = pointers.current.get(event.pointerId);
+    if (!held) return;
+    pointers.current.delete(event.pointerId);
+    engineRef.current?.release(held.action, `pointer:${event.pointerId}`);
+    if (![...pointers.current.values()].some(p => p.button === held.button)) delete held.button.dataset.held;
+  }, []);
+  const startPointer = useCallback((action: Action, event: React.PointerEvent<HTMLButtonElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
       event.currentTarget.setPointerCapture(event.pointerId);
-      press(action);
-    },
-    onPointerUp: () => release(action),
-    onPointerCancel: () => release(action),
-    onPointerLeave: () => holdActions.includes(action) && release(action),
+      pointers.current.set(event.pointerId, {action, button: event.currentTarget});
+      event.currentTarget.dataset.held = "true";
+      engineRef.current?.press(action, `pointer:${event.pointerId}`);
+  }, []);
+  const activateButton = useCallback((action: Action, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (event.detail !== 0) return;
+    engineRef.current?.press(action, "button");
+    engineRef.current?.release(action, "button");
+  }, []);
+  const bind = (action: Action) => ({
+    onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => startPointer(action, event),
+    onPointerUp: endPointer,
+    onPointerCancel: endPointer,
+    onLostPointerCapture: endPointer,
+    // Native keyboard and assistive activation produces a click with detail=0.
+    onClick: (event: React.MouseEvent<HTMLButtonElement>) => activateButton(action, event),
   });
+  const tap = (action: Action) => {press(action);engineRef.current?.release(action);};
+  const activePlay = gameState === "playing" || gameState === "hurry" || gameState === "attract";
+  const instruction = gameState === "characterSelect" ? "Choose a hero · Bubble changes look · Jump confirms"
+    : gameState === "paused" ? "Paused · Resume with Pause · Start restarts this chamber"
+    : gameState === "stageClear" ? "Chamber cleared · Next starts automatically · Start to continue"
+    : gameState === "stageIntro" ? (LEVEL_CUES[levelName] || "Trap enemies, then touch their bubbles to pop · Jump to begin")
+    : activePlay ? "Hold Bubble to fire · Touch trapped bubbles to pop · Jump twice to climb"
+    : gameState === "gameOver" || gameState === "victory" ? "Press Start to play again"
+    : gameState === "records/options" ? "Arrows browse the archive · Start returns to the title"
+    : "Press Start · Choose your hex";
 
   const motionMode = PLAY_STATES.has(gameState) ? "is-playing" : "is-menu";
   const cabinetSignal = running ? "ONLINE" : "WARMING";
 
   return (
-    <main className="arcade-page" data-game-state={gameState}>
+    <main className="arcade-page" data-game-state={gameState} data-reduced-motion={reducedMotion}>
       <header className="top-rail">
         <div className="studio-mark">
           <span>B$S</span> BLUE $NAKE STUDIO
@@ -145,6 +197,10 @@ export default function BubbleHex() {
           </span>
         </div>
 
+        <div className="play-readout">
+          <strong aria-label={`Score ${score}`}>SCORE {Number(score).toLocaleString("en-AU")}</strong>
+          <span className="combo-readout" aria-live="polite" aria-atomic="true">{combo || instruction}</span>
+        </div>
         <div className="play-layout">
           <div className="screen-bezel">
             <div className="screen-wrap">
@@ -164,6 +220,14 @@ export default function BubbleHex() {
               />
               <div className="game-background-vignette" aria-hidden="true" />
               <div className="scanlines" aria-hidden="true" />
+              {gameState === "paused" && <div className="pause-summary" role="note" aria-label="Pause controls">
+                <strong>PAUSED</strong>
+                <span>Pause to resume · Start to restart</span>
+                <span>← / → Music {volumes.music}/10</span>
+                <span>Hold Jump + ← / → SFX {volumes.sfx}/10</span>
+                <span>Bubble: sound {muted ? "off" : "on"}</span>
+                <span>Tap Jump: reduced motion {reducedMotion ? "on" : "off"}</span>
+              </div>}
             </div>
           </div>
 
@@ -178,14 +242,14 @@ export default function BubbleHex() {
             </div>
 
             <div className="mini-controls">
-              <button type="button" onClick={() => press("start")}>
-                START
+              <button type="button" disabled={["boot", "playing", "hurry", "dying"].includes(gameState)} onClick={() => tap("start")}>
+                {gameState === "paused" ? "RESTART" : gameState === "stageClear" ? "NEXT" : "START"}
               </button>
-              <button type="button" onClick={() => press("consciousness")}>
+              <button type="button" disabled={!(["title", "characterSelect"].includes(gameState))} onClick={() => tap("consciousness")}>
                 ENEMY LEVEL
               </button>
-              <button type="button" onClick={() => press("pause")}>
-                ARCHIVE / PAUSE
+              <button type="button" disabled={!["title", "characterSelect", "records/options", "playing", "hurry", "paused"].includes(gameState)} aria-pressed={gameState === "paused"} onClick={() => tap("pause")}>
+                {gameState === "paused" ? "RESUME" : activePlay ? "PAUSE" : "ARCHIVE"}
               </button>
               <button
                 type="button"

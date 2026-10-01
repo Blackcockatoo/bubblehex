@@ -1,3 +1,4 @@
+import { InputSources } from "./input";
 import { LEVELS, BONUS_LEVEL, type EnemyKind, type Level } from "./levels";
 import { CheatReader, nextTitleStartGrace, type Token } from "./cheats";
 import {
@@ -45,7 +46,7 @@ import { drawHeroArt, type HeroMotion, type HeroPose } from "./hero-art";
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness";
 type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
 type EnemyState = "normal" | "trapped" | "furious" | "dead";
-type BubblePhase = "fired" | "slowing" | "floating" | "occupied" | "warning" | "burst";
+type BubblePhase = "fired" | "slowing" | "floating" | "occupied" | "warning" | "popping" | "burst";
 
 type Player = {
   x:number;y:number;previousX:number;previousY:number;vx:number;vy:number;w:number;h:number;
@@ -54,7 +55,7 @@ type Player = {
   runPhase:number;throwTimer:number;landTimer:number;landPower:number;
 };
 type Enemy = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;w:number;h:number;kind:EnemyKind;state:EnemyState;timer:number;cooldown:number;homeY:number;weakened:boolean;rank:number;elite:boolean };
-type Bubble = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;r:number;age:number;phase:BubblePhase;enemyId?:number;life:number };
+type Bubble = { id:number;x:number;y:number;prevX:number;prevY:number;vx:number;vy:number;r:number;age:number;phase:BubblePhase;enemyId?:number;life:number;impact?:number };
 type Reward = { x:number;y:number;vy:number;kind:string;value:number;life:number;letter?:string };
 type Projectile = { x:number;y:number;vx:number;vy:number;life:number;kind:"tear"|"star" };
 type Particle = { x:number;y:number;vx:number;vy:number;life:number;color:string;size:number };
@@ -78,6 +79,13 @@ export class BubbleHexEngine {
   private frame=0; private last=0; private acc=0; private alive=true; private ready:()=>void;
   private state:GameState="boot"; private stateTime=0; private titleIdle=0; private startGrace=0;
   private held:Record<Action,boolean>={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false};
+  private input=new InputSources<Action>();
+  private pendingPops:{bubble:Bubble;mult:number;chain:number;delay:number}[]=[];
+  private rings:{x:number;y:number;color:string;age:number;strength:number}[]=[];
+  private scoreBursts:{x:number;y:number;value:number;age:number}[]=[];
+  private scorePulse=0; private boardEnergy=0;
+  private pauseOrigin:GameState="playing"; private pauseJumpPending=false; private pauseSfxDirections=new Set<Action>();
+  private motionQuery:MediaQueryList|null=null;
   private just=new Set<Action>(); private hero:HeroId="vesper"; private selected:HeroId="vesper";
   private player:Player=this.makePlayer();
   private enemies:Enemy[]=[]; private bubbles:Bubble[]=[]; private rewards:Reward[]=[]; private projectiles:Projectile[]=[]; private particles:Particle[]=[];
@@ -89,7 +97,6 @@ export class BubbleHexEngine {
   private coyote=0; private jumpBuffer=0;
   private settings:Settings={...DEFAULT_SETTINGS,selectedSkins:{...DEFAULT_SETTINGS.selectedSkins},unlockedSkins:[...DEFAULT_SETTINGS.unlockedSkins],unlockedCodex:[...DEFAULT_SETTINGS.unlockedCodex],fragments:[]}; private musicClock=0;
   private shake=0; private hitStop=0; private attractTime=0; private secretFound=false; private endingText=""; private animTime=0;
-  private gamepadPrev={jump:false,bubble:false,start:false,pause:false};
   private debug=false; private platformAudit:PlatformAudit[]=[]; private landedThisFrame=false;
   private art=new GameArtAssets(); private archiveIndex=0; private audioReady=false;
   private readonly devTools:boolean=Boolean(import.meta.env?.DEV);
@@ -105,10 +112,16 @@ export class BubbleHexEngine {
     this.canvas=canvas; const ctx=canvas.getContext("2d"); if(!ctx)throw new Error("Canvas unavailable"); this.ctx=ctx;this.ctx.imageSmoothingEnabled=false;this.ready=onReady;
     this.load(); this.audio.muted=this.settings.muted;this.audio.musicVolume=this.settings.musicVolume;this.audio.sfxVolume=this.settings.sfxVolume;void this.art.preload();
     this.onKeyDown=this.onKeyDown.bind(this);this.onKeyUp=this.onKeyUp.bind(this);window.addEventListener("keydown",this.onKeyDown);window.addEventListener("keyup",this.onKeyUp);
+    window.addEventListener("blur",this.suspend);document.addEventListener("visibilitychange",this.onVisibility);
+    this.motionQuery=matchMedia("(prefers-reduced-motion: reduce)");this.motionQuery.addEventListener("change",this.onMotionChange);
   }
   start(){this.ready();this.frame=requestAnimationFrame(this.loop)}
-  destroy(){this.alive=false;cancelAnimationFrame(this.frame);window.removeEventListener("keydown",this.onKeyDown);window.removeEventListener("keyup",this.onKeyUp);this.audio.destroy()}
+  destroy(){this.alive=false;cancelAnimationFrame(this.frame);window.removeEventListener("keydown",this.onKeyDown);window.removeEventListener("keyup",this.onKeyUp);window.removeEventListener("blur",this.suspend);document.removeEventListener("visibilitychange",this.onVisibility);this.motionQuery?.removeEventListener("change",this.onMotionChange);this.pendingPops=[];this.releaseAll();this.audio.destroy()}
   setMuted(v:boolean){this.settings.muted=v;this.audio.setMuted(v);this.save()}
+  releaseAll(){this.pauseSfxDirections.clear();this.pauseJumpPending=false;this.input.clear();for(const action of Object.keys(this.held) as Action[])this.held[action]=false;this.just.clear();}
+  private suspend=()=>{this.releaseAll();if(this.state==="playing"||this.state==="hurry"){this.pauseOrigin=this.state;this.setState("paused")}this.last=0;this.acc=0;};
+  private onVisibility=()=>{if(document.hidden)this.suspend()};
+  private onMotionChange=(event:MediaQueryListEvent)=>{if(event.matches){this.settings.reducedMotion=true;this.shake=0;this.hitStop=0;this.particles=[];this.rings=[];this.save()}};
   private makePlayer(invuln=0,floorY=650,platformId=0):Player{
     const y=floorY-PLAYER_HEIGHT;
     return {x:55,y,previousX:55,previousY:y,vx:0,vy:0,w:PLAYER_WIDTH,h:PLAYER_HEIGHT,grounded:true,facing:1,invuln,flying:0,maxJumps:MAX_JUMPS,jumpsRemaining:MAX_JUMPS,jumpCut:false,jumpAge:0,currentPlatformId:platformId,runPhase:0,throwTimer:0,landTimer:0,landPower:0};
@@ -127,13 +140,15 @@ export class BubbleHexEngine {
       widowPhase:this.widow?.phase??"",widowHp:String(this.widow?.hp??""),score:String(this.score),lives:String(this.lives),
       widowX:this.widow?.x.toFixed(1)??"",widowY:this.widow?.y.toFixed(1)??"",playerX:p.x.toFixed(1),
       levelName:this.level.name,levelBonus:String(!!this.level.bonus),cheatsExtra:String(this.cheats.extra),enemiesLeft:String(this.enemies.filter(e=>e.state!=="dead").length),
+      musicVolume:String(Math.round(this.settings.musicVolume*10)),sfxVolume:String(Math.round(this.settings.sfxVolume*10)),muted:String(this.settings.muted),reducedMotion:String(this.settings.reducedMotion||!!this.motionQuery?.matches),combo:this.comboLife>0?this.comboText:"",bestChain:String(this.bestChain),particles:String(this.particles.length),pendingPops:String(this.pendingPops.length),
       enemyConsciousness:String(this.settings.enemyConsciousness),enemyRank:String(this.threatRank()),
     });
   }
   private onKeyDown(e:KeyboardEvent){
+    if(e.target instanceof HTMLButtonElement&&(e.code==="Space"||e.code==="Enter"))return;
     if(e.code==="F3"||e.code==="Backquote"){if(!this.devTools)return;e.preventDefault();if(!e.repeat)this.debug=!this.debug;return}
     if(this.devTools&&!e.repeat&&(e.code==="BracketLeft"||e.code==="BracketRight")){e.preventDefault();this.devJumpLevel(e.code==="BracketRight"?1:-1);return}
-    if(e.repeat)return; const a=this.keyAction(e.code);if(a){e.preventDefault();this.press(a)}
+    if(e.repeat)return; const a=this.keyAction(e.code);if(a){e.preventDefault();this.press(a,`keyboard:${e.code}`)}
   }
   private devJumpLevel(dir:number){
     const active=this.state==="playing"||this.state==="paused"||this.state==="stageIntro"||this.state==="hurry"||this.state==="stageClear"||this.state==="dying";
@@ -141,30 +156,32 @@ export class BubbleHexEngine {
     const next=clamp((active?this.levelIndex:0)+dir,0,LEVELS.length-1);
     this.loadLevel(next);this.setState("stageIntro");
   }
-  private onKeyUp(e:KeyboardEvent){const a=this.keyAction(e.code);if(a){e.preventDefault();this.release(a)}}
+  private onKeyUp(e:KeyboardEvent){if(e.target instanceof HTMLButtonElement&&(e.code==="Space"||e.code==="Enter"))return;const a=this.keyAction(e.code);if(a){e.preventDefault();this.release(a,`keyboard:${e.code}`)}}
   private keyAction(code:string):Action|undefined{
     if(code==="ArrowLeft"||code==="KeyA")return"left";if(code==="ArrowRight"||code==="KeyD")return"right";
     if(code==="Space"||code==="KeyC")return"jump";if(code==="KeyX"||code==="KeyZ")return"bubble";
     if(code==="Enter")return"start";if(code==="Escape"||code==="KeyP")return"pause";if(code==="ArrowUp"||code==="KeyW")return"consciousness";
   }
-  press(action:Action){
+  press(action:Action,source="touch"){
+    if(!this.input.press(action,source))return;
     const wasUnlocked=this.audioReady;this.audio.unlock();this.audioReady=true;if(!wasUnlocked)this.syncMusic();
     this.held[action]=true;this.just.add(action);
+    if(this.state==="paused"&&this.held.jump&&(action==="left"||action==="right"))this.pauseSfxDirections.add(action);
     if(this.state==="attract"){this.toTitle();return}
     if(this.state==="title")this.titleIdle=0;
     if(this.state==="title"&&TOKENS[action])this.recordToken(TOKENS[action]!,action==="start");
     if(this.state==="title"&&action!=="start")this.titleIdle=0;
     if(action==="pause"){
-      if(this.state==="playing"||this.state==="hurry")this.setState("paused");
-      else if(this.state==="paused")this.setState("playing");
+      if(this.state==="playing"||this.state==="hurry"){this.pauseOrigin=this.state;this.setState("paused")}
+      else if(this.state==="paused")this.setState(this.pauseOrigin);
     }
   }
-  release(action:Action){this.held[action]=false}
+  release(action:Action,source="touch"){this.held[action]=this.input.release(action,source)}
   private loop=(t:number)=>{
     if(!this.alive)return; if(!this.last)this.last=t;const delta=Math.min(MAX_FRAME_DELTA,(t-this.last)/1000);this.last=t;this.acc+=delta;
     while(this.acc>=FIXED){this.update(FIXED);this.acc-=FIXED}this.render();this.frame=requestAnimationFrame(this.loop);
   };
-  private setState(s:GameState){this.state=s;this.stateTime=0;this.just.clear();this.syncMusic()}
+  private setState(s:GameState){if(s!=="paused"){this.pauseJumpPending=false;this.pauseSfxDirections.clear();}if(s==="title"||s==="gameOver"||s==="victory")this.pendingPops=[];this.state=s;this.stateTime=0;this.just.clear();this.syncMusic()}
   private syncMusic(){
     if(!this.audioReady||this.state==="boot")return;
     if(this.state==="gameOver"){this.audio.stopMusic(.5);return}
@@ -176,17 +193,18 @@ export class BubbleHexEngine {
   }
   private update(dt:number){
     this.pollGamepad();
-    this.stateTime+=dt;this.animTime+=dt;this.titleIdle+=this.state==="title"?dt:0;this.messageLife=Math.max(0,this.messageLife-dt);this.comboLife=Math.max(0,this.comboLife-dt);this.shake=Math.max(0,this.shake-dt*18);
-    if(this.hitStop>0){this.hitStop-=dt;this.just.clear();return}
+    if(this.state!=="paused")this.updateFeedback(dt);
+    this.stateTime+=dt;if(this.state!=="paused")this.animTime+=dt;this.titleIdle+=this.state==="title"?dt:0;this.messageLife=Math.max(0,this.messageLife-dt);this.comboLife=Math.max(0,this.comboLife-dt);this.shake=Math.max(0,this.shake-dt*18);
+    if(this.hitStop>0){this.hitStop-=dt;return}
     if(this.state==="boot"&&this.stateTime>.55&&this.art.state!=="loading")this.toTitle();
     else if(this.state==="title")this.updateTitle(dt);
     else if(this.state==="characterSelect")this.updateSelect();
-    else if(this.state==="stageIntro"&&this.stateTime>1.65)this.setState("playing");
+    else if(this.state==="stageIntro"&&(this.stateTime>1.65||(this.stateTime>.3&&(this.just.has("start")||this.just.has("jump")))))this.setState("playing");
     else if(this.state==="playing")this.updatePlaying(dt,false);
     else if(this.state==="hurry")this.updateHurry(dt);
     else if(this.state==="attract")this.updatePlaying(dt,true);
     else if(this.state==="dying"&&this.stateTime>1.15)this.afterDeath();
-    else if(this.state==="stageClear"&&this.stateTime>2.35)this.nextStage();
+    else if(this.state==="stageClear"){this.updateParticles(dt);if(this.stateTime>2.35||(this.stateTime>.65&&this.just.has("start")))this.nextStage();}
     else if(this.state==="gameOver"&&(this.just.has("start")||this.just.has("jump")))this.toTitle();
     else if(this.state==="victory"&&(this.just.has("start")||this.just.has("jump")))this.toTitle();
     else if(this.state==="paused")this.updatePause();
@@ -214,18 +232,21 @@ export class BubbleHexEngine {
   }
   private updatePause(){
     const sfxMode=this.held.jump;
+    if(this.just.has("jump"))this.pauseJumpPending=true;
+    if((sfxMode&&(this.just.has("left")||this.just.has("right")))||this.pauseSfxDirections.size)this.pauseJumpPending=false;
     if(this.just.has("left")){
-      if(sfxMode){this.settings.sfxVolume=clamp(this.settings.sfxVolume-.1,0,1);this.audio.setSfxVolume(this.settings.sfxVolume)}
+      if(sfxMode||this.pauseSfxDirections.has("left")){this.settings.sfxVolume=clamp(this.settings.sfxVolume-.1,0,1);this.audio.setSfxVolume(this.settings.sfxVolume)}
       else{this.settings.musicVolume=clamp(this.settings.musicVolume-.1,0,1);this.audio.setMusicVolume(this.settings.musicVolume)}
       this.save();
     }
     if(this.just.has("right")){
-      if(sfxMode){this.settings.sfxVolume=clamp(this.settings.sfxVolume+.1,0,1);this.audio.setSfxVolume(this.settings.sfxVolume)}
+      if(sfxMode||this.pauseSfxDirections.has("right")){this.settings.sfxVolume=clamp(this.settings.sfxVolume+.1,0,1);this.audio.setSfxVolume(this.settings.sfxVolume)}
       else{this.settings.musicVolume=clamp(this.settings.musicVolume+.1,0,1);this.audio.setMusicVolume(this.settings.musicVolume)}
       this.audio.reward();this.save();
     }
     if(this.just.has("bubble")){this.settings.muted=!this.settings.muted;this.audio.setMuted(this.settings.muted);this.save()}
-    if(this.just.has("jump")){this.settings.reducedMotion=!this.settings.reducedMotion;this.save()}
+    if(this.pauseJumpPending&&!this.held.jump){this.pauseJumpPending=false;this.settings.reducedMotion=!!this.motionQuery?.matches||!this.settings.reducedMotion;this.save()}
+    this.pauseSfxDirections.clear();
     if(this.just.has("start"))this.restartCurrentStage();
   }
   private updateHurry(dt:number){
@@ -245,6 +266,7 @@ export class BubbleHexEngine {
     if(bossCleared)this.clearStage(demo);
   }
   private updateWorld(dt:number,allowDamage:boolean,demo:boolean){
+    this.updatePendingPops(dt);
     this.fireCooldown=Math.max(0,this.fireCooldown-dt);this.player.invuln=Math.max(0,this.player.invuln-dt);this.player.flying=Math.max(0,this.player.flying-dt);
     this.musicClock-=dt;if(this.musicClock<=0&&this.state==="playing"){const notes=[110,165,220,147];this.audio.tone(notes[(this.stageKills+Math.floor(this.levelTime))%notes.length],.055,"square",0,.025);this.musicClock=this.widow?.2:.34}
     this.updatePlayer(dt);this.updateBubbles(dt);this.updateEnemies(dt);this.updateProjectiles(dt);this.updateRewards(dt);this.updateParticles(dt);this.updateWidow(dt);
@@ -319,17 +341,17 @@ export class BubbleHexEngine {
     const p=this.player,fast=this.upgrades.velocity?500:390,bx=p.x+p.w/2+p.facing*28,by=p.y+20;
     this.bubbles.push({id:this.nextId++,x:bx,y:by,prevX:bx,prevY:by,vx:p.facing*fast,vy:0,r:18,age:0,phase:"fired",life:this.upgrades.range?7.8:5.2});
     p.throwTimer=.3;
-    if(!this.settings.reducedMotion)for(let i=0;i<4;i++)this.particles.push({x:bx,y:by,vx:p.facing*(60+Math.random()*90),vy:(Math.random()-.5)*70,life:.18+Math.random()*.15,color:this.skinFor(this.hero).bubble,size:2+Math.random()*2});
+    if(!this.settings.reducedMotion)for(let i=0;i<4&&this.particles.length<160;i++)this.particles.push({x:bx,y:by,vx:p.facing*(60+Math.random()*90),vy:(Math.random()-.5)*70,life:.18+Math.random()*.15,color:this.skinFor(this.hero).bubble,size:2+Math.random()*2});
     this.fireCooldown=this.upgrades.rapid?.17:.36;this.audio.bubble();
   }
   private updateBubbles(dt:number){
     for(const b of this.bubbles){
-      b.age+=dt;b.life-=dt;if(b.phase==="burst")continue;
+      b.age+=dt;if(b.impact)b.impact=Math.max(0,b.impact-dt);if(b.phase==="popping"||b.phase==="burst")continue;b.life-=dt;
       if(b.phase==="fired"&&b.age>.18)b.phase="slowing";
       if(b.phase==="slowing"){b.vx*=Math.pow(.08,dt);if(Math.abs(b.vx)<48)b.phase="floating"}
       if(b.phase==="floating"){b.vx+=this.level.current.x*85*dt;b.vy+=this.level.current.y*130*dt;b.vy=clamp(b.vy,-70,-16)}
       if(b.phase==="occupied"||b.phase==="warning"){b.vx+=this.level.current.x*45*dt;b.vy=-27+Math.sin(b.age*4)*8;if(b.life<1.2)b.phase="warning"}
-      b.prevX=b.x;b.prevY=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<b.r+25||b.x>W-b.r-25)b.vx*=-.75;if(b.y<94){b.y=94;b.vy=Math.abs(b.vy)*.25}
+      b.prevX=b.x;b.prevY=b.y;b.x+=b.vx*dt;b.y+=b.vy*dt;if(b.x<b.r+25||b.x>W-b.r-25){b.x=clamp(b.x,b.r+25,W-b.r-25);b.vx*=-.75;b.impact=.16;}if(b.y<94){b.y=94;b.vy=Math.abs(b.vy)*.25;b.impact=.16}
       if((b.phase==="fired"||b.phase==="slowing"||b.phase==="floating"))this.tryTrap(b);
       if((b.phase==="occupied"||b.phase==="warning")&&this.playerBubbleHit(b))this.popChain(b);
       if(b.life<=0){if(b.enemyId)this.releaseEnemy(b);b.phase="burst"}
@@ -339,28 +361,37 @@ export class BubbleHexEngine {
   private tryTrap(b:Bubble){
     if(this.widow&&this.level.boss&&this.widow.phase==="staggered"&&dist(b,this.widow)<b.r+40){
       this.widow.phase="trapped";this.widow.phaseTimer=0;
-      b.phase="occupied";b.enemyId=WIDOW_ENEMY_ID;b.life=6;b.vx*=.1;b.vy=-18;b.r=36;
+      b.impact=.22;b.phase="occupied";b.enemyId=WIDOW_ENEMY_ID;b.life=6;b.vx*=.1;b.vy=-18;b.r=36;
       this.audio.trap();this.burstParticles(b.x,b.y,COLORS.crimson,14);
       return;
     }
-    for(const e of this.enemies){if(e.state!=="normal"&&e.state!=="furious")continue;if(dist(b,e)<b.r+26){e.state="trapped";e.timer=0;e.weakened=this.upgrades.venom;b.phase="occupied";b.enemyId=e.id;const resistance=Math.max(.58,1-(e.rank-1)*.08-(e.elite?.08:0));b.life=(e.weakened?6.4:5.4)*resistance;b.vx*=.15;b.vy=-24;b.r=25;this.trappedBeforeFirstPop++;this.audio.trap();this.burstParticles(b.x,b.y,e.weakened?COLORS.jade:COLORS.pink,8);break}}
+    for(const e of this.enemies){if(e.state!=="normal"&&e.state!=="furious")continue;if(dist(b,e)<b.r+26){e.state="trapped";e.timer=0;e.weakened=this.upgrades.venom;b.impact=.22;b.phase="occupied";b.enemyId=e.id;const resistance=Math.max(.58,1-(e.rank-1)*.08-(e.elite?.08:0));b.life=(e.weakened?6.4:5.4)*resistance;b.vx*=.15;b.vy=-24;b.r=25;this.trappedBeforeFirstPop++;this.audio.trap();this.burstParticles(b.x,b.y,e.weakened?COLORS.jade:COLORS.pink,8);break}}
   }
   private playerBubbleHit(b:Bubble){const p=this.player;return p.x<b.x+b.r&&p.x+p.w>b.x-b.r&&p.y<b.y+b.r&&p.y+p.h>b.y-b.r}
   private popChain(root:Bubble){
     const open=[root],seen=new Set<number>(),chain:Bubble[]=[];const link=this.upgrades.chain?105:82;
     while(open.length){const b=open.shift()!;if(seen.has(b.id))continue;seen.add(b.id);chain.push(b);for(const n of this.bubbles)if((n.phase==="occupied"||n.phase==="warning")&&!seen.has(n.id)&&dist(b,n)<link)open.push(n)}
     this.firstPop=true;this.bestChain=Math.max(this.bestChain,chain.length);const mult=[1,2,3,4,6,8,13][Math.min(chain.length-1,6)];
-    chain.forEach((b,i)=>setTimeout(()=>{if(!this.alive)return;this.resolveBubble(b,mult,i+1)},i*55));
-    if(chain.length>=6){this.comboText="HEARTBREAK ×6";this.comboLife=1.55;this.hitStop=this.settings.reducedMotion?0:.1;this.shake=this.settings.reducedMotion?0:7}
-    else{this.comboText=`CHAIN ×${mult}`;this.comboLife=.8}
+    // Reserve the entire chain now. Fixed-step resolution freezes on pause and
+    // cannot mutate a restarted chamber or count an enemy twice.
+    chain.forEach((b,i)=>{b.phase="popping";this.pendingPops.push({bubble:b,mult,chain:i+1,delay:i*.055})});
+    this.boardEnergy=Math.min(1,.18+chain.length*.1);
+    if(chain.length>=6){this.comboText=`HEARTBREAK · ${chain.length} POPS · ×${mult}`;this.comboLife=1.55;this.hitStop=this.settings.reducedMotion?0:.1;this.shake=this.settings.reducedMotion?0:7}
+    else{this.comboText=chain.length===1?"POP!":`CHAIN · ${chain.length} POPS · ×${mult}`;this.comboLife=.8}
+  }
+  private updatePendingPops(dt:number){
+    const pending=this.pendingPops;this.pendingPops=[];
+    for(const pop of pending){pop.delay-=dt;if(pop.delay<=0)this.resolveBubble(pop.bubble,pop.mult,pop.chain);else this.pendingPops.push(pop)}
   }
   private resolveBubble(b:Bubble,mult:number,chain:number){
+    if(b.phase!=="popping")return;
+    this.addRing(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,Math.min(3,chain));
     if(b.enemyId===WIDOW_ENEMY_ID){this.hitWidow();b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,COLORS.crimson,18);return}
-    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy){enemy.state="dead";this.stageKills++;this.score+=100*mult*enemy.rank*(enemy.elite?2:1);if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
+    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy&&enemy.state!=="dead"){enemy.state="dead";this.stageKills++;const points=100*mult*enemy.rank*(enemy.elite?2:1);this.score+=points;this.addScoreBurst(b.x,b.y,points);if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
   }
   private hitWidow(){
     const w=this.widow;if(!w)return;
-    w.hp=Math.max(0,w.hp-1);this.score+=2500;
+    w.hp=Math.max(0,w.hp-1);this.score+=2500;this.addScoreBurst(w.x,w.y,2500);
     this.shake=this.settings.reducedMotion?0:10;this.hitStop=this.settings.reducedMotion?0:.12;this.audio.bossHit();
     if(w.hp<=0){this.beginWidowDefeat();return}
     w.phase="chase";w.phaseTimer=0;w.x=clamp(w.x,80,W-80);w.y=clamp(w.y,120,H-120);
@@ -488,7 +519,7 @@ export class BubbleHexEngine {
     this.settings.enemyConsciousness=((this.settings.enemyConsciousness+1)%ENEMY_CONSCIOUSNESS_NAMES.length) as EnemyConsciousness;
     this.message=`ENEMY CONSCIOUSNESS: ${ENEMY_CONSCIOUSNESS_NAMES[this.settings.enemyConsciousness]}`;this.messageLife=1.4;this.audio.reward();this.save();
   }
-  private collectReward(r:Reward){this.score+=r.value;this.audio.reward();this.burstParticles(r.x,r.y,r.letter?"#FFD36A":COLORS.pink,8);if(r.letter){this.venom.add(r.letter);if(this.venom.size===5){this.lives++;this.score+=10000;this.player.flying=6;this.venom.clear();this.message="VENOM ASCENSION +1 LIFE";this.messageLife=2.2;this.shake=this.settings.reducedMotion?0:5;this.audio.secret()}}}
+  private collectReward(r:Reward){this.score+=r.value;this.addScoreBurst(r.x,r.y,r.value);this.audio.reward();this.burstParticles(r.x,r.y,r.letter?"#FFD36A":COLORS.pink,8);if(r.letter){this.venom.add(r.letter);if(this.venom.size===5){this.lives++;this.score+=10000;this.player.flying=6;this.venom.clear();this.message="VENOM ASCENSION +1 LIFE";this.messageLife=2.2;this.shake=this.settings.reducedMotion?0:5;this.audio.secret()}}}
   private clearStage(demo:boolean){
     if(demo){this.toTitle();return}
     const secret=this.cheats.extra||(this.level.secret==="trapFirst"&&this.trappedBeforeFirstPop>=this.level.enemies.length)||(this.level.secret==="oneChain"&&this.bestChain>=this.level.enemies.length)||(this.level.secret==="noFloor"&&!this.touchedFloor)||(this.level.secret==="widow13"&&this.widowTime>=13);
@@ -525,7 +556,7 @@ export class BubbleHexEngine {
     this.level=level;this.levelTime=level.time;
     const rank=this.threatRank();
     this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,prevX:s.x,prevY:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
-    this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];
+    this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];this.pendingPops=[];this.rings=[];this.scoreBursts=[];this.comboLife=0;this.scorePulse=0;this.boardEnergy=0;this.hitStop=0;this.shake=0;this.fireCooldown=0;this.releaseAll();
     this.widow=level.boss?this.makeWidow(W/2,-60,true):null;this.widowTime=0;
     this.platformAudit=auditLevelReachability(level);this.resetPlayer(1.2);
     this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false;this.stageStartScore=this.score;this.stageDamaged=false;this.stageXp=0;
@@ -535,7 +566,7 @@ export class BubbleHexEngine {
   }
   private remixLevel(base:Level):Level{if(!this.cheats.super)return base;return{...base,time:Math.max(45,base.time-12),platforms:base.platforms.map((p,i)=>i===0?p:{...p,y:p.y+(i%2?18:-12)}),enemies:[...base.enemies,...base.enemies.slice(0,2).map((e,i)=>({...e,x:clamp(e.x+150+i*90,60,860),kind:i?"skull" as EnemyKind:"witch" as EnemyKind}))]}}
   private beginAttract(){this.attractTime=0;this.hero="jade";this.levelIndex=1;this.loadLevel(1);this.setState("attract")}
-  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.held={left:false,right:false,jump:false,bubble:false,start:false,pause:false,consciousness:false}}
+  private toTitle(){const resetRun=this.state==="gameOver"||this.state==="victory";if(resetRun){this.cheats={power:false,super:false,extra:false};this.cheatReader.reset()}this.setState("title");this.titleIdle=0;this.startGrace=0;this.attractTime=0;this.releaseAll()}
   private recordToken(token:Token,isStartAction:boolean){
     const match=this.cheatReader.feed(token,performance.now(),this.cheats);
     this.startGrace=nextTitleStartGrace(!!match,isStartAction);
@@ -547,12 +578,20 @@ export class BubbleHexEngine {
   private unlockVelvetSkin(hero:HeroId){const skin=SKINS.find(item=>item.heroId===hero&&item.unlock==="clear-velvet-drain");if(!skin)return;if(!this.settings.unlockedSkins.includes(skin.id)){this.settings.unlockedSkins.push(skin.id);this.unlockContent(skin.id);this.message=`${skin.name.toUpperCase()} UNLOCKED`;this.messageLife=2}}
   private unlockContent(id:string){if(!this.settings.unlockedCodex.includes(id))this.settings.unlockedCodex.push(id)}
   private archiveEntries(){const entries=CODEX_ENTRIES.filter(entry=>this.settings.unlockedCodex.includes(entry.unlockId));return entries.length?entries:CODEX_ENTRIES.slice(0,2)}
-  private pollGamepad(){const g=navigator.getGamepads?.()[0];if(!g)return;this.held.left=(g.axes[0]||0)<-.35;this.held.right=(g.axes[0]||0)>.35;const next={jump:!!g.buttons[0]?.pressed,bubble:!!g.buttons[1]?.pressed,start:!!g.buttons[9]?.pressed,pause:!!g.buttons[8]?.pressed};for(const key of Object.keys(next) as (keyof typeof next)[]){if(next[key]&&!this.gamepadPrev[key])this.press(key);if(!next[key]&&this.gamepadPrev[key])this.release(key)}this.gamepadPrev=next}
+  private pollGamepad(){
+    const g=navigator.getGamepads?.()[0];
+    const next:Record<Action,boolean>={left:!!g&&((g.axes[0]||0)<-.35||!!g.buttons[14]?.pressed),right:!!g&&((g.axes[0]||0)>.35||!!g.buttons[15]?.pressed),jump:!!g?.buttons[0]?.pressed,bubble:!!g?.buttons[1]?.pressed,start:!!g?.buttons[9]?.pressed,pause:!!g?.buttons[8]?.pressed,consciousness:false};
+    for(const action of Object.keys(next) as Action[]){if(next[action]){this.press(action,"gamepad")}else this.release(action,"gamepad")}
+  }
+  private addRing(x:number,y:number,color:string,strength:number){if(this.settings.reducedMotion)return;this.rings.push({x,y,color,strength,age:0});if(this.rings.length>20)this.rings.shift();}
+  private addScoreBurst(x:number,y:number,value:number){this.scorePulse=.22;this.scoreBursts.push({x:clamp(x,80,W-80),y:clamp(y,110,H-60),value,age:0});if(this.scoreBursts.length>8)this.scoreBursts.shift();}
+  private updateFeedback(dt:number){this.scorePulse=Math.max(0,this.scorePulse-dt);this.boardEnergy=Math.max(0,this.boardEnergy-dt*1.7);for(const r of this.rings)r.age+=dt;this.rings=this.rings.filter(r=>r.age<.36);for(const s of this.scoreBursts)s.age+=dt;this.scoreBursts=this.scoreBursts.filter(s=>s.age<.85);}
+  private drawFeedback(){const c=this.ctx;c.save();for(const r of this.settings.reducedMotion?[]:this.rings){c.globalAlpha=(1-r.age/.36)*.65;c.strokeStyle=r.color;c.lineWidth=2;c.beginPath();c.arc(r.x,r.y,18+r.age*(75+r.strength*20),0,Math.PI*2);c.stroke()}for(const s of this.scoreBursts){c.globalAlpha=Math.min(1,(.85-s.age)/.2);const rise=this.settings.reducedMotion?0:s.age*32;this.label(`+${s.value}`,s.x,s.y-rise,s.value>=1000?21:16,s.value>=1000?"#FFD36A":COLORS.shine,"center")}c.restore();}
   private dust(x:number,y:number,count:number){
     if(this.settings.reducedMotion)return;
-    for(let i=0;i<count;i++){const a=-Math.PI/2+(Math.random()-.5)*1.7,s=20+Math.random()*70;this.particles.push({x:x+(Math.random()-.5)*18,y:y-2,vx:Math.cos(a)*s,vy:Math.sin(a)*s*.4-25,life:.22+Math.random()*.3,color:"#7d90b5",size:2+Math.random()*3})}
+    for(let i=0;i<count&&this.particles.length<160;i++){const a=-Math.PI/2+(Math.random()-.5)*1.7,s=20+Math.random()*70;this.particles.push({x:x+(Math.random()-.5)*18,y:y-2,vx:Math.cos(a)*s,vy:Math.sin(a)*s*.4-25,life:.22+Math.random()*.3,color:"#7d90b5",size:2+Math.random()*3})}
   }
-  private burstParticles(x:number,y:number,color:string,count:number){for(let i=0;i<count;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*190;this.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.35+Math.random()*.55,color,size:2+Math.random()*5})}}
+  private burstParticles(x:number,y:number,color:string,count:number){if(this.settings.reducedMotion)return;for(let i=0;i<count&&this.particles.length<160;i++){const a=Math.random()*Math.PI*2,s=50+Math.random()*190;this.particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:.35+Math.random()*.55,color,size:2+Math.random()*5})}}
   private load(){
     try{
       const stored=localStorage.getItem("bubble-hex-settings");
@@ -610,11 +649,11 @@ export class BubbleHexEngine {
     this.drawShadowUnder(ix+pl.w/2,iy+pl.h,21);
     const pose:HeroPose=this.state==="dying"?"hurt":!pl.grounded?(pl.vy<0?"jump":"fall"):Math.abs(pl.vx)>30?"run":"idle";
     const maxSpeed=this.upgrades.speed?POWER_RUN_SPEED:MAX_RUN_SPEED;
-    const squash=pl.landTimer>0?(pl.landTimer/.18)*pl.landPower*.55:!pl.grounded?-clamp(Math.abs(pl.vy)/2600,0,.3):0;
+    const squash=this.settings.reducedMotion?0:pl.landTimer>0?(pl.landTimer/.18)*pl.landPower*.55:!pl.grounded?-clamp(Math.abs(pl.vy)/2600,0,.3):0;
     this.drawHero(ix+17,iy+24,this.hero,1,pl.invuln>0&&Math.floor(pl.invuln*10)%2===0,
       {facing:pl.facing,pose,runPhase:pl.runPhase,throwT:clamp(pl.throwTimer/.3,0,1),squash,speed:clamp(Math.abs(pl.vx)/maxSpeed,0,1)});
-    for(const p of this.particles){this.ctx.globalAlpha=clamp(p.life*2,0,1);this.ctx.fillStyle=p.color;this.ctx.fillRect(p.x,p.y,p.size,p.size);this.ctx.globalAlpha=1}
-    this.drawHud();this.drawProgressionHud();
+    for(const p of this.settings.reducedMotion?[]:this.particles){this.ctx.globalAlpha=clamp(p.life*2,0,1);this.ctx.fillStyle=p.color;this.ctx.fillRect(p.x,p.y,p.size,p.size);this.ctx.globalAlpha=1}
+    this.drawFeedback();this.drawHud();this.drawProgressionHud();
     if(this.level.boss&&this.widow&&this.widow.phase==="entrance")this.drawBossNameplate();
     if(this.debug)this.drawDebugOverlay();
     if(this.comboLife>0)this.banner(this.comboText,370,COLORS.pink)
@@ -626,6 +665,7 @@ export class BubbleHexEngine {
     if(this.level.world==="THE BLACK BUBBLE"){for(let x=40;x<W;x+=55){c.beginPath();c.moveTo(x,75);c.lineTo(W-x/4,H);c.stroke()}for(let y=120;y<H;y+=55){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}c.beginPath();c.arc(W/2,H/2,250,0,Math.PI*2);c.stroke()}
     else{for(let x=45;x<W;x+=90){c.beginPath();c.moveTo(x,80);c.lineTo(x,H);c.stroke()}for(let y=120;y<H;y+=90){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}}
     c.globalAlpha=1;
+    if(this.boardEnergy>0&&!this.settings.reducedMotion){c.save();c.globalAlpha=this.boardEnergy*.24;c.strokeStyle=this.level.tint;c.lineWidth=4;c.strokeRect(20,74,W-40,H-98);c.restore()}
     const T=this.animTime,rm=this.settings.reducedMotion;
     if(this.level.world==="HEARTBREAK HOTEL"){const flick=rm?1:(Math.sin(T*31)*Math.sin(T*7.3)>.93?.45:1);c.save();c.globalAlpha=flick;this.drawHeart(W/2,260,75,"#19071c");this.label("13",W/2,270,50,"#331033","center");c.restore()}
     if(this.level.world==="CRIMSON CHAPEL"){for(let x=120;x<900;x+=210){c.fillStyle="#190711";c.fillRect(x,110,100,220);c.strokeStyle=COLORS.crimson;c.beginPath();c.arc(x+50,110,50,Math.PI,0);c.stroke()}}
@@ -686,7 +726,7 @@ export class BubbleHexEngine {
     }
   }
   private drawShadowUnder(cx:number,bottom:number,w:number){const c=this.ctx;const platform=this.level.platforms.find(s=>cx>s.x&&cx<s.x+s.w&&s.y>=bottom-6);if(!platform)return;const distance=platform.y-bottom,scale=clamp(1-distance/260,.22,1);c.save();c.globalAlpha=.16*scale;c.fillStyle="#000";c.beginPath();c.ellipse(cx,platform.y-2,w*scale,5*scale,0,0,Math.PI*2);c.fill();c.restore()}
-  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,COLORS.shine);this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(215,34,this.hero,.55,false);this.label(`× ${this.lives}`,235,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
+  private drawHud(){const c=this.ctx,skin=this.skinFor(this.hero);c.fillStyle="#02030a";c.fillRect(0,0,W,70);c.strokeStyle=skin.accent;c.lineWidth=2;c.beginPath();c.moveTo(0,68);c.lineTo(W,68);c.stroke();c.save();if(!this.settings.reducedMotion&&this.scorePulse>0){c.translate(24,28);c.scale(1+this.scorePulse*.12,1+this.scorePulse*.12);c.translate(-24,-28)}this.label(`SCORE ${String(this.score).padStart(7,"0")}`,24,28,17,this.scorePulse>0?"#FFD36A":COLORS.shine);c.restore();this.label(`HI ${String(Math.max(this.score,this.settings.highScore)).padStart(7,"0")}`,24,53,12,COLORS.blue);this.drawHero(215,34,this.hero,.55,false);this.label(`× ${this.lives}`,235,40,17,skin.accent);this.label(this.level.bonus?"BONUS VAULT":`STAGE ${this.levelIndex+1}/12`,W/2,23,15,this.level.bonus?"#FFD36A":COLORS.shine,"center");this.label(this.level.world,W/2,45,11,this.level.tint,"center");const fx=[this.upgrades.speed&&"SPD",this.upgrades.rapid&&"FIR",this.upgrades.range&&"RNG",this.upgrades.velocity&&"COM",this.upgrades.shield&&"SHD",this.upgrades.venom&&"FNG",this.upgrades.chain&&"CHN",this.upgrades.crown&&"CRN"].filter(Boolean).join(" ");this.label(fx?`FX ${fx}`:"FX —",W/2,62,8,fx?COLORS.jade:"#30445e","center");this.label("JUMP",594,25,10,COLORS.blue);for(let i=0;i<2;i++){c.fillStyle=i<this.player.jumpsRemaining?skin.secondary:"#1c2b38";c.fillRect(596+i*16,36,10,10);c.strokeStyle=COLORS.shine;c.strokeRect(596+i*16,36,10,10)}this.label(`VENOM`,685,25,13,COLORS.pink);["V","E","N","O","M"].forEach((l,i)=>this.label(l,682+i*23,51,17,this.venom.has(l)?"#FFD36A":"#3a2541"));this.label(`${Math.max(0,Math.ceil(this.levelTime))}`,922,40,24,this.widow?COLORS.crimson:COLORS.jade,"right");if(this.level.boss&&this.widow&&this.widow.phase!=="entrance")this.drawBossHealth(this.widow);if(this.devTools)this.label("DEV · [ ] SKIP LEVEL · F3 DEBUG",6,H-6,9,"#3a4f6e")}
   private drawBossHealth(w:WidowState){
     const c=this.ctx,pips=w.maxHp,cx=W/2,y=82,size=16,gap=26,startX=cx-((pips-1)*gap)/2;
     c.save();this.label("THE WIDOW",cx,74,11,COLORS.pink,"center");
@@ -698,25 +738,27 @@ export class BubbleHexEngine {
   private drawDebugOverlay(){const c=this.ctx,p=this.player;c.save();c.lineWidth=2;for(const audit of this.platformAudit){const platform=this.level.platforms[audit.id];c.strokeStyle=audit.status==="unreachable"?"#ff405c":audit.status==="double"?"#ffd36a":"#43ffb2";c.strokeRect(platform.x,platform.y,platform.w,platform.h);this.label(`${audit.id}:${audit.status}`,platform.x+3,platform.y-4,9,c.strokeStyle)}c.strokeStyle="#fff";c.strokeRect(p.x,p.y,p.w,p.h);c.fillStyle="#fff";c.fillRect(p.x,p.y+p.h-1,p.w,2);c.fillStyle="rgba(0,0,0,.78)";c.fillRect(16,82,275,104);this.label(`F3 DEBUG  Y ${p.y.toFixed(1)}  VY ${p.vy.toFixed(1)}`,26,104,11,COLORS.shine);this.label(`GROUND ${p.grounded}  PLATFORM ${p.currentPlatformId??"—"}`,26,126,11,p.grounded?COLORS.jade:COLORS.pink);this.label(`JUMPS ${p.jumpsRemaining}/${p.maxJumps}  COYOTE ${this.coyote.toFixed(2)}`,26,148,11,COLORS.blue);this.label(`BUFFER ${this.jumpBuffer.toFixed(2)}  APEX ${TARGET_JUMP_HEIGHT.toFixed(1)}PX`,26,170,11,COLORS.jade);c.restore()}
   private drawBubble(b:Bubble){
     const c=this.ctx,color=this.skinFor(this.hero).bubble;
-    const wob=Math.sin(b.age*8),wob2=Math.cos(b.age*6.3);
-    const stretch=1+clamp(Math.abs(b.vx)/1200,0,.28),r=b.r*(1+wob*.035);
-    const alpha=b.phase==="warning"&&Math.floor(b.age*10)%2===0?.35:.92;
+    const rm=this.settings.reducedMotion,wob=rm?0:Math.sin(b.age*8),wob2=rm?0:Math.cos(b.age*6.3);
+    const impact=rm?0:(b.impact??0)/.22;
+    const stretch=rm?1:1+clamp(Math.abs(b.vx)/1200,0,.28)-Math.sin(impact*Math.PI)*.16;
+    const r=b.r*(1+wob*.035)*(b.phase==="popping"&&!rm?1.06:1);
+    const alpha=b.phase==="warning"&&!rm&&Math.floor(b.age*10)%2===0?.35:.92;
     c.save();
-    if(Math.abs(b.vx)>140){c.strokeStyle=color;c.lineWidth=2;for(let i=1;i<=2;i++){c.globalAlpha=.16/i;c.beginPath();c.arc(b.x-b.vx*.018*i,b.y-b.vy*.018*i,r*.9,0,Math.PI*2);c.stroke()}}
+    if(!rm&&Math.abs(b.vx)>140){c.strokeStyle=color;c.lineWidth=2;for(let i=1;i<=2;i++){c.globalAlpha=.16/i;c.beginPath();c.arc(b.x-b.vx*.018*i,b.y-b.vy*.018*i,r*.9,0,Math.PI*2);c.stroke()}}
     c.globalAlpha=alpha;
     c.fillStyle="rgba(255,42,157,.18)";c.strokeStyle=b.phase==="warning"?COLORS.crimson:color;c.lineWidth=3;c.shadowBlur=12;c.shadowColor=b.phase==="warning"?COLORS.crimson:color;
     c.beginPath();c.ellipse(b.x,b.y,r*stretch*(1+wob2*.03),(r/stretch)*(1-wob2*.03),0,0,Math.PI*2);c.fill();c.stroke();c.shadowBlur=0;
-    c.strokeStyle=COLORS.shine;c.lineWidth=2;const sh=b.age*.8;c.beginPath();c.arc(b.x-r*.28,b.y-r*.28,r*.3,Math.PI+sh*.3,Math.PI*1.55+sh*.3);c.stroke();
+    c.strokeStyle=COLORS.shine;c.lineWidth=2;const sh=rm?0:b.age*.8;c.beginPath();c.arc(b.x-r*.28,b.y-r*.28,r*.3,Math.PI+sh*.3,Math.PI*1.55+sh*.3);c.stroke();
     c.fillStyle=COLORS.shine;c.globalAlpha=alpha*.8;c.beginPath();c.arc(b.x+r*.34,b.y+r*.22,r*.09,0,Math.PI*2);c.fill();c.globalAlpha=alpha;
     if(b.enemyId===WIDOW_ENEMY_ID&&this.widow){this.drawWidow({...this.widow,x:b.x,y:b.y})}
     else if(b.enemyId){const e=this.enemies.find(e=>e.id===b.enemyId);if(e)this.drawEnemy({...e,x:b.x-e.w/2,y:b.y-e.h/2},true)}
     c.restore()}
   private drawEnemy(e:Enemy,trapped=false){
     const c=this.ctx,x=e.x+e.w/2,y=e.y+e.h/2,fur=e.state==="furious";
-    const t=trapped?this.animTime:e.timer;
+    const t=this.settings.reducedMotion?0:trapped?this.animTime:e.timer;
     const face:1|-1=Math.abs(e.vx)>4?(e.vx>0?1:-1):(this.player.x+17>x?1:-1);
     c.save();c.translate(x,y);c.scale(BubbleHexEngine.ENEMY_SCALE,BubbleHexEngine.ENEMY_SCALE);
-    if(trapped){c.globalAlpha=.85;c.rotate(Math.sin(this.animTime*2.2)*.16)}
+    if(trapped){c.globalAlpha=.85;c.rotate(this.settings.reducedMotion?0:Math.sin(this.animTime*2.2)*.16)}
     if(fur)c.rotate(Math.sin(t*18)*.12);
     const col=fur?COLORS.crimson:COLORS.pink;
     if(fur&&!trapped){c.save();c.strokeStyle=COLORS.crimson;c.globalAlpha=.25+Math.sin(t*12)*.12;c.lineWidth=3;c.beginPath();c.arc(0,0,25+Math.sin(t*9)*2,0,Math.PI*2);c.stroke();c.restore()}
@@ -872,10 +914,12 @@ export class BubbleHexEngine {
     const sa=T*3.2+r.x*.1;c.fillStyle="#fff";c.globalAlpha*=.5+.5*Math.sin(T*6+r.x);
     c.beginPath();c.arc(Math.cos(sa)*13,Math.sin(sa*1.3)*9,1.5,0,Math.PI*2);c.fill();
     c.restore()}
-  private drawStageIntro(){const fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId);this.ctx.fillStyle="rgba(5,5,9,.84)";this.ctx.fillRect(110,225,740,235);this.label(this.level.bonus?"ORIGINAL MODE SECRET":`STAGE ${this.levelIndex+1}`,W/2,280,20,this.level.tint,"center");this.label(this.level.name.toUpperCase(),W/2,338,38,COLORS.shine,"center","Georgia");this.label(this.level.world,W/2,378,15,COLORS.pink,"center");if(this.level.bonus)this.label("CHAIN THEM ALL BEFORE THE VAULT SEALS",W/2,425,12,COLORS.jade,"center");else if(fragment)this.label(`JADE DOOR: ${fragment.title.toUpperCase()}`,W/2,425,12,COLORS.jade,"center")}
+  private beginPanel(duration:number,delay=0){const c=this.ctx;c.save();if(this.settings.reducedMotion)return;const t=clamp((this.stateTime-delay)/duration,0,1);c.globalAlpha=t;c.translate(0,(1-t)*10)}
+  private drawStageIntro(){this.beginPanel(.18);const fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId);this.ctx.fillStyle="rgba(5,5,9,.84)";this.ctx.fillRect(110,225,740,235);this.label(this.level.bonus?"ORIGINAL MODE SECRET":`STAGE ${this.levelIndex+1}`,W/2,280,20,this.level.tint,"center");this.label(this.level.name.toUpperCase(),W/2,338,38,COLORS.shine,"center","Georgia");this.label(this.level.world,W/2,378,15,COLORS.pink,"center");if(this.level.bonus)this.label("CHAIN THEM ALL BEFORE THE VAULT SEALS",W/2,425,12,COLORS.jade,"center");else if(fragment)this.label(`JADE DOOR: ${fragment.title.toUpperCase()}`,W/2,425,12,COLORS.jade,"center");this.ctx.restore()}
   private drawHurry(){this.ctx.fillStyle="rgba(196,19,61,.2)";this.ctx.fillRect(0,70,W,H-70);this.banner("HURRY, DARLING!",300,COLORS.crimson)}
   private drawPause(){this.ctx.fillStyle="rgba(5,5,9,.9)";this.ctx.fillRect(130,135,700,490);this.drawGothicBox(130,135,700,490,COLORS.pink);this.label("PAUSED",W/2,205,42,COLORS.shine,"center","Georgia");this.label("P / PAUSE — RESUME",W/2,270,15,COLORS.jade,"center");this.label("← →  MUSIC VOLUME  "+Math.round(this.settings.musicVolume*10),W/2,312,15,COLORS.blue,"center");this.label("HOLD JUMP + ← →  SFX VOLUME  "+Math.round(this.settings.sfxVolume*10),W/2,340,13,COLORS.blue,"center");this.label(`BUBBLE  SOUND ${this.settings.muted?"OFF":"ON"}`,W/2,378,15,COLORS.pink,"center");this.label(`JUMP (TAP)  REDUCED MOTION ${this.settings.reducedMotion?"ON":"OFF"}`,W/2,418,15,COLORS.pink,"center");this.label("START — RESTART CHAMBER",W/2,458,15,COLORS.crimson,"center");this.label("MOVE A/D OR ARROWS · JUMP SPACE/C · BUBBLE X/Z",W/2,533,12,COLORS.shine,"center");this.label("TOUCH CONTROLS SUPPORT MULTI-TOUCH",W/2,568,12,COLORS.jade,"center")}
   private drawStageClear(){
+    this.beginPanel(.28,.12);
     const c=this.ctx,fragment=STORY_FRAGMENTS.find(item=>item.id===this.level.loreFragmentId),b=this.stageBreakdown;
     const elapsed=Math.max(0,this.level.time-Math.max(0,this.levelTime));
     c.fillStyle="rgba(5,5,9,.92)";c.fillRect(90,168,780,400);this.drawGothicBox(90,168,780,400,this.level.bonus?"#FFD36A":COLORS.jade);
@@ -890,15 +934,16 @@ export class BubbleHexEngine {
       ["SECRET FOUND",b.secretBonus,COLORS.jade],
     ];
     let y=272;
-    for(const [label,value,color] of rows){this.label(label,150,y,12,value>0?color:"#3a4a5e");this.label(value>0?`+${value}`:"—",730,y,12,value>0?color:"#3a4a5e","right");y+=27}
+    for(const [index,[label,value,color]] of rows.entries()){const settled=this.settings.reducedMotion?value:Math.round(value*clamp((this.stateTime-.28-index*.08)/.25,0,1));this.label(label,150,y,12,value>0?color:"#3a4a5e");this.label(value>0?`+${settled}`:"—",730,y,12,value>0?color:"#3a4a5e","right");y+=27}
     c.strokeStyle="#26374f";c.lineWidth=1;c.beginPath();c.moveTo(150,y+2);c.lineTo(730,y+2);c.stroke();y+=24;
     this.label("STAGE TOTAL",150,y,16,COLORS.shine);this.label(`+${b.total}`,730,y,16,COLORS.shine,"right");
     y+=28;this.label(`BEST CHAIN ×${this.bestChain}`,W/2,y,11,COLORS.blue,"center");y+=26;
     if(this.secretFound&&fragment){this.label("JADE DOOR OPEN",W/2,y,20,COLORS.jade,"center");y+=28;this.label(fragment.title.toUpperCase(),W/2,y,16,COLORS.shine,"center","Georgia");y+=22;this.drawWrappedText(fragment.text,W/2,y,640,16,10,COLORS.shine,"center")}
     else if(this.secretFound&&this.level.bonus){this.label("THE VAULT YIELDS ITS GOLD",W/2,y,18,"#FFD36A","center")}
     else{this.label(this.level.bonus?"THE VAULT STAYS SHUT — CHAIN THEM ALL NEXT TIME":"THE DOOR REMAINS QUIET",W/2,y,13,"#59687a","center")}
+    c.restore();
   }
-  private drawDying(){this.ctx.fillStyle=`rgba(196,19,61,${.2+Math.sin(this.stateTime*18)*.1})`;this.ctx.fillRect(0,70,W,H-70);this.label("HEART BROKEN",W/2,360,38,COLORS.crimson,"center","Georgia")}
+  private drawDying(){this.ctx.fillStyle=`rgba(196,19,61,${this.settings.reducedMotion?.2:.2+Math.sin(this.stateTime*18)*.1})`;this.ctx.fillRect(0,70,W,H-70);this.label("HEART BROKEN",W/2,360,38,COLORS.crimson,"center","Georgia")}
   private drawGameOver(){this.drawStars();this.drawGothicFrame(COLORS.crimson);this.label("GAME OVER",W/2,265,80,COLORS.crimson,"center","Georgia");this.drawHeart(W/2,370,45,"#16070d");this.label(`SCORE ${String(this.score).padStart(7,"0")}`,W/2,475,22,COLORS.shine,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,505,14,"#FFD36A","center");else this.label(`CAMPAIGN BEST ${String(this.settings.highScore).padStart(7,"0")}`,W/2,505,12,COLORS.blue,"center");this.label("PRESS START — THE NIGHT REMEMBERS",W/2,560,16,COLORS.pink,"center")}
   private drawVictory(){this.drawStars();this.drawGothicFrame(this.cheats.super?COLORS.crimson:COLORS.jade);this.drawHero(310,300,this.hero,2.2,false,{pose:"jump"});this.drawHeartBubble(650,300,90);this.label(this.cheats.super?"VENOM EDITION CLEARED":"DAWN SURVIVED",W/2,495,45,this.cheats.super?COLORS.crimson:COLORS.jade,"center","Georgia");this.label(this.endingText,W/2,545,15,COLORS.shine,"center");this.label(`FINAL SCORE ${this.score}`,W/2,590,18,COLORS.pink,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,615,14,"#FFD36A","center");this.label("PRESS START",W/2,650,15,COLORS.blue,"center")}
   private drawRecords(){
