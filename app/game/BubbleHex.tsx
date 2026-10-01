@@ -58,6 +58,7 @@ export default function BubbleHex() {
   const [combo, setCombo] = useState("");
   const [reducedMotion, setReducedMotion] = useState(false);
   const pointers = useRef(new Map<number, {action: Action; button: HTMLButtonElement}>());
+  const pointerClicks = useRef(new WeakMap<HTMLButtonElement, number>());
   const clearPointers = useCallback(() => {
     for (const [id, {action, button}] of pointers.current) {
       engineRef.current?.release(action, `pointer:${id}`);
@@ -105,6 +106,8 @@ export default function BubbleHex() {
 
     window.addEventListener("keydown", stopScroll, { passive: false });
     window.addEventListener("blur", clearPointers);
+    const clearHiddenPointers = () => { if (document.hidden) clearPointers(); };
+    document.addEventListener("visibilitychange", clearHiddenPointers);
     const backgroundTimer = window.setInterval(syncBackground, 250);
     syncBackground();
 
@@ -112,6 +115,7 @@ export default function BubbleHex() {
       window.clearInterval(backgroundTimer);
       window.removeEventListener("keydown", stopScroll);
       window.removeEventListener("blur", clearPointers);
+      document.removeEventListener("visibilitychange", clearHiddenPointers);
       clearPointers();
       engineRef.current = null;
       engine.destroy();
@@ -132,13 +136,21 @@ export default function BubbleHex() {
   const startPointer = useCallback((action: Action, event: React.PointerEvent<HTMLButtonElement>) => {
       if (event.button !== 0) return;
       event.preventDefault();
-      event.currentTarget.setPointerCapture(event.pointerId);
+      pointerClicks.current.set(event.currentTarget, event.timeStamp);
+      canvasRef.current?.focus({preventScroll:true});
+      // Capture is best-effort on browsers that cancel a pointer during focus.
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* release via normal pointer events */ }
       pointers.current.set(event.pointerId, {action, button: event.currentTarget});
       event.currentTarget.dataset.held = "true";
       engineRef.current?.press(action, `pointer:${event.pointerId}`);
   }, []);
   const activateButton = useCallback((action: Action, event: React.MouseEvent<HTMLButtonElement>) => {
-    if (event.detail !== 0) return;
+    // Handle click-only/assistive activation too, without firing a second time
+    // after the normal pointer-down action.
+    const pointerTime = pointerClicks.current.get(event.currentTarget);
+    pointerClicks.current.delete(event.currentTarget);
+    const nativePointer = "pointerType" in event.nativeEvent && !!event.nativeEvent.pointerType;
+    if (event.detail !== 0 && pointerTime !== undefined && (nativePointer || event.timeStamp - pointerTime < 500)) return;
     engineRef.current?.press(action, "button");
     engineRef.current?.release(action, "button");
   }, []);
@@ -147,10 +159,13 @@ export default function BubbleHex() {
     onPointerUp: endPointer,
     onPointerCancel: endPointer,
     onLostPointerCapture: endPointer,
+    onPointerLeave: (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (!event.currentTarget.hasPointerCapture(event.pointerId)) endPointer(event);
+    },
     // Native keyboard and assistive activation produces a click with detail=0.
     onClick: (event: React.MouseEvent<HTMLButtonElement>) => activateButton(action, event),
   });
-  const tap = (action: Action) => {press(action);engineRef.current?.release(action);};
+  const tap = (action: Action) => {canvasRef.current?.focus({preventScroll:true});press(action);engineRef.current?.release(action);};
   const activePlay = gameState === "playing" || gameState === "hurry" || gameState === "attract";
   const instruction = gameState === "characterSelect" ? "Choose a hero · Bubble changes look · Jump confirms"
     : gameState === "paused" ? "Paused · Resume with Pause · Start restarts this chamber"

@@ -31,6 +31,9 @@ try {
     });
     assert.ok(layout.scrollWidth<=width,`${width}: horizontal overflow`);
     for(const b of layout.boxes){assert.ok(b.x>=0&&b.right<=width+.5&&b.bottom<=height,`${width}x${height}: ${JSON.stringify(b)}`);if(b.button)assert.ok(b.w>=44&&b.h>=44,`${width}: small touch target ${JSON.stringify(b)}`);}
+    const bubbleBox=layout.boxes.find(b=>b.name==='Blow bubble'),jumpBox=layout.boxes.find(b=>b.name==='Jump');
+    assert.ok(jumpBox.x>bubbleBox.x&&jumpBox.y>=bubbleBox.y+bubbleBox.h*.3,`${width}: diagonal action layout`);
+    assert.ok(bubbleBox.w>=70&&jumpBox.w>=70,`${width}: action size regressed`);
     const buttons=layout.boxes.filter(b=>b.button);
     for(let i=0;i<buttons.length;i++)for(let j=i+1;j<buttons.length;j++){const a=buttons[i],b=buttons[j];assert.ok(!(a.x<b.right&&a.right>b.x&&a.y<b.bottom&&a.bottom>b.y),`${width}: overlapping controls`);}
     console.log(`PASS layout ${width}x${height}`);

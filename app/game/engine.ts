@@ -164,7 +164,9 @@ export class BubbleHexEngine {
   }
   press(action:Action,source="touch"){
     if(!this.input.press(action,source))return;
-    const wasUnlocked=this.audioReady;this.audio.unlock();this.audioReady=true;if(!wasUnlocked)this.syncMusic();
+    const wasUnlocked=this.audioReady;
+    // Audio is optional: a denied/unavailable device must never eat input.
+    try{this.audio.unlock();this.audioReady=true;if(!wasUnlocked)this.syncMusic()}catch{/* play silently */}
     this.held[action]=true;this.just.add(action);
     if(this.state==="paused"&&this.held.jump&&(action==="left"||action==="right"))this.pauseSfxDirections.add(action);
     if(this.state==="attract"){this.toTitle();return}
@@ -196,7 +198,9 @@ export class BubbleHexEngine {
     if(this.state!=="paused")this.updateFeedback(dt);
     this.stateTime+=dt;if(this.state!=="paused")this.animTime+=dt;this.titleIdle+=this.state==="title"?dt:0;this.messageLife=Math.max(0,this.messageLife-dt);this.comboLife=Math.max(0,this.comboLife-dt);this.shake=Math.max(0,this.shake-dt*18);
     if(this.hitStop>0){this.hitStop-=dt;return}
-    if(this.state==="boot"&&this.stateTime>.55&&this.art.state!=="loading")this.toTitle();
+    // The renderer already has procedural fallbacks for every optional art asset.
+    // A stalled image request must not lock Start on a slow mobile connection.
+    if(this.state==="boot"&&this.stateTime>.55&&(this.art.state!=="loading"||this.stateTime>3))this.toTitle();
     else if(this.state==="title")this.updateTitle(dt);
     else if(this.state==="characterSelect")this.updateSelect();
     else if(this.state==="stageIntro"&&(this.stateTime>1.65||(this.stateTime>.3&&(this.just.has("start")||this.just.has("jump")))))this.setState("playing");

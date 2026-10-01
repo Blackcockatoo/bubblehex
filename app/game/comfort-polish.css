@@ -1,10 +1,13 @@
 /* Preserve the cabinet's neon language; reserve space for real thumb targets. */
-.cabinet { min-width:0; width:min(1320px,calc((100svh - 390px)*1.3333 + 40px),100%); }
+.cabinet { min-width:0; width:min(1320px,max(520px,calc((100svh - 480px)*1.3333 + 40px)),100%); }
+.screen-bezel { width:min(100%,max(180px,calc((100svh - 480px)*1.3333 + 14px))); margin-inline:auto; }
 .play-readout { display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; padding:6px 8px 8px; min-height:42px; color:var(--hex-jade); font-size:12px; line-height:1.4; }
 .play-readout strong { color:var(--hex-gold); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .combo-readout { flex:1 1 220px; }
 .dpad button { width:88px; height:88px; }
-.action-controls button { width:96px; }
+.action-controls { --action-size:124px; display:grid; grid-template-columns:var(--action-size) var(--action-size); align-items:start; gap:12px; }
+.action-controls button { width:var(--action-size); height:var(--action-size); }
+.action-controls .jump { margin-top:calc(var(--action-size) * .4); }
 .mini-controls button { min-height:48px; }
 .control-deck { gap:16px; }
 .dpad,.action-controls { gap:12px; }
@@ -14,6 +17,7 @@
 @media (hover:none) { .dpad button:hover,.action-controls button:hover,.mini-controls button:hover { filter:none; } }
 @media (max-width:700px) {
   .cabinet { width:100%; }
+  .top-rail .machine-status { display:none; }
   .arcade-page { padding-inline:max(6px,env(safe-area-inset-left)) max(6px,env(safe-area-inset-right)); }
   .hex-data-rail { grid-template-columns:minmax(0,1fr) minmax(0,.7fr); margin-bottom:4px; }
   .hex-data-rail > span { padding:4px 6px; border-bottom:0; }
@@ -22,16 +26,18 @@
   .hex-data-rail b { font-size:10px; letter-spacing:.02em; }
   .play-readout { font-size:11px; min-height:44px; padding:4px 6px 6px; gap:2px 8px; }
   .combo-readout { flex-basis:100%; line-height:1.25; min-height:28px; }
-  .screen-bezel { width:min(100%,calc((100svh - 300px)*1.3333 + 14px)); margin-inline:auto; }
+  .screen-bezel { width:min(100%,calc((100svh - 385px)*1.3333 + 14px)); margin-inline:auto; }
   .control-deck { gap:12px 8px; padding:12px 2px 8px; }
   .dpad,.action-controls { gap:8px; }
-  .dpad button { width:clamp(60px,18vw,78px); height:clamp(64px,18vw,78px); }
-  .action-controls button { width:clamp(68px,21.5vw,96px); }
+  .control-deck { grid-template-columns:auto auto; justify-content:space-between; }
+  .dpad button { width:clamp(60px,17vw,76px); height:clamp(72px,20vw,88px); }
+  .action-controls { --action-size:clamp(76px,22vw,104px); gap:8px; }
   .mini-controls { gap:8px; }
   .mini-controls button { min-height:48px; font-size:10px; padding:6px 3px; }
   .action-controls button small { font-size:9px; }
   .screen-bezel::after { display:none; }
 }
+@media (max-width:350px) { .cabinet { padding-inline:2px; } }
 @media (orientation:landscape) and (max-height:500px) {
   .cabinet { width:100%; }
   .hex-data-rail { grid-template-columns:1fr 1fr; margin:0 0 2px; }
@@ -40,12 +46,12 @@
   .hex-data-rail small { display:none; }
   .play-readout { min-height:28px; padding:2px 6px; font-size:11px; flex-wrap:nowrap; }
   .combo-readout { flex-basis:auto; min-height:0; font-size:10px; }
-  .play-layout { grid-template-columns:minmax(76px,1fr) minmax(0,min(64vw,calc((100svh - 132px)*1.3333))) minmax(76px,1fr); gap:4px 10px; }
+  .play-layout { grid-template-columns:minmax(76px,1fr) minmax(0,min(64vw,calc((100svh - 132px)*1.3333))) minmax(106px,1fr); gap:4px 10px; }
   .screen-bezel { width:100%; }
   .dpad { grid-template-columns:1fr; width:auto; gap:10px; }
   .dpad button { width:68px; height:64px; }
-  .action-controls { gap:10px; }
-  .action-controls button { width:clamp(64px,21svh,84px); }
+  .action-controls { --action-size:clamp(78px,26svh,104px); display:flex; flex-direction:column; align-items:flex-start; width:calc(var(--action-size) + 20px); gap:10px; }
+  .action-controls .jump { align-self:flex-end; margin-top:0; }
   .mini-controls { padding-top:2px; gap:8px; }
   .mini-controls button { min-height:44px; font-size:10px; padding:4px; }
 }
