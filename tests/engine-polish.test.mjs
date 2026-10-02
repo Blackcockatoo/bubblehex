@@ -104,4 +104,39 @@ test('pause hold-Jump volume adjustment does not toggle reduced motion',()=>{
 test('a quick paused volume chord retains its modifier across a slow frame',()=>{
   const e=make();e.state='paused';e.settings.reducedMotion=false;e.press('jump');e.press('right');e.release('right');e.release('jump');e.updatePause();assert.ok(e.settings.sfxVolume>.6);assert.equal(e.settings.musicVolume,.5);assert.equal(e.settings.reducedMotion,false);e.destroy();
 });
+test('Sound ON restores silent music volume and unlocks/retries the selected track',()=>{
+  const e=make();let unlock=0,retry=0;
+  e.audio.unlock=()=>unlock++;e.audio.retryMusic=()=>retry++;
+  e.settings.musicVolume=0;e.settings.muted=true;e.setMuted(false);
+  assert.equal(e.settings.musicVolume,.5);assert.equal(e.settings.muted,false);
+  assert.equal(unlock,1);assert.equal(retry,1);e.destroy();
+});
+const {AudioManager}=await import(join(directory,'audio.mjs'));
+test('music falls back codecs, retries failed loads, deduplicates starts and cancels pending playback',async()=>{
+  const originalFetch=globalThis.fetch;const originalCreate=document.createElement;
+  let requests=[],fail=false,starts=0,closed=0,release;
+  const param=()=>({value:0,cancelScheduledValues(){},linearRampToValueAtTime(){},setValueAtTime(){}});
+  const node=()=>({gain:param(),connect(){return this;}});
+  window.AudioContext=class {
+    state='running';currentTime=0;destination={};
+    createGain(){return node();}
+    createDynamicsCompressor(){return Object.assign(node(),Object.fromEntries(['threshold','knee','ratio','attack','release'].map(k=>[k,param()])));}
+    createBufferSource(){return {connect(){},start(){starts++;},stop(){}};}
+    async decodeAudioData(){return {duration:60};}
+    async resume(){} async close(){closed++;}
+  };
+  document.createElement=()=>({canPlayType:()=> 'probably'});
+  globalThis.fetch=async url=>{requests.push(url);return {ok:!fail&&!url.endsWith('.ogg'),status:503,arrayBuffer:async()=>new ArrayBuffer(1)};};
+  const audio=new AudioManager();
+  try {
+    audio.unlock();await Promise.all([audio.playMusic('title'),audio.playMusic('title')]);
+    assert.equal(starts,1);assert.equal(requests.length,2);assert.ok(requests[1].endsWith('.mp3'));
+    fail=true;await audio.playMusic('stage');assert.equal(audio.playingTrack,'title','failed replacement preserves existing music');
+    fail=false;audio.retryMusic();await audio.playMusic('stage');assert.equal(audio.playingTrack,'stage');assert.equal(starts,2);
+    globalThis.fetch=async()=>{await new Promise(r=>{release=r;});return {ok:true,arrayBuffer:async()=>new ArrayBuffer(1)};};
+    const pending=audio.playMusic('boss');audio.stopMusic();release();await pending;
+    assert.equal(starts,2,'stopped pending track cannot start later');
+  } finally {audio.destroy();globalThis.fetch=originalFetch;document.createElement=originalCreate;delete window.AudioContext;}
+  assert.equal(closed,1);
+});
 test.after(()=>rmSync(directory,{recursive:true,force:true}));

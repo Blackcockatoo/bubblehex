@@ -93,3 +93,23 @@ User feedback: retain the older large diagonal action layout; the released game 
 - Live desktop startup, selection and gameplay worked during diagnosis. The user's precise device-specific failure was not reproduced; the concrete startup and input failure paths above are covered by regression tests. Full physical-device testing remains POLISH NEXT.
 
 POLISH NEXT and FUTURE IDEAS from the earlier audit remain unchanged. No game rules, levels, scoring, progression or artwork were replaced.
+
+## Larger horizontal screen and music repair — 2 October 2026
+
+### FIX NOW — implemented
+- Use the available viewport for a horizontal cabinet with movement beside the board, large diagonal Bubble/Jump buttons on the opposite side and a separate 44px secondary-control strip. Preserve the 960×720 world, pixel-art proportions, keyboard controls and all rules.
+- Reserve 94px on short screens rather than the old 132px landscape allowance / 385px portrait control deck. The 568×320 phone canvas is about 289px wide (previously about 238px); the 844×390 canvas is about 383px wide (previously about 328px). Desktop height reserves are also substantially smaller than the old 480px.
+- Keep gameplay horizontal even in portrait browsers by rotating the whole cabinet and its hit targets. Start requests fullscreen and landscape locking on coarse-pointer devices when supported; rejected/unsupported requests leave the CSS layout usable. Browser orientation permission is not required for gameplay.
+- Account for logical safe-area edges when rotated and subtract notch/home-indicator space when sizing the board. Compact decorative rails on short screens; retain score, objectives, pause instructions and every control.
+- Failed music loads no longer permanently poison a track or mark it playing. Try both codecs, deduplicate concurrent loads/starts, preserve an outgoing track until its replacement is ready, and permit bounded retries.
+- Sound ON unlocks/resumes Web Audio, retries the current track and restores the default music volume only when the player explicitly enables sound from zero volume. Pause Bubble uses the same recovery path. Intentional saved mute/volume settings remain intact at launch.
+- Cancel pending playback on stop/destroy, close the context on teardown and handle rejected resume/suspend promises without interrupting gameplay.
+
+### Verification
+- 53 automated checks pass: 35 existing unit/content tests, 17 engine/audio regressions and one built-HTML check. Portable production build and game typecheck pass; lint has no errors and the existing image advisory.
+- Development browser verification passes the eleven viewport layouts, multi-touch, keyboard, pause/restart, saved state/reduced motion and fixture-assisted campaign, failure, replay and bonus flows.
+- Built-artifact browser verification passes all eleven viewport bounds, diagonal targets, unchanged 4:3 world proportions, larger small-phone board, simulated notch/home-indicator bounds, touch and keyboard controls, independent releases, pause/resume/restart and reduced motion, without page errors.
+- Real Chromium decodes and plays the bundled music: a post-compressor analyser records a nonzero stage-music signal, then verifies mute/unmute and recovery after both title audio requests are deliberately blocked. Native orientation request sequencing is tested with a mock; actual browser rejection uses the CSS fallback.
+- Screenshots visually reviewed at 320×568 and 844×390. No physical-phone orientation/speaker/safe-area testing is claimed; those device checks remain POLISH NEXT.
+
+POLISH NEXT: physical iPhone/Android fullscreen/orientation and speaker checks; real browser-bar/notch measurements; low-end-device frame pacing. The existing five next-pass opportunities and FUTURE IDEAS remain for separate review. No gameplay, scoring, levels, art or progression changes.

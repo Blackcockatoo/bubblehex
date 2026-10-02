@@ -17,6 +17,19 @@ const url=process.env.BUBBLEHEX_URL||`http://127.0.0.1:${server.address().port}`
 const browser=await chromium.launch({headless:true,executablePath:process.env.BUBBLEHEX_CHROMIUM||undefined,args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle','--use-angle=swiftshader']});
 try{
   const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true});
+  await page.addInitScript(() => { Element.prototype.requestFullscreen = () => Promise.reject(new Error('test orientation fallback')); });
+  await page.addInitScript(() => {
+    const Native=window.AudioContext;
+    window.AudioContext=class extends Native {
+      createDynamicsCompressor(){
+        const compressor=super.createDynamicsCompressor();
+        const analyser=this.createAnalyser();analyser.fftSize=2048;
+        compressor.connect(analyser);
+        window.audioProbe={context:this,analyser};
+        return compressor;
+      }
+    };
+  });
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url);await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='title');
   for(const [width,height] of [[320,568],[360,640],[375,667],[390,844],[412,915],[430,932],[768,1024],[1280,900],[568,320],[667,375],[844,390]]){
@@ -24,14 +37,36 @@ try{
     const boxes=await page.locator('button,canvas').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {name:el.getAttribute('aria-label')||el.textContent.trim(),x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};}));
     for(const b of boxes)assert.ok(b.x>=0&&b.y>=0&&b.right<=width+.5&&b.bottom<=height,`${width}x${height}: ${JSON.stringify(b)}`);
     const a=boxes.find(b=>b.name==='Blow bubble'),b=boxes.find(b=>b.name==='Jump');
-    assert.ok(a.w>=70&&b.w>=70&&b.x>a.x&&b.y>a.y+a.h*.3,'large diagonal action pair');
+    assert.ok(a.w>=70&&b.w>=70&&(width<height ? b.x<a.x-a.w*.3&&b.y>a.y : b.x>a.x&&b.y>a.y+a.h*.3),'large diagonal action pair');
+    const aspect=await page.locator('canvas').evaluate(el=>el.clientWidth/el.clientHeight);
+    assert.ok(Math.abs(aspect-4/3)<.02,'world keeps its 4:3 proportions');
+    const board=await page.locator('canvas').boundingBox();
+    if(width===568)assert.ok(Math.max(board.width,board.height)>285,'larger small-phone landscape board');
     console.log(`PASS production layout ${width}x${height}`);
   }
+  await page.setViewportSize({width:844,height:390});
+  await page.locator('main').evaluate(el=>{el.style.setProperty('--safe-left','44px');el.style.setProperty('--safe-right','44px');el.style.setProperty('--safe-bottom','21px');});
+  const safe=await page.locator('button,canvas').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom};}));
+  for(const b of safe)assert.ok(b.x>=44&&b.right<=800&&b.y>=0&&b.bottom<=369,'simulated safe-area bounds');
+  await page.locator('main').evaluate(el=>el.removeAttribute('style'));
+  console.log('PASS simulated notch/home-indicator spacing');
   await page.setViewportSize({width:390,height:844});
   await page.getByRole('button',{name:'START',exact:true}).tap();
   await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='characterSelect');
   await page.getByRole('button',{name:'Jump',exact:true}).tap();
   await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='playing');
+  await page.waitForFunction(()=>document.querySelector('canvas').dataset.musicTrack==='stage'&&document.querySelector('canvas').dataset.musicState==='playing');
+  const audible=()=>{
+    const p=window.audioProbe;if(!p||p.context.state!=='running')return false;
+    const values=new Float32Array(p.analyser.fftSize);p.analyser.getFloatTimeDomainData(values);
+    return values.some(v=>Math.abs(v)>.001);
+  };
+  await page.waitForFunction(audible);
+  await page.getByRole('button',{name:'SOUND ON',exact:true}).tap();
+  await page.waitForFunction(()=>document.querySelector('canvas').dataset.muted==='true');
+  await page.getByRole('button',{name:'SOUND OFF',exact:true}).tap();
+  await page.waitForFunction(audible);
+  console.log('PASS actual decoded music signal, mute and gesture-driven unmute');
   const cdp=await page.context().newCDPSession(page);
   const right=await page.getByRole('button',{name:'Move right'}).boundingBox();
   const bubble=await page.getByRole('button',{name:'Blow bubble'}).boundingBox();
@@ -47,6 +82,7 @@ try{
   await page.getByRole('button',{name:'PAUSE',exact:true}).tap();
   await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='paused');
   // A click without pointer events must still work (assistive/legacy activation).
+  await page.waitForTimeout(550); // Outside the touch-generated ghost-click window.
   const muted=await page.locator('canvas').getAttribute('data-muted');
   await page.getByRole('button',{name:'Blow bubble'}).evaluate(el=>el.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1})));
   await page.waitForFunction(previous=>document.querySelector('canvas').dataset.muted!==previous,muted);
@@ -61,6 +97,23 @@ try{
   assert.equal(Number(await page.locator('canvas').getAttribute('data-score')),0);
   await page.emulateMedia({reducedMotion:'reduce'});
   await page.waitForFunction(()=>document.querySelector('main')?.dataset.reducedMotion==='true');
+  await page.evaluate(()=>localStorage.clear());
+  await page.route('**/game/audio/title-jingle.*',route=>route.abort());
+  await page.reload();await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='title');
+  await page.getByRole('button',{name:'SOUND ON',exact:true}).tap();
+  await page.getByRole('button',{name:'SOUND OFF',exact:true}).tap();
+  await page.waitForFunction(()=>document.querySelector('canvas').dataset.musicState==='failed');
+  await page.unroute('**/game/audio/title-jingle.*');
+  await page.getByRole('button',{name:'SOUND ON',exact:true}).tap();
+  await page.getByRole('button',{name:'SOUND OFF',exact:true}).tap();
+  await page.waitForFunction(audible);
+  console.log('PASS real failed-track recovery through Sound OFF/ON');
+  await page.evaluate(()=>{document.documentElement.requestFullscreen=()=>Promise.resolve();screen.orientation.lock=async mode=>{window.requestedOrientation=mode;};});
+  await page.getByRole('button',{name:'START',exact:true}).tap();
+  await page.waitForFunction(()=>window.requestedOrientation==='landscape');
+  console.log('PASS landscape lock requested after fullscreen; rejected-lock CSS fallback tested above');
+  await page.setViewportSize({width:844,height:390});
+  await page.screenshot({path:'/tmp/bubblehex-landscape.png',animations:'disabled',timeout:5000});
   assert.deepEqual(errors,[]);
   console.log('PASS production touch Start, hero confirmation, multi-touch movement/fire, independent release, click-only activation, pause/resume, keyboard jump, restart and reduced motion; no page errors');
 }finally{await browser.close();server.close();}

@@ -44,6 +44,9 @@ export class AudioManager {
 
   private buffers = new Map<MusicTrackId, AudioBuffer>();
   private loadState = new Map<MusicTrackId, "loading" | "ready" | "failed">();
+  private loading = new Map<MusicTrackId, Promise<AudioBuffer | null>>();
+  private retryAfter = new Map<MusicTrackId, number>();
+  private desiredTrack: MusicTrackId | null = null;
   private currentTrack: MusicTrackId | null = null;
   private currentGain: GainNode | null = null;
   private currentSources: AudioBufferSourceNode[] = [];
@@ -65,16 +68,16 @@ export class AudioManager {
     if (!this.ctx) return;
     if (document.hidden) {
       this.wasPlayingBeforeHidden = this.ctx.state === "running";
-      void this.ctx.suspend();
+      void this.ctx.suspend().catch(() => {});
     } else if (this.wasPlayingBeforeHidden) {
-      void this.ctx.resume();
+      void this.ctx.resume().catch(() => {});
     }
   };
 
   /** Must be called from a real user gesture handler (browser audio policy). */
   unlock() {
     if (!this.ctx) this.setupGraph();
-    if (this.ctx && this.ctx.state !== "running") void this.ctx.resume();
+    if (this.ctx && this.ctx.state !== "running") void this.ctx.resume().catch(() => {});
   }
 
   private setupGraph() {
@@ -112,6 +115,8 @@ export class AudioManager {
   setSfxVolume(v: number) { this.sfxVolume = clamp01(v); this.applyVolumes(); }
 
   get playingTrack() { return this.currentTrack; }
+  get musicStatus() { return this.currentSources.length && this.ctx?.state === "running" ? "playing" : this.loading.size ? "loading" : this.desiredTrack && this.loadState.get(this.desiredTrack) === "failed" ? "failed" : "idle"; }
+  retryMusic() { this.retryAfter.clear(); }
 
   preload(id: MusicTrackId) { void this.loadTrack(id); }
 
@@ -124,35 +129,45 @@ export class AudioManager {
   private async loadTrack(id: MusicTrackId): Promise<AudioBuffer | null> {
     const cached = this.buffers.get(id);
     if (cached) return cached;
-    if (this.loadState.get(id) === "failed" || !this.ctx) return null;
+    const pending = this.loading.get(id);
+    if (pending) return pending;
+    if (!this.ctx || Date.now() < (this.retryAfter.get(id) ?? 0)) return null;
     this.loadState.set(id, "loading");
-    try {
-      const url = pickMusicUrl(MUSIC_TRACKS[id], this.canPlayOgg());
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`audio ${id} http ${response.status}`);
-      const bytes = await response.arrayBuffer();
-      const buffer = await this.ctx.decodeAudioData(bytes);
-      this.buffers.set(id, buffer);
-      this.loadState.set(id, "ready");
-      return buffer;
-    } catch {
+    const ctx = this.ctx;
+    const task = (async () => {
+      const source = MUSIC_TRACKS[id];
+      for (const url of new Set([pickMusicUrl(source, this.canPlayOgg()), source.mp3, source.ogg])) {
+        try {
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`audio ${id} http ${response.status}`);
+          const buffer = await ctx.decodeAudioData(await response.arrayBuffer());
+          this.buffers.set(id, buffer);
+          this.loadState.set(id, "ready");
+          this.retryAfter.delete(id);
+          return buffer;
+        } catch { /* Try the alternate codec before giving up. */ }
+      }
       this.loadState.set(id, "failed");
+      this.retryAfter.set(id, Date.now() + 2000);
       return null;
-    }
+    })();
+    this.loading.set(id, task);
+    try { return await task; } finally { this.loading.delete(id); }
   }
 
   /** No-ops if `id` is already playing, so pause/resume never restarts a track. */
   async playMusic(id: MusicTrackId, crossfade = 1.1) {
     crossfade = safePositive(crossfade, 1.1);
     if (!this.ctx || !this.musicBus) return;
-    if (this.currentTrack === id) return;
-    this.currentTrack = id;
+    this.desiredTrack = id;
+    if (this.currentTrack === id && this.currentSources.length) return;
     const buffer = await this.loadTrack(id);
-    if (!this.ctx || !this.musicBus || this.currentTrack !== id) return;
+    if (!this.ctx || !this.musicBus || this.desiredTrack !== id || !buffer) return;
+    if (this.currentTrack === id && this.currentSources.length) return;
 
     const outgoingGain = this.currentGain;
     const outgoingSources = this.currentSources;
-    if (!buffer) { this.currentGain = null; this.currentSources = []; this.fadeOutAndStop(outgoingGain, outgoingSources, crossfade); return; }
+    this.currentTrack = id;
 
     const gainNode = this.ctx.createGain();
     safeParam(() => gainNode.gain.setValueAtTime(0, this.ctx!.currentTime));
@@ -165,6 +180,7 @@ export class AudioManager {
   }
 
   stopMusic(fade = 0.5) {
+    this.desiredTrack = null;
     this.fadeOutAndStop(this.currentGain, this.currentSources, fade);
     this.currentTrack = null;
     this.currentGain = null;
@@ -242,8 +258,13 @@ export class AudioManager {
   recordSting() { [520, 780, 1040].forEach((n, i) => setTimeout(() => this.tone(n, 0.14, "triangle", 60, 0.11), i * 60)); }
 
   destroy() {
+    this.desiredTrack = null;
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVisibility);
     this.pendingTimers.forEach(clearTimeout);
     this.pendingTimers = [];
+    this.currentSources.forEach(source => { try { source.stop(); } catch { /* Already stopped. */ } });
+    this.currentSources = [];
+    if (this.ctx) void this.ctx.close().catch(() => {});
+    this.ctx = null;
   }
 }
