@@ -117,7 +117,14 @@ export class BubbleHexEngine {
   }
   start(){this.ready();this.frame=requestAnimationFrame(this.loop)}
   destroy(){this.alive=false;cancelAnimationFrame(this.frame);window.removeEventListener("keydown",this.onKeyDown);window.removeEventListener("keyup",this.onKeyUp);window.removeEventListener("blur",this.suspend);document.removeEventListener("visibilitychange",this.onVisibility);this.motionQuery?.removeEventListener("change",this.onMotionChange);this.pendingPops=[];this.releaseAll();this.audio.destroy()}
-  setMuted(v:boolean){this.settings.muted=v;this.audio.setMuted(v);this.save()}
+  setMuted(v:boolean){
+    this.settings.muted=v;
+    if(!v){
+      if(this.settings.musicVolume===0){this.settings.musicVolume=DEFAULT_SETTINGS.musicVolume;this.audio.setMusicVolume(this.settings.musicVolume)}
+      try{this.audio.unlock();this.audioReady=true;this.audio.retryMusic();this.syncMusic()}catch{/* gameplay remains available without an audio device */}
+    }
+    this.audio.setMuted(v);this.save();
+  }
   releaseAll(){this.pauseSfxDirections.clear();this.pauseJumpPending=false;this.input.clear();for(const action of Object.keys(this.held) as Action[])this.held[action]=false;this.just.clear();}
   private suspend=()=>{this.releaseAll();if(this.state==="playing"||this.state==="hurry"){this.pauseOrigin=this.state;this.setState("paused")}this.last=0;this.acc=0;};
   private onVisibility=()=>{if(document.hidden)this.suspend()};
@@ -142,6 +149,7 @@ export class BubbleHexEngine {
       levelName:this.level.name,levelBonus:String(!!this.level.bonus),cheatsExtra:String(this.cheats.extra),enemiesLeft:String(this.enemies.filter(e=>e.state!=="dead").length),
       musicVolume:String(Math.round(this.settings.musicVolume*10)),sfxVolume:String(Math.round(this.settings.sfxVolume*10)),muted:String(this.settings.muted),reducedMotion:String(this.settings.reducedMotion||!!this.motionQuery?.matches),combo:this.comboLife>0?this.comboText:"",bestChain:String(this.bestChain),particles:String(this.particles.length),pendingPops:String(this.pendingPops.length),
       enemyConsciousness:String(this.settings.enemyConsciousness),enemyRank:String(this.threatRank()),
+      musicState:this.audio.musicStatus,musicTrack:this.audio.playingTrack??"",
     });
   }
   private onKeyDown(e:KeyboardEvent){
@@ -164,9 +172,8 @@ export class BubbleHexEngine {
   }
   press(action:Action,source="touch"){
     if(!this.input.press(action,source))return;
-    const wasUnlocked=this.audioReady;
     // Audio is optional: a denied/unavailable device must never eat input.
-    try{this.audio.unlock();this.audioReady=true;if(!wasUnlocked)this.syncMusic()}catch{/* play silently */}
+    try{this.audio.unlock();this.audioReady=true;this.syncMusic()}catch{/* play silently */}
     this.held[action]=true;this.just.add(action);
     if(this.state==="paused"&&this.held.jump&&(action==="left"||action==="right"))this.pauseSfxDirections.add(action);
     if(this.state==="attract"){this.toTitle();return}
@@ -248,7 +255,7 @@ export class BubbleHexEngine {
       else{this.settings.musicVolume=clamp(this.settings.musicVolume+.1,0,1);this.audio.setMusicVolume(this.settings.musicVolume)}
       this.audio.reward();this.save();
     }
-    if(this.just.has("bubble")){this.settings.muted=!this.settings.muted;this.audio.setMuted(this.settings.muted);this.save()}
+    if(this.just.has("bubble"))this.setMuted(!this.settings.muted);
     if(this.pauseJumpPending&&!this.held.jump){this.pauseJumpPending=false;this.settings.reducedMotion=!!this.motionQuery?.matches||!this.settings.reducedMotion;this.save()}
     this.pauseSfxDirections.clear();
     if(this.just.has("start"))this.restartCurrentStage();

@@ -7,6 +7,7 @@ import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
 import "./cabinet-polish.css";
 import "./comfort-polish.css";
+import "./landscape.css";
 
 
 const BACKGROUND_BY_LEVEL: Record<string, string> = {
@@ -166,6 +167,16 @@ export default function BubbleHex() {
     onClick: (event: React.MouseEvent<HTMLButtonElement>) => activateButton(action, event),
   });
   const tap = (action: Action) => {canvasRef.current?.focus({preventScroll:true});press(action);engineRef.current?.release(action);};
+  const startGame = () => {
+    tap("start");
+    // Android supports orientation locking in fullscreen; CSS remains the
+    // horizontal fallback for Safari, embedded browsers and denied requests.
+    if (matchMedia("(pointer: coarse)").matches && !document.fullscreenElement) {
+      const orientation = screen.orientation as ScreenOrientation & {lock?: (mode: string) => Promise<void>};
+      void document.documentElement.requestFullscreen?.().then(() => orientation.lock?.("landscape")).catch(() => {});
+    }
+  };
+  const soundOn = !muted && Number(volumes.music) > 0;
   const activePlay = gameState === "playing" || gameState === "hurry" || gameState === "attract";
   const instruction = gameState === "characterSelect" ? "Choose a hero · Bubble changes look · Jump confirms"
     : gameState === "paused" ? "Paused · Resume with Pause · Start restarts this chamber"
@@ -180,7 +191,7 @@ export default function BubbleHex() {
   const cabinetSignal = running ? "ONLINE" : "WARMING";
 
   return (
-    <main className="arcade-page" data-game-state={gameState} data-reduced-motion={reducedMotion}>
+    <main className="arcade-page" data-horizontal="true" data-game-state={gameState} data-reduced-motion={reducedMotion}>
       <header className="top-rail">
         <div className="studio-mark">
           <span>B$S</span> BLUE $NAKE STUDIO
@@ -257,7 +268,7 @@ export default function BubbleHex() {
             </div>
 
             <div className="mini-controls">
-              <button type="button" disabled={["boot", "playing", "hurry", "dying"].includes(gameState)} onClick={() => tap("start")}>
+              <button type="button" disabled={["boot", "playing", "hurry", "dying"].includes(gameState)} onClick={startGame}>
                 {gameState === "paused" ? "RESTART" : gameState === "stageClear" ? "NEXT" : "START"}
               </button>
               <button type="button" disabled={!(["title", "characterSelect"].includes(gameState))} onClick={() => tap("consciousness")}>
@@ -268,14 +279,14 @@ export default function BubbleHex() {
               </button>
               <button
                 type="button"
-                aria-pressed={muted}
+                aria-pressed={!soundOn}
                 onClick={() => {
-                  const next = !muted;
+                  const next = soundOn;
                   setMuted(next);
                   engineRef.current?.setMuted(next);
                 }}
               >
-                {muted ? "SOUND OFF" : "SOUND ON"}
+                {soundOn ? "SOUND ON" : "SOUND OFF"}
               </button>
             </div>
 
