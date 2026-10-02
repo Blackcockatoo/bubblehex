@@ -23,7 +23,7 @@ const BACKGROUND_BY_LEVEL: Record<string, string> = {
   "Thirteen Candles": "/backgrounds/hex-reactor.svg",
   "Event Horizon": "/backgrounds/hex-tunnel.svg",
   "The Widow Unveiled": "/backgrounds/hex-reactor.svg",
-  "The Dirty Gold Vault": "/backgrounds/bubble-city.svg",
+  "The Dirty Gold Vault": "/backgrounds/vault-cave.svg",
 };
 
 const PLAY_STATES = new Set([
@@ -48,8 +48,10 @@ function stateLabel(gameState: string) {
 
 export default function BubbleHex() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const engineRef = useRef<BubbleHexEngine | null>(null);
   const [muted, setMuted] = useState(false);
+  const [musicState, setMusicState] = useState("idle");
   const [running, setRunning] = useState(false);
   const [backgroundSrc, setBackgroundSrc] = useState(MENU_BACKGROUND);
   const [gameState, setGameState] = useState("boot");
@@ -89,6 +91,7 @@ export default function BubbleHex() {
       const nextLevelName = canvas.dataset.levelName || "THE VEIL";
       const nextBackground = backgroundFor(nextState, nextLevelName);
       setMuted(canvas.dataset.muted === "true");
+      setMusicState(canvas.dataset.musicState ?? "idle");
       const music = canvas.dataset.musicVolume ?? "5", sfx = canvas.dataset.sfxVolume ?? "6";
       setVolumes(current => current.music === music && current.sfx === sfx ? current : {music,sfx});
       setScore(canvas.dataset.score ?? "0");
@@ -122,6 +125,19 @@ export default function BubbleHex() {
       engine.destroy();
     };
   }, [clearPointers]);
+
+  const freezeScene = reducedMotion || gameState === "paused";
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    engineRef.current?.setBackgroundVideo(video);
+    const sync = () => {
+      if (freezeScene || document.hidden) video.pause();
+      else void video.play().catch(() => {});
+    };
+    sync(); document.addEventListener("visibilitychange", sync);
+    return () => { video.pause(); document.removeEventListener("visibilitychange", sync); engineRef.current?.setBackgroundVideo(null); };
+  }, [backgroundSrc, freezeScene]);
 
   const press = useCallback(
     (action: Action) => engineRef.current?.press(action),
@@ -177,6 +193,8 @@ export default function BubbleHex() {
     }
   };
   const soundOn = !muted && Number(volumes.music) > 0;
+  const needsMusicRetry = musicState === "blocked" || musicState === "failed";
+  const needsMusicStart = needsMusicRetry || musicState === "idle" || musicState === "paused";
   const activePlay = gameState === "playing" || gameState === "hurry" || gameState === "attract";
   const instruction = gameState === "characterSelect" ? "Choose a hero · Bubble changes look · Jump confirms"
     : gameState === "paused" ? "Paused · Resume with Pause · Start restarts this chamber"
@@ -237,10 +255,17 @@ export default function BubbleHex() {
                 aria-label="Playable Bubble Hex game"
                 tabIndex={0}
               />
+              <video
+                key={`scene-${backgroundSrc}`}
+                ref={videoRef}
+                className="game-scene-source"
+                src={backgroundSrc.replace("/backgrounds/", "/backgrounds/video/").replace(".svg", ".mp4")}
+                muted playsInline loop preload="auto" aria-hidden="true"
+              />
               <img
                 key={backgroundSrc}
                 className={`game-background-motion ${motionMode}`}
-                src={backgroundSrc}
+                src={backgroundSrc === "/backgrounds/vault-cave.svg" ? MENU_BACKGROUND : backgroundSrc}
                 alt=""
                 aria-hidden="true"
               />
@@ -260,10 +285,10 @@ export default function BubbleHex() {
           <div className="control-deck">
             <div className="dpad" aria-label="Movement controls">
               <button type="button" aria-label="Move left" {...bind("left")}>
-                <span aria-hidden="true">◀</span>
+                <span aria-hidden="true">←</span><small>LEFT</small>
               </button>
               <button type="button" aria-label="Move right" {...bind("right")}>
-                <span aria-hidden="true">▶</span>
+                <span aria-hidden="true">→</span><small>RIGHT</small>
               </button>
             </div>
 
@@ -281,12 +306,12 @@ export default function BubbleHex() {
                 type="button"
                 aria-pressed={!soundOn}
                 onClick={() => {
-                  const next = soundOn;
+                  const next = soundOn && !needsMusicStart;
                   setMuted(next);
                   engineRef.current?.setMuted(next);
                 }}
               >
-                {soundOn ? "SOUND ON" : "SOUND OFF"}
+                {!soundOn ? "SOUND OFF" : needsMusicRetry ? "ENABLE MUSIC" : needsMusicStart ? "PLAY MUSIC" : musicState === "loading" ? "MUSIC LOADING" : "SOUND ON"}
               </button>
             </div>
 

@@ -8,3 +8,6 @@
 
 @keyframes hex-ambient-drift{from{transform:scale(1.01) translateX(-.3%)}to{transform:scale(1.035) translateX(.3%)}}
 .arcade-page[data-reduced-motion="true"] .game-background-motion{animation:none}
+
+/* One existing muted video is decoded; the engine paints it behind gameplay. */
+.game-scene-source{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}

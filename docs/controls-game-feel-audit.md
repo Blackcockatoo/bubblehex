@@ -113,3 +113,27 @@ POLISH NEXT and FUTURE IDEAS from the earlier audit remain unchanged. No game ru
 - Screenshots visually reviewed at 320×568 and 844×390. No physical-phone orientation/speaker/safe-area testing is claimed; those device checks remain POLISH NEXT.
 
 POLISH NEXT: physical iPhone/Android fullscreen/orientation and speaker checks; real browser-bar/notch measurements; low-end-device frame pacing. The existing five next-pass opportunities and FUTURE IDEAS remain for separate review. No gameplay, scoring, levels, art or progression changes.
+
+## Arrow ergonomics, native music and existing animated scenes — 2 October 2026
+
+### FIX NOW
+- The prior horizontal pass stacked Left/Right vertically. Restore a real side-by-side movement pair at the lower-left thumb position, with explicit arrow glyphs and LEFT/RIGHT labels. Targets are 72px on phones and 88px on desktop; retain independent multi-touch and the right-hand diagonal Bubble/Jump pair.
+- Production music assets return HTTP 200, but the user's device still reports silence. Add a native HTML audio transport using the existing MP3/OGG tracks, invoked synchronously from gameplay/Sound gestures. Native looping uses the already processed loop seams; Web Audio remains for SFX and as a music fallback where native Audio is unavailable. Do not claim the precise device-specific root cause was reproduced.
+- Show PLAY MUSIC before the first gesture, ENABLE MUSIC for denied/failed playback, and SOUND ON only after playback has been requested. Preserve saved mute/volume choices and the previous explicit zero-volume recovery.
+- Bring in seven existing MP4 backgrounds from `origin/claude/bed-video-backgrounds-leaderboard-gl8fmk`. Keep their original binary assets; draw one active video inside the existing canvas behind platforms, enemies, bubbles, player and HUD. Retain the Velvet Drain artwork and all procedural/SVG fallbacks.
+- The first twenty AVIF previews also exist on `origin/agent/add-first-20-background-pack-20260719`; inspected but not stretched into production because they are only 256×144 previews. Use the finished repo video scenes instead.
+- Freeze the active background on pause, hidden pages and reduced motion. Resume from the same video element; avoid extra canvas/rAF loops and multiple active video decoders. Music pauses while the page is hidden, uses native playback status/error reporting and releases media on teardown.
+
+### POLISH NEXT
+Physical Android/Safari speaker and WebView policy checks remain necessary. On very narrow 568px landscape screens, the wider movement pair uses a little more lateral space; preserve the screen height and readable 4:3 world rather than overlapping controls with gameplay. The existing real-device, difficulty and performance follow-ups remain unchanged.
+
+### FUTURE IDEAS
+The earlier reviewed opportunities remain unchanged; no new mechanics or art direction introduced.
+
+### Verification for this pass
+- 55 automated checks pass (35 existing unit/content, 19 engine/audio regressions, one built-HTML check). Production build, game TypeScript and lint pass; retain the existing image optimization advisory.
+- All eleven viewport layouts and simulated notch/home-indicator bounds pass, including side-by-side movement targets and the existing diagonal action pair.
+- Real Chromium captures a nonzero native music signal while Web Audio is disabled; verifies mute/unmute, denied/failed-load retry and playback across the native loop seam. Unit tests cover autoplay rejection, codec fallback, volume, one-shot victory, crossfade/stop cleanup and no duplicate same-track starts.
+- Existing video assets decode; a single active video freezes for system reduced motion and pause, then resumes when both permit motion. Confirm actual first-stage scene routing as well as menu routing.
+- Development browser integration passes touch, keyboard, independent fingers, pause/restart, saved progress/reduced motion, fixture-assisted campaign, failure/replay and bonus flow. No page errors.
+- Software-rendered screenshot capture can time out independently of gameplay assertions; the tests report that separately. Real physical-device audio/OS-volume and sustained performance checks remain follow-ups.

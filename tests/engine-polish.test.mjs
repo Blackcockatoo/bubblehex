@@ -139,4 +139,39 @@ test('music falls back codecs, retries failed loads, deduplicates starts and can
   } finally {audio.destroy();globalThis.fetch=originalFetch;document.createElement=originalCreate;delete window.AudioContext;}
   assert.equal(closed,1);
 });
+test('native music plays without Web Audio, preserves volume, loops and releases on teardown',async()=>{
+  const tracks=[];
+  window.Audio=class {
+    paused=true;ended=false;volume=1;muted=false;
+    constructor(){tracks.push(this);}
+    setAttribute(){} removeAttribute(){} load(){}
+    async play(){this.paused=false;this.onplaying?.();}
+    pause(){this.paused=true;}
+  };
+  const audio=new AudioManager();
+  try {
+    audio.unlock();await audio.playMusic('stage');
+    assert.equal(audio.musicTransport,'native');assert.equal(audio.musicStatus,'playing');assert.equal(tracks[0].loop,true);
+    audio.setMusicVolume(.7);assert.equal(tracks[0].volume,.7);audio.setMuted(true);assert.equal(tracks[0].muted,true);
+    audio.setMuted(false);await audio.playMusic('stage');assert.equal(tracks.length,1,'same track retains playback position');
+    await audio.playMusic('victory');assert.equal(tracks[1].loop,false);
+    audio.stopMusic(.01);await new Promise(r=>setTimeout(r,80));assert.ok(tracks.every(t=>t.paused));
+  } finally {audio.destroy();delete window.Audio;}
+});
+test('native autoplay rejection is visible and retries inside the next gesture',async()=>{
+  let denied=true;const tracks=[];
+  window.Audio=class {
+    paused=true;ended=false;
+    constructor(){tracks.push(this);}
+    setAttribute(){} removeAttribute(){} load(){} pause(){this.paused=true;}
+    async play(){if(denied){const e=new Error('gesture required');e.name='NotAllowedError';throw e;}this.paused=false;this.onplaying?.();}
+  };
+  const audio=new AudioManager();
+  try {
+    await audio.playMusic('title');await Promise.resolve();assert.equal(audio.musicStatus,'blocked');
+    denied=false;await audio.playMusic('title');assert.equal(audio.musicStatus,'playing');
+    tracks[0].onerror();assert.equal(tracks[0].src,'/game/audio/title-jingle.ogg');
+    tracks[0].onerror();assert.equal(audio.musicStatus,'failed');audio.retryMusic();await audio.playMusic('title');assert.equal(audio.musicStatus,'playing');
+  } finally {audio.destroy();delete window.Audio;}
+});
 test.after(()=>rmSync(directory,{recursive:true,force:true}));

@@ -116,6 +116,14 @@ export class BubbleHexEngine {
     this.motionQuery=matchMedia("(prefers-reduced-motion: reduce)");this.motionQuery.addEventListener("change",this.onMotionChange);
   }
   start(){this.ready();this.frame=requestAnimationFrame(this.loop)}
+  private sceneVideo:HTMLVideoElement|null=null;
+  setBackgroundVideo(video:HTMLVideoElement|null){this.sceneVideo=video;}
+  private drawVideoScene(alpha:number){
+    const video=this.sceneVideo;if(!video||video.readyState<2||!video.videoWidth)return;
+    const c=this.ctx,ratio=(W-36)/(H-92),sourceRatio=video.videoWidth/video.videoHeight;
+    const sw=sourceRatio>ratio?video.videoHeight*ratio:video.videoWidth,sh=sw/ratio;
+    c.save();c.globalAlpha=alpha;c.drawImage(video,(video.videoWidth-sw)/2,(video.videoHeight-sh)/2,sw,sh,18,70,W-36,H-92);c.restore();
+  }
   destroy(){this.alive=false;cancelAnimationFrame(this.frame);window.removeEventListener("keydown",this.onKeyDown);window.removeEventListener("keyup",this.onKeyUp);window.removeEventListener("blur",this.suspend);document.removeEventListener("visibilitychange",this.onVisibility);this.motionQuery?.removeEventListener("change",this.onMotionChange);this.pendingPops=[];this.releaseAll();this.audio.destroy()}
   setMuted(v:boolean){
     this.settings.muted=v;
@@ -150,6 +158,7 @@ export class BubbleHexEngine {
       musicVolume:String(Math.round(this.settings.musicVolume*10)),sfxVolume:String(Math.round(this.settings.sfxVolume*10)),muted:String(this.settings.muted),reducedMotion:String(this.settings.reducedMotion||!!this.motionQuery?.matches),combo:this.comboLife>0?this.comboText:"",bestChain:String(this.bestChain),particles:String(this.particles.length),pendingPops:String(this.pendingPops.length),
       enemyConsciousness:String(this.settings.enemyConsciousness),enemyRank:String(this.threatRank()),
       musicState:this.audio.musicStatus,musicTrack:this.audio.playingTrack??"",
+      musicTransport:this.audio.musicTransport,musicError:this.audio.musicError,sceneVideo:this.sceneVideo?.getAttribute("src")??"",
     });
   }
   private onKeyDown(e:KeyboardEvent){
@@ -617,7 +626,7 @@ export class BubbleHexEngine {
   }
   private drawBoot(){this.label("BLUE $NAKE STUDIO",W/2,306,26,COLORS.blue,"center");this.label("DRESSING THE NIGHT",W/2,350,14,COLORS.jade,"center");this.ctx.strokeStyle="#183860";this.ctx.strokeRect(280,390,400,12);this.ctx.fillStyle=COLORS.pink;this.ctx.fillRect(282,392,396*this.art.progress,8)}
   private drawTitle(){
-    const c=this.ctx,t=this.stateTime;c.fillStyle="#03040b";c.fillRect(0,0,W,H);c.save();c.globalAlpha=.42;this.art.draw(c,"heroes",0,0,1536,1024,0,50,W,640);c.restore();c.fillStyle="rgba(3,4,11,.23)";c.fillRect(0,0,W,H);this.drawStars();this.drawGothicFrame(COLORS.blue);
+    const c=this.ctx,t=this.stateTime;c.fillStyle="#03040b";c.fillRect(0,0,W,H);this.drawVideoScene(.6);c.save();c.globalAlpha=.42;this.art.draw(c,"heroes",0,0,1536,1024,0,50,W,640);c.restore();c.fillStyle="rgba(3,4,11,.23)";c.fillRect(0,0,W,H);this.drawStars();this.drawGothicFrame(COLORS.blue);
     if(this.cheats.super){c.fillStyle="rgba(0,0,0,.72)";c.fillRect(110,92,740,330);c.strokeStyle=COLORS.crimson;c.lineWidth=8;c.beginPath();c.ellipse(W/2,220,120,58,0,0,Math.PI*2);c.stroke();c.fillStyle=COLORS.pink;c.beginPath();c.arc(W/2,220,28,0,Math.PI*2);c.fill()}
     c.save();c.shadowBlur=18;c.shadowColor=COLORS.crimson;this.label("BUBBLE",W/2,225,104,COLORS.crimson,"center","Georgia");c.restore();
     c.save();c.shadowBlur=20;c.shadowColor=COLORS.jade;this.label("HEX",W/2,332,122,COLORS.jade,"center","Georgia");c.restore();
@@ -673,6 +682,7 @@ export class BubbleHexEngine {
   private drawProgressionHud(){const p=this.heroProgress(),rank=this.threatRank();this.label(`LV ${p.level}`,292,25,11,COLORS.jade);this.label(`RANK ${rank}`,292,48,8,rank>=4?COLORS.crimson:COLORS.blue)}
   private drawBackground(){const c=this.ctx;c.fillStyle=COLORS.void;c.fillRect(0,0,W,H);c.fillStyle=this.level.world==="JADE GARDEN"?"#06140f":"#050817";c.fillRect(18,70,W-36,H-92);c.globalAlpha=.18;c.strokeStyle=this.level.tint;c.lineWidth=2;
     if(this.level.worldId==="velvet-drain"){const sx=[0,724,1448][this.levelIndex]??0;c.save();c.globalAlpha=.58;this.art.draw(c,"velvetDrain",sx,0,724,724,18,70,W-36,H-92);c.restore();c.fillStyle="rgba(2,5,14,.24)";c.fillRect(18,70,W-36,H-92)}
+    this.drawVideoScene(this.level.worldId==="velvet-drain"?.38:.72);
     if(this.level.world==="THE BLACK BUBBLE"){for(let x=40;x<W;x+=55){c.beginPath();c.moveTo(x,75);c.lineTo(W-x/4,H);c.stroke()}for(let y=120;y<H;y+=55){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}c.beginPath();c.arc(W/2,H/2,250,0,Math.PI*2);c.stroke()}
     else{for(let x=45;x<W;x+=90){c.beginPath();c.moveTo(x,80);c.lineTo(x,H);c.stroke()}for(let y=120;y<H;y+=90){c.beginPath();c.moveTo(20,y);c.lineTo(W-20,y);c.stroke()}}
     c.globalAlpha=1;
