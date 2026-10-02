@@ -5,7 +5,7 @@
   --safe-top:env(safe-area-inset-top); --safe-right:env(safe-area-inset-right);
   --safe-bottom:env(safe-area-inset-bottom); --safe-left:env(safe-area-inset-left);
   --usable-width:calc(var(--game-width) - var(--safe-left) - var(--safe-right) - 28px);
-  --board-width:min(calc(var(--usable-width) - 218px),calc((var(--game-height) - var(--screen-reserve) - var(--safe-top) - var(--safe-bottom))*1.333333));
+  --board-width:min(calc(var(--usable-width) - 320px),calc((var(--game-height) - var(--screen-reserve) - var(--safe-top) - var(--safe-bottom))*1.333333));
   position:fixed; inset:0 auto auto 0; width:var(--game-width); height:var(--game-height);
   min-height:0; overflow:hidden; justify-content:center;
   padding:max(4px,var(--safe-top)) max(6px,var(--safe-right)) max(4px,var(--safe-bottom)) max(6px,var(--safe-left));
@@ -16,12 +16,12 @@
 .arcade-page[data-horizontal="true"] .hex-data-rail { display:none; }
 .arcade-page[data-horizontal="true"] .play-readout { flex-wrap:nowrap; min-height:24px; padding:2px 6px; font-size:11px; }
 .arcade-page[data-horizontal="true"] .combo-readout { flex-basis:auto; min-height:0; font-size:11px; line-height:1.2; }
-.arcade-page[data-horizontal="true"] .play-layout { display:grid; grid-template-columns:minmax(90px,1fr) minmax(0,var(--board-width)) minmax(110px,1fr); grid-template-rows:auto 44px; gap:4px 6px; align-items:center; }
+.arcade-page[data-horizontal="true"] .play-layout { display:grid; grid-template-columns:minmax(190px,1fr) minmax(0,var(--board-width)) minmax(110px,1fr); grid-template-rows:auto 44px; gap:4px 6px; align-items:center; }
 .arcade-page[data-horizontal="true"] .screen-bezel { grid-column:2; grid-row:1; width:100%; padding:4px; margin:0; }
 .arcade-page[data-horizontal="true"] .control-deck { display:contents; }
 .arcade-page[data-horizontal="true"] .control-deck::before { display:none; }
-.arcade-page[data-horizontal="true"] .dpad { grid-column:1; grid-row:1; display:flex; flex-direction:column; gap:10px; width:auto; justify-self:center; }
-.arcade-page[data-horizontal="true"] .dpad button { width:88px; height:88px; }
+.arcade-page[data-horizontal="true"] .dpad { grid-column:1; grid-row:1; display:flex; flex-direction:row; gap:10px; width:auto; justify-self:center; align-self:end; margin-bottom:18px; }
+.arcade-page[data-horizontal="true"] .dpad button { width:88px; height:88px; flex-direction:column; gap:3px; }
 .arcade-page[data-horizontal="true"] .action-controls { --action-size:104px; grid-column:3; grid-row:1; display:flex; flex-direction:column; align-items:flex-start; width:calc(var(--action-size) + 18px); gap:8px; justify-self:center; }
 .arcade-page[data-horizontal="true"] .action-controls .jump { align-self:flex-end; margin:0; }
 .arcade-page[data-horizontal="true"] .action-controls button { width:var(--action-size); height:var(--action-size); }
@@ -30,7 +30,8 @@
 .arcade-page[data-horizontal="true"] .machine-footer { display:none; }
 .arcade-page[data-horizontal="true"] .pause-summary { font-size:13px; gap:6px; }
 @media (max-height:600px), (orientation:portrait) {
-  .arcade-page[data-horizontal="true"] { --screen-reserve:94px; }
+  .arcade-page[data-horizontal="true"] { --screen-reserve:94px; --board-width:min(calc(var(--usable-width) - 282px),calc((var(--game-height) - var(--screen-reserve) - var(--safe-top) - var(--safe-bottom))*1.333333)); }
+  .arcade-page[data-horizontal="true"] .play-layout { grid-template-columns:minmax(154px,1fr) minmax(0,var(--board-width)) minmax(110px,1fr); }
   .arcade-page[data-horizontal="true"] .top-rail,
   .arcade-page[data-horizontal="true"] .cabinet-crown { display:none; }
   .arcade-page[data-horizontal="true"] .dpad button { width:72px; height:72px; }
@@ -42,3 +43,5 @@
      when an in-app browser cannot request fullscreen/orientation permission. */
   .arcade-page[data-horizontal="true"] { --game-width:100dvh; --game-height:100dvw; --safe-top:env(safe-area-inset-right); --safe-right:env(safe-area-inset-bottom); --safe-bottom:env(safe-area-inset-left); --safe-left:env(safe-area-inset-top); left:100dvw; transform-origin:top left; transform:rotate(90deg); }
 }
+
+.arcade-page[data-horizontal="true"] .dpad small { font-size:10px; line-height:1; letter-spacing:.08em; }

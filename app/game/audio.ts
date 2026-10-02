@@ -31,9 +31,9 @@ function safeParam(run: () => void) {
 }
 
 /**
- * Single audio engine for BUBBLE HEX: a decoded-buffer music bus with
- * crossfading/looping, and a procedural oscillator SFX bus, sharing one
- * AudioContext, one compressor, and persisted volume/mute state.
+ * Native music playback for mobile audio policy and reliable looping, with
+ * crossfades and a decoded-buffer fallback. Procedural SFX retain their Web
+ * Audio compressor and the same persisted volume/mute controls.
  */
 export class AudioManager {
   private ctx: AudioContext | null = null;
@@ -53,6 +53,13 @@ export class AudioManager {
   private pendingTimers: ReturnType<typeof setTimeout>[] = [];
   private wasPlayingBeforeHidden = false;
   private sfxVoices = 0;
+  private media: HTMLAudioElement | null = null;
+  private outgoingMedia: HTMLAudioElement | null = null;
+  private mediaTrack: MusicTrackId | null = null;
+  private mediaState = "idle";
+  private mediaBlend = 1;
+  private mediaFade: ReturnType<typeof setInterval> | null = null;
+  private mediaError = "";
 
   muted = false;
   musicVolume = 0.5;
@@ -65,6 +72,11 @@ export class AudioManager {
   }
 
   private onVisibility = () => {
+    if (this.media) {
+      this.finishMediaFade();
+      if (document.hidden) this.media.pause();
+      else if (!this.muted) this.startMedia(this.media);
+    }
     if (!this.ctx) return;
     if (document.hidden) {
       this.wasPlayingBeforeHidden = this.ctx.state === "running";
@@ -76,7 +88,7 @@ export class AudioManager {
 
   /** Must be called from a real user gesture handler (browser audio policy). */
   unlock() {
-    if (!this.ctx) this.setupGraph();
+    if (!this.ctx) { try { this.setupGraph(); } catch { /* Native music remains available without Web Audio. */ } }
     if (this.ctx && this.ctx.state !== "running") void this.ctx.resume().catch(() => {});
   }
 
@@ -102,6 +114,8 @@ export class AudioManager {
   }
 
   private applyVolumes() {
+    if (this.media) { this.media.muted = this.muted; this.media.volume = this.musicVolume * this.mediaBlend; }
+    if (this.outgoingMedia) { this.outgoingMedia.muted = this.muted; this.outgoingMedia.volume = this.musicVolume * (1 - this.mediaBlend); }
     if (!this.ctx || !this.musicBus || !this.sfxBus) return;
     const t = this.ctx.currentTime;
     const m = this.muted ? 0 : this.musicVolume;
@@ -114,9 +128,72 @@ export class AudioManager {
   setMusicVolume(v: number) { this.musicVolume = clamp01(v); this.applyVolumes(); }
   setSfxVolume(v: number) { this.sfxVolume = clamp01(v); this.applyVolumes(); }
 
-  get playingTrack() { return this.currentTrack; }
-  get musicStatus() { return this.currentSources.length && this.ctx?.state === "running" ? "playing" : this.loading.size ? "loading" : this.desiredTrack && this.loadState.get(this.desiredTrack) === "failed" ? "failed" : "idle"; }
-  retryMusic() { this.retryAfter.clear(); }
+  get playingTrack() { return this.mediaTrack ?? this.currentTrack; }
+  get musicStatus() { return this.media ? (this.mediaState === "playing" && this.media.paused ? "paused" : this.mediaState) : this.currentSources.length && this.ctx?.state === "running" ? "playing" : this.loading.size ? "loading" : this.desiredTrack && this.loadState.get(this.desiredTrack) === "failed" ? "failed" : "idle"; }
+  get musicError() { return this.mediaError; }
+  get musicTransport() { return this.media ? "native" : "web-audio"; }
+  retryMusic() {
+    this.retryAfter.clear();
+    if (this.mediaState === "failed") { this.media?.pause(); this.media = null; this.mediaTrack = null; }
+  }
+
+  private startMedia(media: HTMLAudioElement) {
+    const source = media.src;
+    void media.play().catch(error => {
+      if (this.media !== media || media.src !== source) return;
+      this.mediaState = error?.name === "NotAllowedError" ? "blocked" : "failed";
+      this.mediaError = error?.name ?? "playback";
+    });
+  }
+
+  private finishMediaFade() {
+    if (this.mediaFade) clearInterval(this.mediaFade);
+    this.mediaFade = null;
+    this.outgoingMedia?.pause();
+    this.outgoingMedia = null;
+    this.mediaBlend = 1;
+    this.applyVolumes();
+  }
+
+  private fadeMedia(duration: number) {
+    const started = Date.now();
+    this.mediaFade = setInterval(() => {
+      this.mediaBlend = Math.min(1, (Date.now() - started) / (duration * 1000));
+      this.applyVolumes();
+      if (this.mediaBlend === 1) this.finishMediaFade();
+    }, 50);
+  }
+
+  private playNativeMusic(id: MusicTrackId, fade: number) {
+    if (this.mediaTrack === id && this.media) {
+      if (this.media.paused && !this.media.ended) this.startMedia(this.media);
+      return;
+    }
+    this.finishMediaFade();
+    const outgoing = this.media;
+    const media = new window.Audio();
+    this.media = media; this.mediaTrack = id; this.mediaState = "loading"; this.mediaError = "";
+    media.preload = "auto"; media.loop = MUSIC_TRACKS[id].loop;
+    media.src = MUSIC_TRACKS[id].mp3;
+    media.setAttribute("playsinline", "");
+    let alternate = false;
+    media.onerror = () => {
+      if (this.media !== media) return;
+      if (!alternate) { alternate = true; media.src = MUSIC_TRACKS[id].ogg; this.startMedia(media); }
+      else { this.mediaState = "failed"; this.mediaError = `media-${media.error?.code ?? "load"}`; }
+    };
+    media.onplaying = () => {
+      if (this.media !== media) { media.pause(); return; }
+      this.mediaState = "playing"; this.mediaError = "";
+      if (this.outgoingMedia && !this.mediaFade) this.fadeMedia(fade);
+    };
+    media.onended = () => { if (this.media === media) this.mediaState = "ended"; };
+    this.outgoingMedia = outgoing;
+    this.mediaBlend = outgoing ? 0 : 1;
+    this.applyVolumes();
+    // play() is invoked synchronously inside the original input gesture.
+    this.startMedia(media);
+  }
 
   preload(id: MusicTrackId) { void this.loadTrack(id); }
 
@@ -158,6 +235,7 @@ export class AudioManager {
   /** No-ops if `id` is already playing, so pause/resume never restarts a track. */
   async playMusic(id: MusicTrackId, crossfade = 1.1) {
     crossfade = safePositive(crossfade, 1.1);
+    if (typeof window.Audio === "function") { this.playNativeMusic(id, crossfade); return; }
     if (!this.ctx || !this.musicBus) return;
     this.desiredTrack = id;
     if (this.currentTrack === id && this.currentSources.length) return;
@@ -180,6 +258,13 @@ export class AudioManager {
   }
 
   stopMusic(fade = 0.5) {
+    this.finishMediaFade();
+    const outgoing = this.media;
+    this.media = null; this.mediaTrack = null; this.mediaState = "idle";
+    if (outgoing && !outgoing.paused && !this.muted) {
+      this.outgoingMedia = outgoing; this.mediaBlend = 0;
+      this.fadeMedia(safePositive(fade, 0.5));
+    } else outgoing?.pause();
     this.desiredTrack = null;
     this.fadeOutAndStop(this.currentGain, this.currentSources, fade);
     this.currentTrack = null;
@@ -258,6 +343,9 @@ export class AudioManager {
   recordSting() { [520, 780, 1040].forEach((n, i) => setTimeout(() => this.tone(n, 0.14, "triangle", 60, 0.11), i * 60)); }
 
   destroy() {
+    this.finishMediaFade();
+    if (this.media) { this.media.pause(); this.media.removeAttribute("src"); this.media.load(); }
+    this.media = null; this.mediaTrack = null;
     this.desiredTrack = null;
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVisibility);
     this.pendingTimers.forEach(clearTimeout);
