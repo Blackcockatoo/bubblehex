@@ -137,3 +137,15 @@ The earlier reviewed opportunities remain unchanged; no new mechanics or art dir
 - Existing video assets decode; a single active video freezes for system reduced motion and pause, then resumes when both permit motion. Confirm actual first-stage scene routing as well as menu routing.
 - Development browser integration passes touch, keyboard, independent fingers, pause/restart, saved progress/reduced motion, fixture-assisted campaign, failure/replay and bonus flow. No page errors.
 - Software-rendered screenshot capture can time out independently of gameplay assertions; the tests report that separately. Real physical-device audio/OS-volume and sustained performance checks remain follow-ups.
+
+## App-switch audio follow-up — 3 October 2026
+
+### FIX NOW — implemented
+- Returning to a visible page restarted an ended native victory sting. Preserve the ended state while still resuming ordinary looping music after an app switch.
+- Finish outgoing stop fades on visibility changes even when the current music element has already been cleared. Hidden pages no longer keep the outgoing element playing during its fade.
+
+### Verification
+- 56 automated checks pass, including a new visibility regression covering loop resume, ended victory playback and outgoing fade cleanup. Production build, game TypeScript and lint pass; retain the existing image advisory.
+- A repeat of the production browser suite could not launch because its temporary Chromium executable was removed between sessions. The previous eleven-viewport results remain historical results, not a new run. Physical-device speaker/browser policy checks remain POLISH NEXT.
+
+POLISH NEXT and FUTURE IDEAS remain unchanged; no changes to control layout, art, physics, difficulty, scores or progression in this follow-up.

@@ -174,4 +174,26 @@ test('native autoplay rejection is visible and retries inside the next gesture',
     tracks[0].onerror();assert.equal(audio.musicStatus,'failed');audio.retryMusic();await audio.playMusic('title');assert.equal(audio.musicStatus,'playing');
   } finally {audio.destroy();delete window.Audio;}
 });
+test('returning to the page resumes loops but never replays a finished victory sting',async()=>{
+  const tracks=[];
+  window.Audio=class {
+    paused=true;ended=false;starts=0;
+    constructor(){tracks.push(this);}
+    setAttribute(){} removeAttribute(){} load(){}
+    async play(){this.starts++;this.paused=false;this.onplaying?.();}
+    pause(){this.paused=true;}
+  };
+  const audio=new AudioManager();
+  const visibility=hidden=>{document.hidden=hidden;document.dispatchEvent(new Event('visibilitychange'));};
+  try {
+    await audio.playMusic('stage');visibility(true);assert.equal(tracks[0].paused,true);
+    visibility(false);assert.equal(tracks[0].starts,2);assert.equal(tracks[0].paused,false);
+    await audio.playMusic('victory');const victory=tracks[1];
+    victory.ended=true;victory.paused=true;victory.onended();
+    visibility(true);visibility(false);
+    assert.equal(victory.starts,1);assert.equal(audio.musicStatus,'ended');
+    await audio.playMusic('stage');audio.stopMusic(10);visibility(true);
+    assert.ok(tracks.every(track=>track.paused),'hiding also ends the outgoing stop fade');
+  } finally {audio.destroy();document.hidden=false;delete window.Audio;}
+});
 test.after(()=>rmSync(directory,{recursive:true,force:true}));

@@ -72,10 +72,12 @@ export class AudioManager {
   }
 
   private onVisibility = () => {
+    // Resolve even a stop-only fade before leaving the page. A finished
+    // one-shot sting must not restart when the player returns to the game.
+    this.finishMediaFade();
     if (this.media) {
-      this.finishMediaFade();
       if (document.hidden) this.media.pause();
-      else if (!this.muted) this.startMedia(this.media);
+      else if (!this.muted && !this.media.ended) this.startMedia(this.media);
     }
     if (!this.ctx) return;
     if (document.hidden) {
