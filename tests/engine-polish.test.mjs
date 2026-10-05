@@ -154,7 +154,7 @@ test('native music plays without Web Audio, preserves volume, loops and releases
     assert.equal(audio.musicTransport,'native');assert.equal(audio.musicStatus,'playing');assert.equal(tracks[0].loop,true);
     audio.setMusicVolume(.7);assert.equal(tracks[0].volume,.7);audio.setMuted(true);assert.equal(tracks[0].muted,true);
     audio.setMuted(false);await audio.playMusic('stage');assert.equal(tracks.length,1,'same track retains playback position');
-    await audio.playMusic('victory');assert.equal(tracks[1].loop,false);
+    await audio.playMusic('victory');assert.equal(tracks[0].loop,false);assert.equal(tracks.length,1);
     audio.stopMusic(.01);await new Promise(r=>setTimeout(r,80));assert.ok(tracks.every(t=>t.paused));
   } finally {audio.destroy();delete window.Audio;}
 });
@@ -188,12 +188,36 @@ test('returning to the page resumes loops but never replays a finished victory s
   try {
     await audio.playMusic('stage');visibility(true);assert.equal(tracks[0].paused,true);
     visibility(false);assert.equal(tracks[0].starts,2);assert.equal(tracks[0].paused,false);
-    await audio.playMusic('victory');const victory=tracks[1];
+    await audio.playMusic('victory');const victory=tracks[0];const starts=victory.starts;
     victory.ended=true;victory.paused=true;victory.onended();
     visibility(true);visibility(false);
-    assert.equal(victory.starts,1);assert.equal(audio.musicStatus,'ended');
+    assert.equal(victory.starts,starts);assert.equal(audio.musicStatus,'ended');
     await audio.playMusic('stage');audio.stopMusic(10);visibility(true);
     assert.ok(tracks.every(track=>track.paused),'hiding also ends the outgoing stop fade');
   } finally {audio.destroy();document.hidden=false;delete window.Audio;}
+});
+test('gesture-authorized native player survives automatic track changes and replay',async()=>{
+  let gesture=true;const players=[];
+  window.Audio=class {
+    paused=true;ended=false;authorized=false;
+    constructor(){players.push(this);}
+    setAttribute(){} removeAttribute(){} load(){} pause(){this.paused=true;}
+    async play(){
+      if(gesture)this.authorized=true;
+      if(!this.authorized){const error=new Error('new player needs gesture');error.name='NotAllowedError';throw error;}
+      this.paused=false;this.onplaying?.();
+    }
+  };
+  const audio=new AudioManager();
+  try {
+    await audio.playMusic('title');gesture=false;
+    for(const track of ['stage','bonus','boss','victory']){
+      await audio.playMusic(track);await Promise.resolve();
+      assert.equal(audio.musicStatus,'playing',`${track} uses the authorized player`);
+    }
+    audio.stopMusic(.01);await new Promise(r=>setTimeout(r,80));
+    await audio.playMusic('title');assert.equal(audio.musicStatus,'playing');
+    assert.equal(players.length,1,'one native player throughout the game');
+  } finally {audio.destroy();delete window.Audio;}
 });
 test.after(()=>rmSync(directory,{recursive:true,force:true}));

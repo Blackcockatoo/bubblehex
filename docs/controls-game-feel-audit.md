@@ -149,3 +149,17 @@ The earlier reviewed opportunities remain unchanged; no new mechanics or art dir
 - A repeat of the production browser suite could not launch because its temporary Chromium executable was removed between sessions. The previous eleven-viewport results remain historical results, not a new run. Physical-device speaker/browser policy checks remain POLISH NEXT.
 
 POLISH NEXT and FUTURE IDEAS remain unchanged; no changes to control layout, art, physics, difficulty, scores or progression in this follow-up.
+
+## Repeated failure report — 5 October 2026
+
+### FIX NOW — implemented
+- Earlier tests permitted each new native audio element to play. A stricter regression that grants playback only to the element started by the input gesture failed at the menu-to-stage transition: the replacement player reported blocked playback.
+- Retain one native music player through title, stage, bonus, boss, victory, codec recovery and replay. Switch its source rather than replacing the authorized element. Native transitions use the same player; decoded Web Audio crossfades and native stop fades remain. This is a reproduced policy failure, not a claim that the user's exact phone failure is known.
+- Apply the explicit unmute before requesting playback, so Sound ON starts with the intended audible mute state during the gesture.
+
+### Verification
+- 57 automated checks pass; production build, game typecheck and lint pass (existing image advisory only).
+- Restored the temporary Chromium runner. The built-artifact browser suite passes all eleven viewports, safe-area simulation, actual touch/keyboard/pause/restart, real native audio signal without Web Audio, codec failure recovery, loop seams and background video pause/resume. Added an assertion that the menu-to-stage transition uses exactly one music player.
+- Screenshot capture can still stall independently in software rendering. Physical-device audio, embedded-browser policies and the user's precise remaining failure are unverified.
+
+POLISH NEXT: confirm the user's failing action/browser and test physical-device audio. FUTURE IDEAS remain unchanged; no speculative control-layout or difficulty changes.

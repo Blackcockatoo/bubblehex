@@ -21,7 +21,8 @@ try{
   await page.addInitScript(() => {
     window.ProbeAudioContext=window.AudioContext;
     const NativeAudio=window.Audio;
-    window.Audio=function(...args){const media=new NativeAudio(...args);window.musicElement=media;return media;};
+    window.musicPlayers=[];
+    window.Audio=function(...args){const media=new NativeAudio(...args);window.musicPlayers.push(media);window.musicElement=media;return media;};
     // Real native music must work even without a Web Audio device.
     window.AudioContext=undefined;
 
@@ -55,6 +56,7 @@ try{
   await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='playing');
   await page.waitForFunction(()=>document.querySelector('canvas').dataset.musicTrack==='stage'&&document.querySelector('canvas').dataset.musicState==='playing');
   await page.waitForFunction(()=>document.querySelector('canvas').dataset.musicTransport==='native'&&window.musicElement.currentTime>.1);
+  assert.equal(await page.evaluate(()=>window.musicPlayers.length),1,'menu-to-stage transition retains the gesture-authorized music player');
   await page.evaluate(async()=>{
     const context=new window.ProbeAudioContext(),analyser=context.createAnalyser();
     context.createMediaStreamSource(window.musicElement.captureStream()).connect(analyser);

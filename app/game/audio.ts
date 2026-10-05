@@ -32,7 +32,8 @@ function safeParam(run: () => void) {
 
 /**
  * Native music playback for mobile audio policy and reliable looping, with
- * crossfades and a decoded-buffer fallback. Procedural SFX retain their Web
+ * a persistent gesture-authorized player and a decoded-buffer fallback.
+ * Decoded music retains crossfades. Procedural SFX retain their Web
  * Audio compressor and the same persisted volume/mute controls.
  */
 export class AudioManager {
@@ -54,6 +55,7 @@ export class AudioManager {
   private wasPlayingBeforeHidden = false;
   private sfxVoices = 0;
   private media: HTMLAudioElement | null = null;
+  private nativePlayer: HTMLAudioElement | null = null;
   private outgoingMedia: HTMLAudioElement | null = null;
   private mediaTrack: MusicTrackId | null = null;
   private mediaState = "idle";
@@ -166,14 +168,16 @@ export class AudioManager {
     }, 50);
   }
 
-  private playNativeMusic(id: MusicTrackId, fade: number) {
+  private playNativeMusic(id: MusicTrackId) {
     if (this.mediaTrack === id && this.media) {
       if (this.media.paused && !this.media.ended) this.startMedia(this.media);
       return;
     }
     this.finishMediaFade();
-    const outgoing = this.media;
-    const media = new window.Audio();
+    // Playback permission can belong to the element started by the gesture.
+    // Keep that element through automatic stage/boss changes and replay.
+    const media = this.nativePlayer ??= new window.Audio();
+    media.pause();
     this.media = media; this.mediaTrack = id; this.mediaState = "loading"; this.mediaError = "";
     media.preload = "auto"; media.loop = MUSIC_TRACKS[id].loop;
     media.src = MUSIC_TRACKS[id].mp3;
@@ -187,11 +191,9 @@ export class AudioManager {
     media.onplaying = () => {
       if (this.media !== media) { media.pause(); return; }
       this.mediaState = "playing"; this.mediaError = "";
-      if (this.outgoingMedia && !this.mediaFade) this.fadeMedia(fade);
     };
     media.onended = () => { if (this.media === media) this.mediaState = "ended"; };
-    this.outgoingMedia = outgoing;
-    this.mediaBlend = outgoing ? 0 : 1;
+    this.mediaBlend = 1;
     this.applyVolumes();
     // play() is invoked synchronously inside the original input gesture.
     this.startMedia(media);
@@ -237,7 +239,7 @@ export class AudioManager {
   /** No-ops if `id` is already playing, so pause/resume never restarts a track. */
   async playMusic(id: MusicTrackId, crossfade = 1.1) {
     crossfade = safePositive(crossfade, 1.1);
-    if (typeof window.Audio === "function") { this.playNativeMusic(id, crossfade); return; }
+    if (typeof window.Audio === "function") { this.playNativeMusic(id); return; }
     if (!this.ctx || !this.musicBus) return;
     this.desiredTrack = id;
     if (this.currentTrack === id && this.currentSources.length) return;
@@ -346,7 +348,8 @@ export class AudioManager {
 
   destroy() {
     this.finishMediaFade();
-    if (this.media) { this.media.pause(); this.media.removeAttribute("src"); this.media.load(); }
+    if (this.nativePlayer) { this.nativePlayer.pause(); this.nativePlayer.removeAttribute("src"); this.nativePlayer.load(); }
+    this.nativePlayer = null;
     this.media = null; this.mediaTrack = null;
     this.desiredTrack = null;
     if (typeof document !== "undefined") document.removeEventListener("visibilitychange", this.onVisibility);

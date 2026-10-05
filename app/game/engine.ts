@@ -127,11 +127,12 @@ export class BubbleHexEngine {
   destroy(){this.alive=false;cancelAnimationFrame(this.frame);window.removeEventListener("keydown",this.onKeyDown);window.removeEventListener("keyup",this.onKeyUp);window.removeEventListener("blur",this.suspend);document.removeEventListener("visibilitychange",this.onVisibility);this.motionQuery?.removeEventListener("change",this.onMotionChange);this.pendingPops=[];this.releaseAll();this.audio.destroy()}
   setMuted(v:boolean){
     this.settings.muted=v;
+    this.audio.setMuted(v);
     if(!v){
       if(this.settings.musicVolume===0){this.settings.musicVolume=DEFAULT_SETTINGS.musicVolume;this.audio.setMusicVolume(this.settings.musicVolume)}
       try{this.audio.unlock();this.audioReady=true;this.audio.retryMusic();this.syncMusic()}catch{/* gameplay remains available without an audio device */}
     }
-    this.audio.setMuted(v);this.save();
+    this.save();
   }
   releaseAll(){this.pauseSfxDirections.clear();this.pauseJumpPending=false;this.input.clear();for(const action of Object.keys(this.held) as Action[])this.held[action]=false;this.just.clear();}
   private suspend=()=>{this.releaseAll();if(this.state==="playing"||this.state==="hurry"){this.pauseOrigin=this.state;this.setState("paused")}this.last=0;this.acc=0;};
