@@ -237,14 +237,24 @@
 }
 
 /* ── Language switcher (EN / 日本語 / हिन्दी) ─────────────────────────── */
-.lang-switch { display:flex; align-items:center; gap:3px; margin-left:auto; margin-right:10px; padding:3px 3px 3px 9px; border:1px solid rgba(160,200,255,.45); border-radius:999px; background:rgba(5,5,9,.72); }
-.lang-switch .lang-globe { flex:none; margin-right:3px; color:#ff6fb1; }
-.lang-switch button { position:relative; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-height:44px; min-width:54px; padding:3px 10px; border:0; border-radius:999px; background:transparent; color:#e6eefb; line-height:1.1; letter-spacing:normal; cursor:pointer; }
-.lang-switch button b { font:700 13px/1.15 system-ui,"Hiragino Sans","Noto Sans JP","Noto Sans Devanagari","Nirmala UI",sans-serif; }
-.lang-switch button small { margin-top:2px; font:700 8px/1 system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; opacity:.75; }
-.lang-switch button:hover { background:rgba(160,200,255,.14); }
-.lang-switch button[aria-pressed="true"] { background:#ff6fb1; color:#13050c; box-shadow:0 0 12px rgba(255,111,177,.6); }
-.lang-switch button[aria-pressed="true"]::after { content:"✓"; position:absolute; top:-4px; right:-3px; display:grid; place-items:center; width:15px; height:15px; border:1px solid #ff6fb1; border-radius:50%; background:#13050c; color:#ff6fb1; font:700 9px/1 system-ui,sans-serif; }
-.lang-switch button:focus-visible { outline:2px solid #ffd36a; outline-offset:2px; }
 /* Wide arcade tracking breaks Devanagari conjuncts and crowds Japanese. */
 html:lang(ja) .arcade-page *, html:lang(hi) .arcade-page * { letter-spacing:normal; }
+
+/* ── Language menu: a small globe in the corner that opens EN / 日本語 / हिन्दी ── */
+.lang-menu { position: relative; flex: none; --lm-accent: #e7c767; }
+.lang-menu-btn { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid color-mix(in srgb, var(--lm-accent) 28%, transparent); border-radius: 50%; background: rgba(5, 6, 8, .6); color: color-mix(in srgb, var(--lm-accent) 62%, transparent); cursor: pointer; transition: color .15s, border-color .15s, background .15s; -webkit-tap-highlight-color: transparent; }
+.lang-menu-btn:hover, .lang-menu.is-open .lang-menu-btn { color: var(--lm-accent); border-color: color-mix(in srgb, var(--lm-accent) 65%, transparent); background: rgba(5, 6, 8, .85); }
+.lang-menu-btn:focus { outline: none; }
+.lang-menu-btn:focus-visible { color: var(--lm-accent); outline: 2px solid var(--lm-accent); outline-offset: 2px; }
+.lang-menu-list { position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; display: flex; flex-direction: column; gap: 2px; min-width: 156px; padding: 5px; border: 1px solid color-mix(in srgb, var(--lm-accent) 45%, transparent); border-radius: 10px; background: rgba(5, 6, 8, .97); box-shadow: 0 16px 36px -12px rgba(0, 0, 0, .85); text-align: left; }
+.lang-menu-list[hidden] { display: none; }
+.lang-menu-item { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-height: 42px; width: 100%; padding: 4px 32px 4px 11px; border: 0; border-radius: 7px; background: transparent; color: #f3f0e6; cursor: pointer; line-height: 1.15; text-align: left; }
+.lang-menu-item b { font: 700 14px/1.2 system-ui, "Hiragino Sans", "Noto Sans JP", "Noto Sans Devanagari", "Nirmala UI", sans-serif; letter-spacing: 0; text-transform: none; }
+.lang-menu-item small { margin-top: 2px; font: 600 9px/1 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
+.lang-menu-item:hover, .lang-menu-item:focus-visible { background: color-mix(in srgb, var(--lm-accent) 14%, transparent); color: var(--lm-accent); outline: none; }
+.lang-menu-item:focus-visible { box-shadow: inset 0 0 0 2px var(--lm-accent); }
+.lang-menu-item[aria-pressed="true"] { color: var(--lm-accent); }
+.lang-menu-item[aria-pressed="true"]::after { content: "✓"; position: absolute; right: 11px; top: 50%; transform: translateY(-50%); font: 700 13px/1 system-ui, sans-serif; }
+.lang-switch { --lm-accent:#ffd36a; margin-left:10px; }
+.top-rail .machine-status { margin-left:auto; }
+@media (max-width:700px) { .top-rail .lang-switch { margin-left:auto; } }
