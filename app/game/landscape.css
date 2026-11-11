@@ -45,3 +45,14 @@
 }
 
 .arcade-page[data-horizontal="true"] .dpad small { font-size:10px; line-height:1; letter-spacing:.08em; }
+
+/* Phones hide the top rail, so the language switcher also sits above the d-pad. */
+.lang-compact { display:none; }
+@media (max-height:600px), (orientation:portrait) {
+  /* 2×2 grid (globe + three languages) at the top of the d-pad column. */
+  .arcade-page[data-horizontal="true"] .lang-compact { display:grid; grid-template-columns:repeat(2,52px); gap:2px; padding:3px; border-radius:14px; grid-column:1; grid-row:1; align-self:start; justify-self:center; margin:4px 0 0; }
+  .arcade-page[data-horizontal="true"] .lang-compact .lang-globe { place-self:center; margin:0; }
+  .arcade-page[data-horizontal="true"] .lang-compact button { min-height:40px; min-width:52px; padding:2px 4px; }
+  .arcade-page[data-horizontal="true"] .lang-compact button b { font-size:12px; }
+  .arcade-page[data-horizontal="true"] .lang-compact button small { font-size:7px; letter-spacing:.04em; }
+}
