@@ -45,3 +45,10 @@
 }
 
 .arcade-page[data-horizontal="true"] .dpad small { font-size:10px; line-height:1; letter-spacing:.08em; }
+
+/* Phones hide the top rail, so the language switcher also sits above the d-pad. */
+.lang-compact { display:none; }
+@media (max-height:600px), (orientation:portrait) {
+  .arcade-page[data-horizontal="true"] .lang-compact { display:flex; grid-column:1; grid-row:1; align-self:start; justify-self:center; margin:4px 0 0; }
+  .arcade-page[data-horizontal="true"] .lang-compact button { min-height:36px; min-width:44px; }
+}

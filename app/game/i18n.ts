@@ -355,9 +355,12 @@ export function subscribeLang(onChange: () => void) {
   };
 }
 export const serverLang = (): Lang => "en";
-export const clientLang = (): Lang => detectLang();
+/** An explicit pick made this visit; wins even when storage refuses to save it. */
+let chosen: Lang | null = null;
+export const clientLang = (): Lang => chosen ?? detectLang();
 
 export function chooseLang(lang: Lang) {
+  chosen = lang;
   saveLang(lang);
   // ?lang= would otherwise keep winning over the new choice.
   const url = new URL(window.location.href);

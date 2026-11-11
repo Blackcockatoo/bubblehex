@@ -70,6 +70,16 @@ export default function BubbleHex() {
     document.documentElement.lang = lang;
   }, [lang]);
   const pickLang = (next: Lang) => chooseLang(next);
+  // In the top rail, and again beside the d-pad on phones where the rail is hidden.
+  const langSwitch = (className: string) => (
+    <div className={className} role="group" aria-label={t.language}>
+      {LANGS.map((code) => (
+        <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => pickLang(code)}>
+          {LANG_LABEL[code]}
+        </button>
+      ))}
+    </div>
+  );
   const pointers = useRef(new Map<number, {action: Action; button: HTMLButtonElement}>());
   const pointerClicks = useRef(new WeakMap<HTMLButtonElement, number>());
   const clearPointers = useCallback(() => {
@@ -225,13 +235,7 @@ export default function BubbleHex() {
         <div className="studio-mark">
           <span>B$S</span> BLUE $NAKE STUDIO
         </div>
-        <div className="lang-switch" role="group" aria-label={t.language}>
-          {LANGS.map((code) => (
-            <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => pickLang(code)}>
-              {LANG_LABEL[code]}
-            </button>
-          ))}
-        </div>
+        {langSwitch("lang-switch")}
         <div className="machine-status">
           <i /> ORIGINAL ARCADE SIGNAL <strong>108</strong>
         </div>
@@ -264,6 +268,7 @@ export default function BubbleHex() {
           <span className="combo-readout" aria-live="polite" aria-atomic="true">{combo || instruction}</span>
         </div>
         <div className="play-layout">
+          {langSwitch("lang-switch lang-compact")}
           <div className="screen-bezel">
             <div className="screen-wrap">
               <canvas
