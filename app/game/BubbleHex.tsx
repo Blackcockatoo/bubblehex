@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
-import { CABINET_COPY, LANGS, LANG_ARIA, LANG_ENGLISH, LANG_LABEL, chooseLang, clientLang, detectLang, serverLang, subscribeLang, type Lang } from "./i18n";
+import { CABINET_COPY, LANGS, LANG_ARIA, LANG_ENGLISH, LANG_NATIVE, chooseLang, clientLang, detectLang, serverLang, subscribeLang, type Lang } from "./i18n";
+import { LangMenu } from "./LangMenu";
 import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
@@ -70,22 +71,9 @@ export default function BubbleHex() {
     document.documentElement.lang = lang;
   }, [lang]);
   const pickLang = (next: Lang) => chooseLang(next);
-  // In the top rail, and again beside the d-pad on phones where the rail is hidden.
+  // Top-right of the rail; on phones (rail hidden) the same globe sits at the top of the d-pad column.
   const langSwitch = (className: string) => (
-    <div className={className} role="group" aria-label={LANG_ARIA}>
-      <svg className="lang-globe" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-        <g fill="none" stroke="currentColor" strokeWidth="1.8">
-          <circle cx="12" cy="12" r="9" />
-          <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9M12 3C9.5 5.6 8.2 8.6 8.2 12s1.3 6.4 3.8 9" />
-        </g>
-      </svg>
-      {LANGS.map((code) => (
-        <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => pickLang(code)}>
-          <b>{LANG_LABEL[code]}</b>
-          <small lang="en">{LANG_ENGLISH[code]}</small>
-        </button>
-      ))}
-    </div>
+    <LangMenu lang={lang} langs={LANGS} native={LANG_NATIVE} english={LANG_ENGLISH} label={LANG_ARIA} onPick={pickLang} className={className} />
   );
   const pointers = useRef(new Map<number, {action: Action; button: HTMLButtonElement}>());
   const pointerClicks = useRef(new WeakMap<HTMLButtonElement, number>());
@@ -242,10 +230,10 @@ export default function BubbleHex() {
         <div className="studio-mark">
           <span>B$S</span> BLUE $NAKE STUDIO
         </div>
-        {langSwitch("lang-switch")}
         <div className="machine-status">
           <i /> ORIGINAL ARCADE SIGNAL <strong>108</strong>
         </div>
+        {langSwitch("lang-switch")}
       </header>
 
       <section className="cabinet" aria-label="Bubble Hex arcade cabinet">
