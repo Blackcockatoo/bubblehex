@@ -237,9 +237,14 @@
 }
 
 /* ── Language switcher (EN / 日本語 / हिन्दी) ─────────────────────────── */
-.lang-switch { display:flex; gap:4px; margin-left:auto; margin-right:10px; }
-.lang-switch button { min-height:28px; padding:2px 9px; border:1px solid rgba(160,200,255,.35); border-radius:999px; background:rgba(5,5,9,.6); color:inherit; font:700 12px/1 system-ui,sans-serif; letter-spacing:normal; cursor:pointer; }
-.lang-switch button[aria-pressed="true"] { border-color:#ff6fb1; color:#fff; box-shadow:0 0 10px rgba(255,111,177,.6); }
+.lang-switch { display:flex; align-items:center; gap:3px; margin-left:auto; margin-right:10px; padding:3px 3px 3px 9px; border:1px solid rgba(160,200,255,.45); border-radius:999px; background:rgba(5,5,9,.72); }
+.lang-switch .lang-globe { flex:none; margin-right:3px; color:#ff6fb1; }
+.lang-switch button { position:relative; display:inline-flex; flex-direction:column; align-items:center; justify-content:center; min-height:44px; min-width:54px; padding:3px 10px; border:0; border-radius:999px; background:transparent; color:#e6eefb; line-height:1.1; letter-spacing:normal; cursor:pointer; }
+.lang-switch button b { font:700 13px/1.15 system-ui,"Hiragino Sans","Noto Sans JP","Noto Sans Devanagari","Nirmala UI",sans-serif; }
+.lang-switch button small { margin-top:2px; font:700 8px/1 system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; opacity:.75; }
+.lang-switch button:hover { background:rgba(160,200,255,.14); }
+.lang-switch button[aria-pressed="true"] { background:#ff6fb1; color:#13050c; box-shadow:0 0 12px rgba(255,111,177,.6); }
+.lang-switch button[aria-pressed="true"]::after { content:"✓"; position:absolute; top:-4px; right:-3px; display:grid; place-items:center; width:15px; height:15px; border:1px solid #ff6fb1; border-radius:50%; background:#13050c; color:#ff6fb1; font:700 9px/1 system-ui,sans-serif; }
 .lang-switch button:focus-visible { outline:2px solid #ffd36a; outline-offset:2px; }
 /* Wide arcade tracking breaks Devanagari conjuncts and crowds Japanese. */
 html:lang(ja) .arcade-page *, html:lang(hi) .arcade-page * { letter-spacing:normal; }

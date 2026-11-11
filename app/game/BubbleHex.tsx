@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
-import { CABINET_COPY, LANGS, LANG_LABEL, chooseLang, clientLang, detectLang, serverLang, subscribeLang, type Lang } from "./i18n";
+import { CABINET_COPY, LANGS, LANG_ARIA, LANG_ENGLISH, LANG_LABEL, chooseLang, clientLang, detectLang, serverLang, subscribeLang, type Lang } from "./i18n";
 import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
@@ -72,10 +72,17 @@ export default function BubbleHex() {
   const pickLang = (next: Lang) => chooseLang(next);
   // In the top rail, and again beside the d-pad on phones where the rail is hidden.
   const langSwitch = (className: string) => (
-    <div className={className} role="group" aria-label={t.language}>
+    <div className={className} role="group" aria-label={LANG_ARIA}>
+      <svg className="lang-globe" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
+        <g fill="none" stroke="currentColor" strokeWidth="1.8">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M3 12h18M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9M12 3C9.5 5.6 8.2 8.6 8.2 12s1.3 6.4 3.8 9" />
+        </g>
+      </svg>
       {LANGS.map((code) => (
         <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => pickLang(code)}>
-          {LANG_LABEL[code]}
+          <b>{LANG_LABEL[code]}</b>
+          <small lang="en">{LANG_ENGLISH[code]}</small>
         </button>
       ))}
     </div>
