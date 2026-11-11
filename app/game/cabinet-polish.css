@@ -235,3 +235,11 @@
     animation: none;
   }
 }
+
+/* ── Language switcher (EN / 日本語 / हिन्दी) ─────────────────────────── */
+.lang-switch { display:flex; gap:4px; margin-left:auto; margin-right:10px; }
+.lang-switch button { min-height:28px; padding:2px 9px; border:1px solid rgba(160,200,255,.35); border-radius:999px; background:rgba(5,5,9,.6); color:inherit; font:700 12px/1 system-ui,sans-serif; letter-spacing:normal; cursor:pointer; }
+.lang-switch button[aria-pressed="true"] { border-color:#ff6fb1; color:#fff; box-shadow:0 0 10px rgba(255,111,177,.6); }
+.lang-switch button:focus-visible { outline:2px solid #ffd36a; outline-offset:2px; }
+/* Wide arcade tracking breaks Devanagari conjuncts and crowds Japanese. */
+html:lang(ja) .arcade-page *, html:lang(hi) .arcade-page * { letter-spacing:normal; }

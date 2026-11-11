@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { BubbleHexEngine, type Action } from "./engine";
+import { CABINET_COPY, LANGS, LANG_LABEL, chooseLang, clientLang, detectLang, serverLang, subscribeLang, type Lang } from "./i18n";
 import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import "./background-motion.css";
@@ -42,8 +43,9 @@ function backgroundFor(gameState: string, levelName: string) {
   return BACKGROUND_BY_LEVEL[levelName] ?? "/backgrounds/hex-tunnel.svg";
 }
 
-function stateLabel(gameState: string) {
-  return gameState.replace(/([a-z])([A-Z])/g, "$1 $2").toUpperCase();
+function stateLabel(gameState: string, states: Record<string, string> = {}) {
+  const words = gameState.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase();
+  return states[words] ?? words.toUpperCase();
 }
 
 export default function BubbleHex() {
@@ -60,6 +62,14 @@ export default function BubbleHex() {
   const [volumes, setVolumes] = useState({music:"5",sfx:"6"});
   const [combo, setCombo] = useState("");
   const [reducedMotion, setReducedMotion] = useState(false);
+  // English on the server render; the saved / browser language is applied after hydration.
+  const lang = useSyncExternalStore(subscribeLang, clientLang, serverLang);
+  const t = CABINET_COPY[lang];
+  useEffect(() => {
+    engineRef.current?.setLang(lang);
+    document.documentElement.lang = lang;
+  }, [lang]);
+  const pickLang = (next: Lang) => chooseLang(next);
   const pointers = useRef(new Map<number, {action: Action; button: HTMLButtonElement}>());
   const pointerClicks = useRef(new WeakMap<HTMLButtonElement, number>());
   const clearPointers = useCallback(() => {
@@ -75,6 +85,7 @@ export default function BubbleHex() {
     installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
+    engine.setLang(detectLang());
     engine.start();
 
     const stopScroll = (event: KeyboardEvent) => {
@@ -196,23 +207,30 @@ export default function BubbleHex() {
   const needsMusicRetry = musicState === "blocked" || musicState === "failed";
   const needsMusicStart = needsMusicRetry || musicState === "idle" || musicState === "paused";
   const activePlay = gameState === "playing" || gameState === "hurry" || gameState === "attract";
-  const instruction = gameState === "characterSelect" ? "Choose a hero · Bubble changes look · Jump confirms"
-    : gameState === "paused" ? "Paused · Resume with Pause · Start restarts this chamber"
-    : gameState === "stageClear" ? "Chamber cleared · Next starts automatically · Start to continue"
-    : gameState === "stageIntro" ? (LEVEL_CUES[levelName] || "Trap enemies, then touch their bubbles to pop · Jump to begin")
-    : activePlay ? "Hold Bubble to fire · Touch trapped bubbles to pop · Jump twice to climb"
-    : gameState === "gameOver" || gameState === "victory" ? "Press Start to play again"
-    : gameState === "records/options" ? "Arrows browse the archive · Start returns to the title"
-    : "Press Start · Choose your hex";
+  const instruction = gameState === "characterSelect" ? t.iSelect
+    : gameState === "paused" ? t.iPaused
+    : gameState === "stageClear" ? t.iClear
+    : gameState === "stageIntro" ? ((lang === "en" && LEVEL_CUES[levelName]) || t.iIntro)
+    : activePlay ? t.iPlay
+    : gameState === "gameOver" || gameState === "victory" ? t.iOver
+    : gameState === "records/options" ? t.iArchive
+    : t.iTitle;
 
   const motionMode = PLAY_STATES.has(gameState) ? "is-playing" : "is-menu";
-  const cabinetSignal = running ? "ONLINE" : "WARMING";
+  const cabinetSignal = running ? t.online : t.warming;
 
   return (
     <main className="arcade-page" data-horizontal="true" data-game-state={gameState} data-reduced-motion={reducedMotion}>
       <header className="top-rail">
         <div className="studio-mark">
           <span>B$S</span> BLUE $NAKE STUDIO
+        </div>
+        <div className="lang-switch" role="group" aria-label={t.language}>
+          {LANGS.map((code) => (
+            <button key={code} type="button" lang={code} aria-pressed={lang === code} onClick={() => pickLang(code)}>
+              {LANG_LABEL[code]}
+            </button>
+          ))}
         </div>
         <div className="machine-status">
           <i /> ORIGINAL ARCADE SIGNAL <strong>108</strong>
@@ -228,21 +246,21 @@ export default function BubbleHex() {
 
         <div className="hex-data-rail" aria-label="Live cabinet status">
           <span>
-            <small>CHAMBER</small>
+            <small>{t.chamber}</small>
             <b>{levelName}</b>
           </span>
           <span>
-            <small>RITUAL STATE</small>
-            <b>{stateLabel(gameState)}</b>
+            <small>{t.ritualState}</small>
+            <b>{stateLabel(gameState, t.states)}</b>
           </span>
           <span>
-            <small>CABINET SIGNAL</small>
+            <small>{t.cabinetSignal}</small>
             <b>{cabinetSignal} · 108</b>
           </span>
         </div>
 
         <div className="play-readout">
-          <strong aria-label={`Score ${score}`}>SCORE {Number(score).toLocaleString("en-AU")}</strong>
+          <strong aria-label={`${t.score} ${score}`}>{t.score} {Number(score).toLocaleString("en-AU")}</strong>
           <span className="combo-readout" aria-live="polite" aria-atomic="true">{combo || instruction}</span>
         </div>
         <div className="play-layout">
@@ -272,35 +290,35 @@ export default function BubbleHex() {
               <div className="game-background-vignette" aria-hidden="true" />
               <div className="scanlines" aria-hidden="true" />
               {gameState === "paused" && <div className="pause-summary" role="note" aria-label="Pause controls">
-                <strong>PAUSED</strong>
-                <span>Pause to resume · Start to restart</span>
-                <span>← / → Music {volumes.music}/10</span>
-                <span>Hold Jump + ← / → SFX {volumes.sfx}/10</span>
-                <span>Bubble: sound {muted ? "off" : "on"}</span>
-                <span>Tap Jump: reduced motion {reducedMotion ? "on" : "off"}</span>
+                <strong>{t.paused}</strong>
+                <span>{t.pauseResume}</span>
+                <span>← / → {t.music} {volumes.music}/10</span>
+                <span>{t.holdJump} ← / → {t.sfx} {volumes.sfx}/10</span>
+                <span>{t.bubbleSound(!muted)}</span>
+                <span>{t.tapJumpMotion(reducedMotion)}</span>
               </div>}
             </div>
           </div>
 
           <div className="control-deck">
             <div className="dpad" aria-label="Movement controls">
-              <button type="button" aria-label="Move left" {...bind("left")}>
-                <span aria-hidden="true">←</span><small>LEFT</small>
+              <button type="button" aria-label={t.moveLeft} {...bind("left")}>
+                <span aria-hidden="true">←</span><small>{t.left}</small>
               </button>
-              <button type="button" aria-label="Move right" {...bind("right")}>
-                <span aria-hidden="true">→</span><small>RIGHT</small>
+              <button type="button" aria-label={t.moveRight} {...bind("right")}>
+                <span aria-hidden="true">→</span><small>{t.right}</small>
               </button>
             </div>
 
             <div className="mini-controls">
               <button type="button" disabled={["boot", "playing", "hurry", "dying"].includes(gameState)} onClick={startGame}>
-                {gameState === "paused" ? "RESTART" : gameState === "stageClear" ? "NEXT" : "START"}
+                {gameState === "paused" ? t.restart : gameState === "stageClear" ? t.next : t.start}
               </button>
               <button type="button" disabled={!(["title", "characterSelect"].includes(gameState))} onClick={() => tap("consciousness")}>
-                ENEMY LEVEL
+                {t.enemyLevel}
               </button>
               <button type="button" disabled={!["title", "characterSelect", "records/options", "playing", "hurry", "paused"].includes(gameState)} aria-pressed={gameState === "paused"} onClick={() => tap("pause")}>
-                {gameState === "paused" ? "RESUME" : activePlay ? "PAUSE" : "ARCHIVE"}
+                {gameState === "paused" ? t.resume : activePlay ? t.pause : t.archive}
               </button>
               <button
                 type="button"
@@ -311,7 +329,7 @@ export default function BubbleHex() {
                   engineRef.current?.setMuted(next);
                 }}
               >
-                {!soundOn ? "SOUND OFF" : needsMusicRetry ? "ENABLE MUSIC" : needsMusicStart ? "PLAY MUSIC" : musicState === "loading" ? "MUSIC LOADING" : "SOUND ON"}
+                {!soundOn ? t.soundOff : needsMusicRetry ? t.enableMusic : needsMusicStart ? t.playMusic : musicState === "loading" ? t.musicLoading : t.soundOn}
               </button>
             </div>
 
@@ -319,20 +337,20 @@ export default function BubbleHex() {
               <button
                 className="bubble"
                 type="button"
-                aria-label="Blow bubble"
+                aria-label={t.blowBubble}
                 {...bind("bubble")}
               >
                 <span aria-hidden="true">○</span>
-                <small>BUBBLE</small>
+                <small>{t.bubble}</small>
               </button>
               <button
                 className="jump"
                 type="button"
-                aria-label="Jump"
+                aria-label={t.jumpLabel}
                 {...bind("jump")}
               >
                 <span aria-hidden="true">↑</span>
-                <small>JUMP</small>
+                <small>{t.jump}</small>
               </button>
             </div>
           </div>
@@ -341,15 +359,13 @@ export default function BubbleHex() {
 
       <footer className="machine-footer">
         <p>
-          {running ? "CABINET ONLINE" : "WARMING TUBES"} · ONE PLAYER · LOCAL
-          HIGH SCORE
+          {running ? t.cabinetOnline : t.warmingTubes} · {t.onePlayer} · {t.localHigh}
         </p>
         <p className="desktop-hint">
-          MOVE A/D OR ←/→ · JUMP SPACE/C · BUBBLE X/Z · ENTER START · P
-          ARCHIVE/PAUSE
+          {t.desktopHint}
         </p>
         <p className="mobile-hint">
-          MULTI-TOUCH READY · TURN LANDSCAPE FOR A BIGGER CHAMBER
+          {t.mobileHint}
         </p>
       </footer>
     </main>
