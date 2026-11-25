@@ -11,6 +11,7 @@ import { installExpansionInterface } from "./expansion-ui";
 import { installLivingBubbles } from "./living-expansion";
 import { installFamiliars } from "./familiar-expansion";
 import { installLivingCabinet } from "./cabinet-expansion";
+import { installChambers } from "./chamber-expansion";
 import { cabinetCopy } from "./cabinet-i18n";
 import { ammoById } from "./living-bubbles";
 import { EXPANSION_COPY, PAUSE_TABS, type PauseTab } from "./expansion-i18n";
@@ -19,6 +20,7 @@ import "./cabinet-polish.css";
 import "./comfort-polish.css";
 import "./landscape.css";
 import "./expansion-ui.css";
+import "./editions.css";
 
 
 const BACKGROUND_BY_LEVEL: Record<string, string> = {
@@ -35,6 +37,13 @@ const BACKGROUND_BY_LEVEL: Record<string, string> = {
   "Event Horizon": "/backgrounds/hex-tunnel.svg",
   "The Widow Unveiled": "/backgrounds/hex-reactor.svg",
   "The Dirty Gold Vault": "/backgrounds/vault-cave.svg",
+  // Milestone 6: the Widow's Chambers.
+  "The Dead Disco": "/backgrounds/bubble-city.svg",
+  "The Vanity Room": "/backgrounds/hex-storm.svg",
+  "The Drowned Ballroom": "/backgrounds/bubble-field.svg",
+  "Poison Conservatory": "/backgrounds/bubble-moon.svg",
+  "The Klein Chamber": "/backgrounds/hex-tunnel.svg",
+  "The Widow's Cathedral": "/backgrounds/hex-reactor.svg",
 };
 
 const PLAY_STATES = new Set([
@@ -76,6 +85,7 @@ export default function BubbleHex() {
   const [ammo, setAmmo] = useState("");
   const [cabinetOpen, setCabinetOpen] = useState(false);
   const [titleSecret, setTitleSecret] = useState(false);
+  const [edition, setEdition] = useState("default");
   // English on the server render; the saved / browser language is applied after hydration.
   const lang = useSyncExternalStore(subscribeLang, clientLang, serverLang);
   const t = CABINET_COPY[lang];
@@ -108,6 +118,7 @@ export default function BubbleHex() {
     installLivingBubbles(BubbleHexEngine);
     installFamiliars(BubbleHexEngine);
     installLivingCabinet(BubbleHexEngine);
+    installChambers(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.setLang(detectLang());
@@ -139,6 +150,7 @@ export default function BubbleHex() {
       setAmmo(current => current === nextAmmo ? current : nextAmmo);
       setCabinetOpen(canvas.dataset.expansionCabinet === "1");
       setTitleSecret(canvas.dataset.expansionTitleSecret === "1");
+      setEdition(canvas.dataset.expansionWornTheme || "default");
       if (nextState !== previousState && !["playing", "hurry", "attract"].includes(nextState)) clearPointers();
       previousState = nextState;
       setGameState((current) => (current === nextState ? current : nextState));
@@ -251,7 +263,7 @@ export default function BubbleHex() {
   const cabinetSignal = running ? t.online : t.warming;
 
   return (
-    <main className="arcade-page" data-horizontal="true" data-game-state={gameState} data-reduced-motion={reducedMotion}>
+    <main className="arcade-page" data-horizontal="true" data-game-state={gameState} data-reduced-motion={reducedMotion} data-theme={edition}>
       <header className="top-rail">
         <div className="studio-mark">
           <span>B$S</span> BLUE $NAKE STUDIO

@@ -58,7 +58,7 @@ test('no familiar until one is earned; clearing a chamber unlocks and auto-equip
   assert.deepEqual(checkUnlocks(e), ['hex_cat']);
   assert.equal(activeFamiliar(e).id, 'hex_cat'); assert.match(e.message, /HEX CAT/);
   const saved = JSON.parse(storage.get('bubble-hex-settings'));
-  assert.equal(saved.version, 8); assert.deepEqual(saved.familiars.unlocked, ['hex_cat']);
+  assert.equal(saved.version, 9); assert.deepEqual(saved.familiars.unlocked, ['hex_cat']);
   tick(e, 30); assert.ok(familiarRuntime(e).body);
   e.destroy();
 });

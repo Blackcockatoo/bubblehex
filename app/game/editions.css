@@ -1,0 +1,21 @@
+/* Forbidden Expansion M6: the B$S special editions restyle the whole arcade cabinet,
+   not just the pause panel. Original (no data-theme / "default") is untouched. */
+.arcade-page[data-theme="old-vic"] { --pink:#ffd36a; --blue:#c9a24b; --jade:#e8c27a; --shine:#fff1cf; }
+.arcade-page[data-theme="old-vic"] .cabinet { background:linear-gradient(100deg,#120a03,#2a1a08 18%,#0d0703 49%,#2c1d0a 83%,#120a03); border-color:#7a5a1f; }
+.arcade-page[data-theme="old-vic"] .screen-bezel { border-color:#c9a24b; box-shadow:inset 0 0 0 4px #120a03,inset 0 0 24px #000,0 0 15px rgba(255,211,106,.35); }
+
+.arcade-page[data-theme="civilian-signal"] { --pink:#4ff3ff; --blue:#20c98b; --jade:#7cff4f; --shine:#dffcff; }
+.arcade-page[data-theme="civilian-signal"] .cabinet { background:repeating-linear-gradient(0deg,rgba(79,243,255,.04) 0 2px,transparent 2px 4px),linear-gradient(100deg,#010806,#06201c 18%,#020a08 49%,#082522 83%,#010806); border-color:#1f6b63; }
+.arcade-page[data-theme="civilian-signal"] .screen-bezel { border-color:#4ff3ff; box-shadow:inset 0 0 0 4px #010806,inset 0 0 24px #000,0 0 15px rgba(79,243,255,.4); }
+
+.arcade-page[data-theme="klein"] { --pink:#9a8cff; --blue:#4ff3ff; --jade:#6ab8ff; --shine:#ece8ff; }
+.arcade-page[data-theme="klein"] .cabinet { background:linear-gradient(100deg,#05041a,#141040 18%,#06051c 49%,#17124a 83%,#05041a); border-color:#4a3fb0; outline:2px solid rgba(154,140,255,.35); outline-offset:-8px; }
+.arcade-page[data-theme="klein"] .screen-bezel { border-color:#9a8cff; box-shadow:inset 0 0 0 4px #05041a,inset 0 0 0 8px rgba(154,140,255,.25),inset 0 0 24px #000,0 0 15px rgba(154,140,255,.45); }
+
+.arcade-page[data-theme="widow-after-dark"] { --pink:#c4133d; --blue:#ff2a9d; --jade:#ff5c8a; --shine:#ffd6e4; }
+.arcade-page[data-theme="widow-after-dark"] .cabinet { background:radial-gradient(circle at 50% 0,rgba(196,19,61,.25),transparent 60%),linear-gradient(100deg,#0c0206,#24060f 18%,#0a0205 49%,#2a0712 83%,#0c0206); border-color:#6b0f26; }
+.arcade-page[data-theme="widow-after-dark"] .screen-bezel { border-color:#c4133d; box-shadow:inset 0 0 0 4px #0c0206,inset 0 0 24px #000,0 0 18px rgba(196,19,61,.5); }
+
+.arcade-page[data-theme]:not([data-theme="default"]) .cabinet-open,
+.arcade-page[data-theme]:not([data-theme="default"]) .cabinet-close,
+.arcade-page[data-theme]:not([data-theme="default"]) .expansion-tabs button { border-color:var(--pink); }
