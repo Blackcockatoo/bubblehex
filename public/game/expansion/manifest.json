@@ -1,0 +1,1680 @@
+{
+  "pack": "Bubble Hex \u2014 Forbidden Expansion",
+  "version": "0.1.0",
+  "status": "original illustrative prototypes",
+  "assets": [
+    {
+      "id": "poison_apple",
+      "label": "Poison Apple",
+      "category": "items",
+      "svg": "svg/items/poison_apple.svg",
+      "png": "png/items/poison_apple.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "widow_cherries",
+      "label": "Widow Cherries",
+      "category": "items",
+      "svg": "svg/items/widow_cherries.svg",
+      "png": "png/items/widow_cherries.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "forbidden_perfume",
+      "label": "Forbidden Perfume",
+      "category": "items",
+      "svg": "svg/items/forbidden_perfume.svg",
+      "png": "png/items/forbidden_perfume.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "broken_heart",
+      "label": "Broken Heart",
+      "category": "items",
+      "svg": "svg/items/broken_heart.svg",
+      "png": "png/items/broken_heart.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "serpent_ring",
+      "label": "Serpent Ring",
+      "category": "items",
+      "svg": "svg/items/serpent_ring.svg",
+      "png": "png/items/serpent_ring.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "widow_key",
+      "label": "Widow\u2019s Key",
+      "category": "items",
+      "svg": "svg/items/widow_key.svg",
+      "png": "png/items/widow_key.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "dead_rose",
+      "label": "Dead Rose",
+      "category": "items",
+      "svg": "svg/items/dead_rose.svg",
+      "png": "png/items/dead_rose.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "cursed_vinyl",
+      "label": "Cursed Vinyl",
+      "category": "items",
+      "svg": "svg/items/cursed_vinyl.svg",
+      "png": "png/items/cursed_vinyl.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "black_pearl",
+      "label": "Black Pearl",
+      "category": "items",
+      "svg": "svg/items/black_pearl.svg",
+      "png": "png/items/black_pearl.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "golden_fang",
+      "label": "Golden Fang",
+      "category": "items",
+      "svg": "svg/items/golden_fang.svg",
+      "png": "png/items/golden_fang.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "widow_eye",
+      "label": "Widow\u2019s Eye",
+      "category": "items",
+      "svg": "svg/items/widow_eye.svg",
+      "png": "png/items/widow_eye.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "stolen_minute",
+      "label": "Stolen Minute",
+      "category": "items",
+      "svg": "svg/items/stolen_minute.svg",
+      "png": "png/items/stolen_minute.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "deadly_kiss",
+      "label": "Deadly Kiss",
+      "category": "items",
+      "svg": "svg/items/deadly_kiss.svg",
+      "png": "png/items/deadly_kiss.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "wicked_clover",
+      "label": "Wicked Clover",
+      "category": "items",
+      "svg": "svg/items/wicked_clover.svg",
+      "png": "png/items/wicked_clover.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "midnight_moth",
+      "label": "Midnight Moth",
+      "category": "items",
+      "svg": "svg/items/midnight_moth.svg",
+      "png": "png/items/midnight_moth.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "vanity_mirror",
+      "label": "Vanity Mirror",
+      "category": "items",
+      "svg": "svg/items/vanity_mirror.svg",
+      "png": "png/items/vanity_mirror.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_normal",
+      "label": "Normal Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_normal.svg",
+      "png": "png/bubbles/bubble_normal.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_venom",
+      "label": "Venom Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_venom.svg",
+      "png": "png/bubbles/bubble_venom.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_thunder",
+      "label": "Thunder Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_thunder.svg",
+      "png": "png/bubbles/bubble_thunder.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_inferno",
+      "label": "Inferno Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_inferno.svg",
+      "png": "png/bubbles/bubble_inferno.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_frost",
+      "label": "Frost Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_frost.svg",
+      "png": "png/bubbles/bubble_frost.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_gravity",
+      "label": "Gravity Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_gravity.svg",
+      "png": "png/bubbles/bubble_gravity.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_phantom",
+      "label": "Phantom Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_phantom.svg",
+      "png": "png/bubbles/bubble_phantom.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_mirror",
+      "label": "Mirror Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_mirror.svg",
+      "png": "png/bubbles/bubble_mirror.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_recursive",
+      "label": "Recursive Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_recursive.svg",
+      "png": "png/bubbles/bubble_recursive.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_time",
+      "label": "Time Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_time.svg",
+      "png": "png/bubbles/bubble_time.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_widow",
+      "label": "Widow Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_widow.svg",
+      "png": "png/bubbles/bubble_widow.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "bubble_klein",
+      "label": "Klein Bubble",
+      "category": "bubbles",
+      "svg": "svg/bubbles/bubble_klein.svg",
+      "png": "png/bubbles/bubble_klein.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "hex_cat",
+      "label": "Hex Cat",
+      "category": "familiars",
+      "svg": "svg/familiars/hex_cat.svg",
+      "png": "png/familiars/hex_cat.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "hex_cat_idle_0",
+      "label": "Hex Cat idle 1",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/hex_cat_idle_0.svg",
+      "png": "png/familiar_frames/hex_cat_idle_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "hex_cat_idle_1",
+      "label": "Hex Cat idle 2",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/hex_cat_idle_1.svg",
+      "png": "png/familiar_frames/hex_cat_idle_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "hex_cat_idle_2",
+      "label": "Hex Cat idle 3",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/hex_cat_idle_2.svg",
+      "png": "png/familiar_frames/hex_cat_idle_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "hex_cat_idle_3",
+      "label": "Hex Cat idle 4",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/hex_cat_idle_3.svg",
+      "png": "png/familiar_frames/hex_cat_idle_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "blue_snake",
+      "label": "Blue $nake",
+      "category": "familiars",
+      "svg": "svg/familiars/blue_snake.svg",
+      "png": "png/familiars/blue_snake.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "blue_snake_idle_0",
+      "label": "Blue $nake idle 1",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/blue_snake_idle_0.svg",
+      "png": "png/familiar_frames/blue_snake_idle_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "blue_snake_idle_1",
+      "label": "Blue $nake idle 2",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/blue_snake_idle_1.svg",
+      "png": "png/familiar_frames/blue_snake_idle_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "blue_snake_idle_2",
+      "label": "Blue $nake idle 3",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/blue_snake_idle_2.svg",
+      "png": "png/familiar_frames/blue_snake_idle_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "blue_snake_idle_3",
+      "label": "Blue $nake idle 4",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/blue_snake_idle_3.svg",
+      "png": "png/familiar_frames/blue_snake_idle_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "nevermore",
+      "label": "Nevermore",
+      "category": "familiars",
+      "svg": "svg/familiars/nevermore.svg",
+      "png": "png/familiars/nevermore.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "nevermore_idle_0",
+      "label": "Nevermore idle 1",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/nevermore_idle_0.svg",
+      "png": "png/familiar_frames/nevermore_idle_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "nevermore_idle_1",
+      "label": "Nevermore idle 2",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/nevermore_idle_1.svg",
+      "png": "png/familiar_frames/nevermore_idle_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "nevermore_idle_2",
+      "label": "Nevermore idle 3",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/nevermore_idle_2.svg",
+      "png": "png/familiar_frames/nevermore_idle_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "nevermore_idle_3",
+      "label": "Nevermore idle 4",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/nevermore_idle_3.svg",
+      "png": "png/familiar_frames/nevermore_idle_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "boo",
+      "label": "Boo",
+      "category": "familiars",
+      "svg": "svg/familiars/boo.svg",
+      "png": "png/familiars/boo.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "boo_idle_0",
+      "label": "Boo idle 1",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/boo_idle_0.svg",
+      "png": "png/familiar_frames/boo_idle_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "boo_idle_1",
+      "label": "Boo idle 2",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/boo_idle_1.svg",
+      "png": "png/familiar_frames/boo_idle_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "boo_idle_2",
+      "label": "Boo idle 3",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/boo_idle_2.svg",
+      "png": "png/familiar_frames/boo_idle_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "boo_idle_3",
+      "label": "Boo idle 4",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/boo_idle_3.svg",
+      "png": "png/familiar_frames/boo_idle_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "velvet",
+      "label": "Velvet",
+      "category": "familiars",
+      "svg": "svg/familiars/velvet.svg",
+      "png": "png/familiars/velvet.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "velvet_idle_0",
+      "label": "Velvet idle 1",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/velvet_idle_0.svg",
+      "png": "png/familiar_frames/velvet_idle_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "velvet_idle_1",
+      "label": "Velvet idle 2",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/velvet_idle_1.svg",
+      "png": "png/familiar_frames/velvet_idle_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "velvet_idle_2",
+      "label": "Velvet idle 3",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/velvet_idle_2.svg",
+      "png": "png/familiar_frames/velvet_idle_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "velvet_idle_3",
+      "label": "Velvet idle 4",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/velvet_idle_3.svg",
+      "png": "png/familiar_frames/velvet_idle_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "vamp",
+      "label": "Vamp",
+      "category": "familiars",
+      "svg": "svg/familiars/vamp.svg",
+      "png": "png/familiars/vamp.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "vamp_idle_0",
+      "label": "Vamp idle 1",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/vamp_idle_0.svg",
+      "png": "png/familiar_frames/vamp_idle_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "vamp_idle_1",
+      "label": "Vamp idle 2",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/vamp_idle_1.svg",
+      "png": "png/familiar_frames/vamp_idle_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "vamp_idle_2",
+      "label": "Vamp idle 3",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/vamp_idle_2.svg",
+      "png": "png/familiar_frames/vamp_idle_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "vamp_idle_3",
+      "label": "Vamp idle 4",
+      "category": "familiar_frames",
+      "svg": "svg/familiar_frames/vamp_idle_3.svg",
+      "png": "png/familiar_frames/vamp_idle_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Illustrative bobbing idle frame; not a full character rig."
+    },
+    {
+      "id": "jukebox",
+      "label": "Cursed Jukebox",
+      "category": "props",
+      "svg": "svg/props/jukebox.svg",
+      "png": "png/props/jukebox.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "coffin",
+      "label": "Neon Coffin",
+      "category": "props",
+      "svg": "svg/props/coffin.svg",
+      "png": "png/props/coffin.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "stained_glass",
+      "label": "Stained Glass",
+      "category": "props",
+      "svg": "svg/props/stained_glass.svg",
+      "png": "png/props/stained_glass.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "chandelier",
+      "label": "Chandelier",
+      "category": "props",
+      "svg": "svg/props/chandelier.svg",
+      "png": "png/props/chandelier.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "secret_door",
+      "label": "Secret Door",
+      "category": "props",
+      "svg": "svg/props/secret_door.svg",
+      "png": "png/props/secret_door.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "tarot",
+      "label": "Tarot Card",
+      "category": "props",
+      "svg": "svg/props/tarot.svg",
+      "png": "png/props/tarot.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "serpent_statue",
+      "label": "Serpent Statue",
+      "category": "props",
+      "svg": "svg/props/serpent_statue.svg",
+      "png": "png/props/serpent_statue.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "clock",
+      "label": "Grandfather Clock",
+      "category": "props",
+      "svg": "svg/props/clock.svg",
+      "png": "png/props/clock.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "button_magenta_normal",
+      "label": "Magenta Button / normal",
+      "category": "ui",
+      "svg": "svg/ui/button_magenta_normal.svg",
+      "png": "png/ui/button_magenta_normal.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_magenta_pressed",
+      "label": "Magenta Button / pressed",
+      "category": "ui",
+      "svg": "svg/ui/button_magenta_pressed.svg",
+      "png": "png/ui/button_magenta_pressed.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_magenta_disabled",
+      "label": "Magenta Button / disabled",
+      "category": "ui",
+      "svg": "svg/ui/button_magenta_disabled.svg",
+      "png": "png/ui/button_magenta_disabled.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_magenta_focus",
+      "label": "Magenta Button / focus",
+      "category": "ui",
+      "svg": "svg/ui/button_magenta_focus.svg",
+      "png": "png/ui/button_magenta_focus.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_jade_normal",
+      "label": "Jade Button / normal",
+      "category": "ui",
+      "svg": "svg/ui/button_jade_normal.svg",
+      "png": "png/ui/button_jade_normal.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_jade_pressed",
+      "label": "Jade Button / pressed",
+      "category": "ui",
+      "svg": "svg/ui/button_jade_pressed.svg",
+      "png": "png/ui/button_jade_pressed.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_jade_disabled",
+      "label": "Jade Button / disabled",
+      "category": "ui",
+      "svg": "svg/ui/button_jade_disabled.svg",
+      "png": "png/ui/button_jade_disabled.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_jade_focus",
+      "label": "Jade Button / focus",
+      "category": "ui",
+      "svg": "svg/ui/button_jade_focus.svg",
+      "png": "png/ui/button_jade_focus.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_gold_normal",
+      "label": "Gold Button / normal",
+      "category": "ui",
+      "svg": "svg/ui/button_gold_normal.svg",
+      "png": "png/ui/button_gold_normal.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_gold_pressed",
+      "label": "Gold Button / pressed",
+      "category": "ui",
+      "svg": "svg/ui/button_gold_pressed.svg",
+      "png": "png/ui/button_gold_pressed.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_gold_disabled",
+      "label": "Gold Button / disabled",
+      "category": "ui",
+      "svg": "svg/ui/button_gold_disabled.svg",
+      "png": "png/ui/button_gold_disabled.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "button_gold_focus",
+      "label": "Gold Button / focus",
+      "category": "ui",
+      "svg": "svg/ui/button_gold_focus.svg",
+      "png": "png/ui/button_gold_focus.png",
+      "logical_size": [
+        128,
+        64
+      ],
+      "raster_size": [
+        256,
+        128
+      ],
+      "description": "Blank button background; render accessible text separately."
+    },
+    {
+      "id": "meter_health",
+      "label": "Health Meter",
+      "category": "ui",
+      "svg": "svg/ui/meter_health.svg",
+      "png": "png/ui/meter_health.png",
+      "logical_size": [
+        320,
+        48
+      ],
+      "raster_size": [
+        640,
+        96
+      ],
+      "description": "Empty meter frame; draw fill in engine."
+    },
+    {
+      "id": "meter_combo",
+      "label": "Combo Meter",
+      "category": "ui",
+      "svg": "svg/ui/meter_combo.svg",
+      "png": "png/ui/meter_combo.png",
+      "logical_size": [
+        320,
+        48
+      ],
+      "raster_size": [
+        640,
+        96
+      ],
+      "description": "Empty meter frame; draw fill in engine."
+    },
+    {
+      "id": "meter_boss",
+      "label": "Boss Meter",
+      "category": "ui",
+      "svg": "svg/ui/meter_boss.svg",
+      "png": "png/ui/meter_boss.png",
+      "logical_size": [
+        320,
+        48
+      ],
+      "raster_size": [
+        640,
+        96
+      ],
+      "description": "Empty meter frame; draw fill in engine."
+    },
+    {
+      "id": "meter_time",
+      "label": "Time Meter",
+      "category": "ui",
+      "svg": "svg/ui/meter_time.svg",
+      "png": "png/ui/meter_time.png",
+      "logical_size": [
+        320,
+        48
+      ],
+      "raster_size": [
+        640,
+        96
+      ],
+      "description": "Empty meter frame; draw fill in engine."
+    },
+    {
+      "id": "panel_velvet",
+      "label": "Velvet Panel",
+      "category": "ui",
+      "svg": "svg/ui/panel_velvet.svg",
+      "png": "png/ui/panel_velvet.png",
+      "logical_size": [
+        320,
+        180
+      ],
+      "raster_size": [
+        640,
+        360
+      ],
+      "description": "Scalable panel; keep corners fixed if nine-slicing."
+    },
+    {
+      "id": "panel_old_vic",
+      "label": "Old Vic Panel",
+      "category": "ui",
+      "svg": "svg/ui/panel_old_vic.svg",
+      "png": "png/ui/panel_old_vic.png",
+      "logical_size": [
+        320,
+        180
+      ],
+      "raster_size": [
+        640,
+        360
+      ],
+      "description": "Scalable panel; keep corners fixed if nine-slicing."
+    },
+    {
+      "id": "panel_signal",
+      "label": "Signal Panel",
+      "category": "ui",
+      "svg": "svg/ui/panel_signal.svg",
+      "png": "png/ui/panel_signal.png",
+      "logical_size": [
+        320,
+        180
+      ],
+      "raster_size": [
+        640,
+        360
+      ],
+      "description": "Scalable panel; keep corners fixed if nine-slicing."
+    },
+    {
+      "id": "control_left",
+      "label": "Left Control",
+      "category": "ui",
+      "svg": "svg/ui/control_left.svg",
+      "png": "png/ui/control_left.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "control_right",
+      "label": "Right Control",
+      "category": "ui",
+      "svg": "svg/ui/control_right.svg",
+      "png": "png/ui/control_right.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "control_jump",
+      "label": "Jump Control",
+      "category": "ui",
+      "svg": "svg/ui/control_jump.svg",
+      "png": "png/ui/control_jump.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "control_hex",
+      "label": "Hex Control",
+      "category": "ui",
+      "svg": "svg/ui/control_hex.svg",
+      "png": "png/ui/control_hex.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "control_pause",
+      "label": "Pause Control",
+      "category": "ui",
+      "svg": "svg/ui/control_pause.svg",
+      "png": "png/ui/control_pause.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "badge_common",
+      "label": "Common Badge",
+      "category": "ui",
+      "svg": "svg/ui/badge_common.svg",
+      "png": "png/ui/badge_common.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "badge_uncommon",
+      "label": "Uncommon Badge",
+      "category": "ui",
+      "svg": "svg/ui/badge_uncommon.svg",
+      "png": "png/ui/badge_uncommon.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "badge_rare",
+      "label": "Rare Badge",
+      "category": "ui",
+      "svg": "svg/ui/badge_rare.svg",
+      "png": "png/ui/badge_rare.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "badge_legendary",
+      "label": "Legendary Badge",
+      "category": "ui",
+      "svg": "svg/ui/badge_legendary.svg",
+      "png": "png/ui/badge_legendary.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "badge_cursed",
+      "label": "Cursed Badge",
+      "category": "ui",
+      "svg": "svg/ui/badge_cursed.svg",
+      "png": "png/ui/badge_cursed.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": ""
+    },
+    {
+      "id": "pop_0",
+      "label": "Glass pop 1",
+      "category": "effects",
+      "svg": "svg/effects/pop_0.svg",
+      "png": "png/effects/pop_0.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Five-frame expanding pop effect; suggested 55 ms/frame."
+    },
+    {
+      "id": "pop_1",
+      "label": "Glass pop 2",
+      "category": "effects",
+      "svg": "svg/effects/pop_1.svg",
+      "png": "png/effects/pop_1.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Five-frame expanding pop effect; suggested 55 ms/frame."
+    },
+    {
+      "id": "pop_2",
+      "label": "Glass pop 3",
+      "category": "effects",
+      "svg": "svg/effects/pop_2.svg",
+      "png": "png/effects/pop_2.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Five-frame expanding pop effect; suggested 55 ms/frame."
+    },
+    {
+      "id": "pop_3",
+      "label": "Glass pop 4",
+      "category": "effects",
+      "svg": "svg/effects/pop_3.svg",
+      "png": "png/effects/pop_3.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Five-frame expanding pop effect; suggested 55 ms/frame."
+    },
+    {
+      "id": "pop_4",
+      "label": "Glass pop 5",
+      "category": "effects",
+      "svg": "svg/effects/pop_4.svg",
+      "png": "png/effects/pop_4.png",
+      "logical_size": [
+        128,
+        128
+      ],
+      "raster_size": [
+        256,
+        256
+      ],
+      "description": "Five-frame expanding pop effect; suggested 55 ms/frame."
+    }
+  ],
+  "animations": {
+    "hex_cat_idle": {
+      "frames": [
+        "hex_cat_idle_0",
+        "hex_cat_idle_1",
+        "hex_cat_idle_2",
+        "hex_cat_idle_3"
+      ],
+      "frame_ms": 150,
+      "loop": true
+    },
+    "blue_snake_idle": {
+      "frames": [
+        "blue_snake_idle_0",
+        "blue_snake_idle_1",
+        "blue_snake_idle_2",
+        "blue_snake_idle_3"
+      ],
+      "frame_ms": 150,
+      "loop": true
+    },
+    "nevermore_idle": {
+      "frames": [
+        "nevermore_idle_0",
+        "nevermore_idle_1",
+        "nevermore_idle_2",
+        "nevermore_idle_3"
+      ],
+      "frame_ms": 150,
+      "loop": true
+    },
+    "boo_idle": {
+      "frames": [
+        "boo_idle_0",
+        "boo_idle_1",
+        "boo_idle_2",
+        "boo_idle_3"
+      ],
+      "frame_ms": 150,
+      "loop": true
+    },
+    "velvet_idle": {
+      "frames": [
+        "velvet_idle_0",
+        "velvet_idle_1",
+        "velvet_idle_2",
+        "velvet_idle_3"
+      ],
+      "frame_ms": 150,
+      "loop": true
+    },
+    "vamp_idle": {
+      "frames": [
+        "vamp_idle_0",
+        "vamp_idle_1",
+        "vamp_idle_2",
+        "vamp_idle_3"
+      ],
+      "frame_ms": 150,
+      "loop": true
+    },
+    "glass_pop": {
+      "frames": [
+        "pop_0",
+        "pop_1",
+        "pop_2",
+        "pop_3",
+        "pop_4"
+      ],
+      "frame_ms": 55,
+      "loop": false
+    }
+  }
+}

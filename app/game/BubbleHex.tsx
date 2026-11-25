@@ -6,6 +6,7 @@ import { CABINET_COPY, LANGS, LANG_ARIA, LANG_ENGLISH, LANG_NATIVE, chooseLang, 
 import { LangMenu } from "./LangMenu";
 import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
+import { installForbiddenExpansion } from "./forbidden-expansion";
 import "./background-motion.css";
 import "./cabinet-polish.css";
 import "./comfort-polish.css";
@@ -88,6 +89,7 @@ export default function BubbleHex() {
   useEffect(() => {
     if (!canvasRef.current) return;
     installBubbleHexRuntimeUpgrades(BubbleHexEngine);
+    installForbiddenExpansion(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.setLang(detectLang());

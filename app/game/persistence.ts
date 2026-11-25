@@ -3,8 +3,15 @@ import type { EnemyConsciousness, HeroProgress } from "./progression";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
+/** Forbidden Expansion collection: discovery counts keyed by stable item id. */
+export type PersistedCollection = {
+  items:Record<string,number>;
+};
+
+export const SETTINGS_VERSION = 6;
+
 export type PersistedSettings = {
-  version:5;
+  version:6;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -19,14 +26,28 @@ export type PersistedSettings = {
   bestStageTimes:Record<string,number>;
   perfectClears:number;
   heroProgress:Record<HeroId,HeroProgress>;
+  collection:PersistedCollection;
 };
 
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:5,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:6,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
+  collection:{items:{}},
 };
+
+/** Keep every well-formed count (including ids from newer builds) so v5→v6 and v6→v6 are lossless. */
+export function normalizeCollection(value:unknown):PersistedCollection {
+  const items:Record<string,number>={};
+  const raw=value&&typeof value==="object"?(value as {items?:unknown}).items:undefined;
+  if(raw&&typeof raw==="object"&&!Array.isArray(raw)){
+    for(const [key,count] of Object.entries(raw as Record<string,unknown>)){
+      if(typeof count==="number"&&Number.isFinite(count)&&count>0)items[key]=Math.min(999999,Math.floor(count));
+    }
+  }
+  return {items};
+}
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
 const clampVolume=(value:unknown,fallback:number)=>typeof value==="number"?Math.max(0,Math.min(1,value)):fallback;
@@ -53,7 +74,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
   return {
-    ...DEFAULT_SETTINGS,...raw,version:5,
+    ...DEFAULT_SETTINGS,...raw,version:6,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -67,5 +88,6 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     bestStageTimes:positiveRecord(raw.bestStageTimes),
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
+    collection:normalizeCollection(raw.collection),
   };
 }
