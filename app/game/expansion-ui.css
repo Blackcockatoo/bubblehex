@@ -49,3 +49,19 @@
   .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary { font-size: 10px; gap: 1px; line-height: 1.1; }
   .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary strong { font-size: 14px; }
 }
+
+/* M3 living bubbles: transparent touch target over the canvas ammo chip
+   (canvas 30,92 → 244,148 of 960×720). Only rendered while special ammo is owned. */
+.arcade-page .screen-wrap .ammo-switch {
+  position: absolute; z-index: 6;
+  left: 3.125%; top: 12.78%; width: 22.3%; height: 7.8%;
+  min-width: 44px; min-height: 44px;
+  display: flex; align-items: center; justify-content: flex-end; padding: 0 6px;
+  background: transparent; color: #FFD6F1; cursor: pointer;
+  border-style: solid; border-width: 1px; border-color: transparent; border-radius: 4px;
+  font: 700 clamp(12px, 1.6vw, 18px)/1 monospace; touch-action: manipulation;
+}
+.arcade-page .screen-wrap .ammo-switch span { opacity: .75; }
+.arcade-page .screen-wrap .ammo-switch:hover,
+.arcade-page .screen-wrap .ammo-switch:focus-visible { border-color: #FFD36A; outline: 2px solid #FFD36A; outline-offset: 2px; }
+.arcade-page .screen-wrap .ammo-switch:active { background: rgba(255, 211, 106, .14); }
