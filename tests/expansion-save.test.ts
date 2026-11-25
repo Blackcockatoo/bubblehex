@@ -13,10 +13,12 @@ test("v5 save migrates to v6 losslessly with an empty collection", () => {
   const migrated = migrateSettings(JSON.parse(JSON.stringify(V5_SAVE)));
   assert.equal(migrated.version, 6);
   assert.equal(SETTINGS_VERSION, 6);
-  const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.collection;
+  const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.collection; delete rest.jukeboxTrack; delete rest.theme;
   const expected:Record<string,unknown> = {...V5_SAVE}; delete expected.version;
   assert.deepEqual(rest, expected);
   assert.deepEqual(migrated.collection, {items:{}});
+  assert.equal(migrated.jukeboxTrack, "auto");
+  assert.equal(migrated.theme, "default");
 });
 
 test("v6 collection round-trips through JSON and migration", () => {

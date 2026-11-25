@@ -27,7 +27,7 @@ try {
   for(const [width,height] of sizes){
     await page.setViewportSize({width,height});
     const layout=await page.evaluate(()=>{
-      const boxes=[...document.querySelectorAll('button,canvas,.play-readout,.hex-data-rail')].map(el=>{const r=el.getBoundingClientRect();return {name:el.getAttribute('aria-label')||el.textContent.trim(),x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,button:el.tagName==='BUTTON'};});
+      const boxes=[...document.querySelectorAll('button,canvas,.play-readout,.hex-data-rail')].filter(el=>el.getClientRects().length>0).map(el=>{const r=el.getBoundingClientRect();return {name:el.getAttribute('aria-label')||el.textContent.trim(),x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom,button:el.tagName==='BUTTON'};});
       return {width:innerWidth,height:innerHeight,scrollWidth:document.documentElement.scrollWidth,boxes};
     });
     assert.ok(layout.scrollWidth<=width,`${width}: horizontal overflow`);

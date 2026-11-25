@@ -7,10 +7,13 @@ import { LangMenu } from "./LangMenu";
 import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import { installForbiddenExpansion } from "./forbidden-expansion";
+import { installExpansionInterface } from "./expansion-ui";
+import { EXPANSION_COPY, PAUSE_TABS, type PauseTab } from "./expansion-i18n";
 import "./background-motion.css";
 import "./cabinet-polish.css";
 import "./comfort-polish.css";
 import "./landscape.css";
+import "./expansion-ui.css";
 
 
 const BACKGROUND_BY_LEVEL: Record<string, string> = {
@@ -64,9 +67,11 @@ export default function BubbleHex() {
   const [volumes, setVolumes] = useState({music:"5",sfx:"6"});
   const [combo, setCombo] = useState("");
   const [reducedMotion, setReducedMotion] = useState(false);
+  const [pauseTab, setPauseTab] = useState<PauseTab>("settings");
   // English on the server render; the saved / browser language is applied after hydration.
   const lang = useSyncExternalStore(subscribeLang, clientLang, serverLang);
   const t = CABINET_COPY[lang];
+  const xt = EXPANSION_COPY[lang];
   useEffect(() => {
     engineRef.current?.setLang(lang);
     document.documentElement.lang = lang;
@@ -90,6 +95,7 @@ export default function BubbleHex() {
     if (!canvasRef.current) return;
     installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     installForbiddenExpansion(BubbleHexEngine);
+    installExpansionInterface(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.setLang(detectLang());
@@ -115,6 +121,8 @@ export default function BubbleHex() {
       setScore(canvas.dataset.score ?? "0");
       setCombo(canvas.dataset.combo ?? "");
       setReducedMotion(canvas.dataset.reducedMotion === "true");
+      const nextTab = (canvas.dataset.expansionPauseTab ?? "settings") as PauseTab;
+      setPauseTab(current => current === nextTab ? current : nextTab);
       if (nextState !== previousState && !["playing", "hurry", "attract"].includes(nextState)) clearPointers();
       previousState = nextState;
       setGameState((current) => (current === nextState ? current : nextState));
@@ -291,7 +299,19 @@ export default function BubbleHex() {
               />
               <div className="game-background-vignette" aria-hidden="true" />
               <div className="scanlines" aria-hidden="true" />
-              {gameState === "paused" && <div className="pause-summary" role="note" aria-label="Pause controls">
+              {gameState === "paused" && <div className="expansion-tabs" role="group" aria-label={xt.tabsLabel}>
+                {PAUSE_TABS.map(tab => (
+                  <button key={tab} type="button" aria-pressed={pauseTab === tab} data-tab={tab}
+                    onClick={() => {
+                      (engineRef.current as unknown as {setExpansionTab?: (next: PauseTab) => void} | null)?.setExpansionTab?.(tab);
+                      setPauseTab(tab);
+                      canvasRef.current?.focus({preventScroll:true});
+                    }}>
+                    {xt.tabs[tab]}
+                  </button>
+                ))}
+              </div>}
+              {gameState === "paused" && pauseTab === "settings" && <div className="pause-summary" role="note" aria-label="Pause controls">
                 <strong>{t.paused}</strong>
                 <span>{t.pauseResume}</span>
                 <span>← / → {t.music} {volumes.music}/10</span>

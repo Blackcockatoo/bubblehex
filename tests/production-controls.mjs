@@ -31,7 +31,7 @@ try{
   await page.goto(url);await page.waitForFunction(()=>document.querySelector('main')?.dataset.gameState==='title');
   for(const [width,height] of [[320,568],[360,640],[375,667],[390,844],[412,915],[430,932],[768,1024],[1280,900],[568,320],[667,375],[844,390]]){
     await page.setViewportSize({width,height});
-    const boxes=await page.locator('button,canvas').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {name:el.getAttribute('aria-label')||el.textContent.trim(),x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};}));
+    const boxes=await page.locator('button,canvas').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length>0).map(el=>{const r=el.getBoundingClientRect();return {name:el.getAttribute('aria-label')||el.textContent.trim(),x:r.x,y:r.y,w:r.width,h:r.height,right:r.right,bottom:r.bottom};}));
     for(const b of boxes)assert.ok(b.x>=0&&b.y>=0&&b.right<=width+.5&&b.bottom<=height,`${width}x${height}: ${JSON.stringify(b)}`);
     const a=boxes.find(b=>b.name==='Blow bubble'),b=boxes.find(b=>b.name==='Jump');
     assert.ok(a.w>=70&&b.w>=70&&(width<height ? b.x<a.x-a.w*.3&&b.y>a.y : b.x>a.x&&b.y>a.y+a.h*.3),'large diagonal action pair');
@@ -45,7 +45,7 @@ try{
   }
   await page.setViewportSize({width:844,height:390});
   await page.locator('main').evaluate(el=>{el.style.setProperty('--safe-left','44px');el.style.setProperty('--safe-right','44px');el.style.setProperty('--safe-bottom','21px');});
-  const safe=await page.locator('button,canvas').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom};}));
+  const safe=await page.locator('button,canvas').evaluateAll(elements=>elements.filter(el=>el.getClientRects().length>0).map(el=>{const r=el.getBoundingClientRect();return {x:r.x,right:r.right,y:r.y,bottom:r.bottom};}));
   for(const b of safe)assert.ok(b.x>=44&&b.right<=800&&b.y>=0&&b.bottom<=369,'simulated safe-area bounds');
   await page.locator('main').evaluate(el=>el.removeAttribute('style'));
   console.log('PASS simulated notch/home-indicator spacing');

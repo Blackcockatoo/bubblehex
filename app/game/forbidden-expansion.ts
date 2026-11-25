@@ -151,7 +151,7 @@ function drawPips(c: CanvasRenderingContext2D, item: ItemDefinition, x: number, 
   }
 }
 
-function drawItemIcon(engine: AnyEngine, rt: ExpansionRuntime, item: ItemDefinition, x: number, y: number, size: number) {
+export function drawItemIcon(engine: AnyEngine, rt: ExpansionRuntime, item: ItemDefinition, x: number, y: number, size: number) {
   const c = engine.ctx as CanvasRenderingContext2D;
   if (rt.assets.draw(c, item.sprite, x, y, size)) return;
   c.fillStyle = item.tint; c.beginPath(); c.arc(x, y, size * 0.36, 0, Math.PI * 2); c.fill();
@@ -217,7 +217,7 @@ function drawPops(engine: AnyEngine, rt: ExpansionRuntime) {
 }
 
 /** Trim text with an ellipsis so it fits maxWidth at the engine's readable label size. */
-function fitText(engine: AnyEngine, text: string, size: number, maxWidth: number, family = "monospace"): string {
+export function fitText(engine: AnyEngine, text: string, size: number, maxWidth: number, family = "monospace"): string {
   const c = engine.ctx as CanvasRenderingContext2D;
   const scale = (engine.constructor as any)?.TEXT_SCALE ?? 1;
   c.save(); c.font = `900 ${Math.max(size * scale, 17)}px ${family}, monospace`;
@@ -360,7 +360,8 @@ export function installForbiddenExpansion(EngineClass: EngineConstructor) {
   proto.drawProgressionHud = function (this: AnyEngine) {
     original.drawProgressionHud.call(this);
     const rt = expansionRuntime(this);
-    drawReveal(this, rt); drawPops(this, rt); drawEffectsHud(this, rt); drawToasts(this, rt);
+    drawReveal(this, rt); drawPops(this, rt); drawEffectsHud(this, rt);
+    if (this.state !== "paused") drawToasts(this, rt);
   };
 
   proto.syncAuditData = function (this: AnyEngine) {
