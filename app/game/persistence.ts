@@ -19,7 +19,7 @@ export type PersistedFamiliars = {
   bestChain:number;
 };
 
-/** Forbidden Expansion living cabinet (v8): achievements, wardrobe, discoveries and title-screen progress.
+/** Forbidden Expansion living cabinet (v8, editions added in v9): achievements, wardrobe, discoveries and title-screen progress.
  * Every list/record keeps unknown ids so saves written by newer builds survive a round trip. */
 export type PersistedCabinet = {
   achievements:string[];
@@ -33,12 +33,14 @@ export type PersistedCabinet = {
   /** 0..1 decorative web built by the title-screen spiders. */
   web:number;
   titleSecret:boolean;
+  /** v9: B$S special editions unlocked through play (or grandfathered because they were already chosen). */
+  themesUnlocked:string[];
 };
 
-export const SETTINGS_VERSION = 8;
+export const SETTINGS_VERSION = 9;
 
 export type PersistedSettings = {
-  version:8;
+  version:9;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -63,11 +65,11 @@ export type PersistedSettings = {
 };
 
 export function emptyCabinet():PersistedCabinet {
-  return {achievements:[],wardrobeEquipped:null,ammoSeen:[],personalitiesSeen:[],counters:{},chambers:[],secretRooms:[],web:0,titleSecret:false};
+  return {achievements:[],wardrobeEquipped:null,ammoSeen:[],personalitiesSeen:[],counters:{},chambers:[],secretRooms:[],web:0,titleSecret:false,themesUnlocked:[]};
 }
 
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:8,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:9,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
@@ -109,7 +111,7 @@ export function normalizeCabinet(value:unknown):PersistedCabinet {
   }
   const web=typeof raw.web==="number"&&Number.isFinite(raw.web)?Math.max(0,Math.min(1,raw.web)):0;
   const equipped=typeof raw.wardrobeEquipped==="string"&&raw.wardrobeEquipped.length<48?raw.wardrobeEquipped:null;
-  return {achievements:idList(raw.achievements),wardrobeEquipped:equipped,ammoSeen:idList(raw.ammoSeen),personalitiesSeen:idList(raw.personalitiesSeen),counters,chambers:idList(raw.chambers),secretRooms:idList(raw.secretRooms),web,titleSecret:raw.titleSecret===true};
+  return {achievements:idList(raw.achievements),wardrobeEquipped:equipped,ammoSeen:idList(raw.ammoSeen),personalitiesSeen:idList(raw.personalitiesSeen),counters,chambers:idList(raw.chambers),secretRooms:idList(raw.secretRooms),web,titleSecret:raw.titleSecret===true,themesUnlocked:idList(raw.themesUnlocked)};
 }
 
 /** v5–v7 saves predate the cabinet: seed its milestone counters from the campaign records so nobody loses progress. */
@@ -145,8 +147,13 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   for(const hero of ["vesper","jade"] as HeroId[])if(!unlockedSkins.includes(selectedSkins[hero]))selectedSkins[hero]=DEFAULT_SKIN[hero];
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
+  const theme=isThemeId(raw.theme)?raw.theme:"default";
+  const cabinet=raw.cabinet&&typeof raw.cabinet==="object"?normalizeCabinet(raw.cabinet):seedCabinet(raw);
+  // v9 locks the special editions behind play; anyone who had already picked one keeps it.
+  const hadUnlockList=!!raw.cabinet&&typeof raw.cabinet==="object"&&Array.isArray((raw.cabinet as {themesUnlocked?:unknown}).themesUnlocked);
+  if(!hadUnlockList&&theme!=="default"&&!cabinet.themesUnlocked.includes(theme))cabinet.themesUnlocked.push(theme);
   return {
-    ...DEFAULT_SETTINGS,...raw,version:8,
+    ...DEFAULT_SETTINGS,...raw,version:9,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -162,8 +169,8 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
     collection:normalizeCollection(raw.collection),
     jukeboxTrack:isJukeboxChoice(raw.jukeboxTrack)?raw.jukeboxTrack:"auto",
-    theme:isThemeId(raw.theme)?raw.theme:"default",
+    theme,
     familiars:normalizeFamiliars(raw.familiars),
-    cabinet:raw.cabinet&&typeof raw.cabinet==="object"?normalizeCabinet(raw.cabinet):seedCabinet(raw),
+    cabinet,
   };
 }

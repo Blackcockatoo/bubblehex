@@ -14,6 +14,9 @@ import {
   type CabinetSection, type CabinetStats, type RemarkClock, type WardrobeDefinition,
 } from "./cabinet";
 import { cabinetCopy, loreName, type CabinetCopy } from "./cabinet-i18n";
+import { CHAMBERS as EXPANSION_CHAMBERS, isEditionUnlocked, type ChamberId } from "./chambers";
+import { chamberCopy } from "./chambers-i18n";
+import { loreDesc } from "./lore-i18n";
 import { copyForEngine, interfaceRuntime } from "./expansion-ui";
 import { drawItemIcon, expansionRuntime, fitText } from "./forbidden-expansion";
 import { activeFamiliar, checkUnlocks, familiarRuntime, setFamiliarDecor, unlockStats } from "./familiar-expansion";
@@ -150,17 +153,22 @@ const SECTION_SIZE: Record<CabinetSection, () => number> = {
   bubbles: () => AMMO_DEFINITIONS.length + PERSONALITIES.length,
   records: () => JUKEBOX_RECORDS.length,
   editions: () => THEMES.length,
-  chambers: () => LEVELS.length + 1,
+  chambers: () => CHAMBERS.length,
   achievements: () => ACHIEVEMENTS.length,
   memorabilia: () => MEMORABILIA.length,
   wardrobe: () => WARDROBE.length + 1,
   reset: () => 1,
 };
 
-const CHAMBERS = [
+type ChamberEntry = { key: string; name: string; world: string; tint: string; label: string; expansion?: ChamberId };
+const CHAMBER_LABELS: Record<ChamberId, string> = { dead_disco: "DD", vanity_room: "VR", drowned_ballroom: "DB", poison_conservatory: "PC", klein_chamber: "KC", widow_cathedral: "WC" };
+const CHAMBERS: ChamberEntry[] = [
   ...LEVELS.map((l, i) => ({ key: l.loreFragmentId, name: l.name, world: l.world, tint: l.tint, label: String(i + 1) })),
   { key: "bonus", name: BONUS_LEVEL.name, world: BONUS_LEVEL.world, tint: "#FFD36A", label: "B" },
+  // Milestone 6: the Widow's Chambers behind the Secret Door.
+  ...EXPANSION_CHAMBERS.map(c => ({ key: c.level.loreFragmentId, name: c.level.name, world: c.level.world, tint: c.level.tint, label: CHAMBER_LABELS[c.id], expansion: c.id })),
 ];
+const chamberVisited = (cab: PersistedCabinet, key: string) => cab.chambers.includes(key) || (cab.counters[`visit:${key}`] ?? 0) > 0;
 
 function setSection(engine: AnyEngine, dir: number) {
   const rt = cabinetRuntime(engine);
@@ -189,7 +197,11 @@ function activateEntry(engine: AnyEngine, rt: CabinetRuntime, section: CabinetSe
     if (!isRecordUnlocked(record.id, s.collection?.items?.cursed_vinyl ?? 0)) return deny(engine);
     s.jukeboxTrack = record.id; engine.save?.(); engine.syncMusic?.(); engine.audio?.reward?.();
   } else if (section === "editions") {
+    if (!isEditionUnlocked(s, THEMES[pick].id)) return deny(engine);
     s.theme = THEMES[pick].id; engine.save?.(); engine.audio?.reward?.();
+  } else if (section === "chambers") {
+    const ch = CHAMBERS[pick];
+    if (!ch.expansion || !chamberVisited(cab, ch.key) || typeof engine.practiceChamber !== "function" || !engine.practiceChamber(ch.expansion)) return deny(engine);
   } else if (section === "familiars") {
     const def = FAMILIARS[pick];
     if (!s.familiars?.unlocked?.includes(def.id)) return deny(engine);
@@ -291,7 +303,7 @@ function drawAccessory(engine: AnyEngine, def: WardrobeDefinition, x: number, y:
 const GRID = { top: 150, bottom: 450 };
 
 function gridLayout(count: number, section: CabinetSection) {
-  const cols = section === "bubbles" ? 11 : section === "chambers" ? 13 : section === "reset" ? 1 : Math.min(8, count);
+  const cols = section === "bubbles" ? 11 : section === "chambers" ? 10 : section === "reset" ? 1 : Math.min(8, count);
   const rows = Math.ceil(count / cols);
   const gap = cols > 8 ? 8 : 14;
   const maxW = 840, maxH = GRID.bottom - GRID.top;
@@ -376,7 +388,7 @@ function drawEntries(engine: AnyEngine, rt: CabinetRuntime, section: CabinetSect
       });
       const item = ITEM_DEFINITIONS[pick], n = items[item.id] ?? 0;
       return { name: n ? loreName(L, item.id, item.name).toUpperCase() : xt.undiscovered, status: `${item.rarity.toUpperCase()}${n ? ` · ${xt.owned(n)}` : ""}`, statusColor: RARITY_COLOR[item.rarity],
-        lines: [n ? item.description : "", `${xt.howToFind}: ${item.discovery}`].filter(Boolean) };
+        lines: [n ? loreDesc(L, item.id, item.description) : "", `${xt.howToFind}: ${item.discovery}`].filter(Boolean) };
     }
     case "familiars": {
       const unlocked: string[] = s.familiars?.unlocked ?? [];
@@ -416,10 +428,10 @@ function drawEntries(engine: AnyEngine, rt: CabinetRuntime, section: CabinetSect
       });
       if (pick < AMMO_DEFINITIONS.length) {
         const def = AMMO_DEFINITIONS[pick], owned = seenAmmo.has(def.id);
-        return { name: owned ? loreName(L, `ammo:${def.id}`, def.name).toUpperCase() : cc.notMet, status: `${cc.ammoTitle} ${pick + 1}/${AMMO_DEFINITIONS.length}`, statusColor: def.tint, lines: owned ? [def.summary] : [cc.stat.ammoFired(1)] };
+        return { name: owned ? loreName(L, `ammo:${def.id}`, def.name).toUpperCase() : cc.notMet, status: `${cc.ammoTitle} ${pick + 1}/${AMMO_DEFINITIONS.length}`, statusColor: def.tint, lines: owned ? [loreDesc(L, `ammo:${def.id}`, def.summary)] : [cc.stat.ammoFired(1)] };
       }
       const def = PERSONALITIES[pick - AMMO_DEFINITIONS.length], owned = seenP.has(def.id);
-      return { name: owned ? loreName(L, `p:${def.id}`, def.name).toUpperCase() : cc.notMet, status: `${cc.personalityTitle} ${pick - AMMO_DEFINITIONS.length + 1}/${PERSONALITIES.length}`, statusColor: "#FFD6F1", lines: owned ? [def.summary] : [] };
+      return { name: owned ? loreName(L, `p:${def.id}`, def.name).toUpperCase() : cc.notMet, status: `${cc.personalityTitle} ${pick - AMMO_DEFINITIONS.length + 1}/${PERSONALITIES.length}`, statusColor: "#FFD6F1", lines: owned ? [loreDesc(L, `p:${def.id}`, def.summary)] : [] };
     }
     case "records": {
       const vinyls = items.cursed_vinyl ?? 0, playing = engine.audio?.playingTrack;
@@ -434,28 +446,40 @@ function drawEntries(engine: AnyEngine, rt: CabinetRuntime, section: CabinetSect
         lines: [owned ? (playing && record.id !== "auto" && playing === record.id ? xt.nowPlaying : "") : cc.needVinyls(record.vinylsNeeded)].filter(Boolean), action: owned && !chosen ? cc.play : undefined };
     }
     case "editions": {
+      const mc = chamberCopy(lang(engine));
       THEMES.forEach((t, i) => {
-        const { x, y, size } = at(i);
-        card(engine, x, y, size, true, t.accent, sel(i));
+        const { x, y, size } = at(i), open = isEditionUnlocked(s, t.id);
+        card(engine, x, y, size, open, t.accent, sel(i));
         if (!(t.panel && assets.draw(c, t.panel, x + size / 2, y + size / 2, size * 0.8, size * 0.6))) {
           c.fillStyle = t.secondary; c.fillRect(x + size * 0.15, y + size * 0.25, size * 0.7, size * 0.5);
         }
         c.strokeStyle = t.accent; c.lineWidth = 3; c.strokeRect(x + size * 0.15, y + size * 0.25, size * 0.7, size * 0.5);
         if (s.theme === t.id) engine.label("★", x + size - 14, y + 22, 12, "#FFD36A", "center");
+        if (!open) { c.fillStyle = "rgba(4,3,9,.6)"; c.fillRect(x + 2, y + 2, size - 4, size - 4); drawLock(engine, x + size - 16, y + size - 14); }
       });
-      const t = THEMES[pick], chosen = s.theme === t.id;
-      return { name: xt.themes[t.id], status: chosen ? cc.applied : cc.unlocked, statusColor: chosen ? "#20C98B" : "#9fb3d1", lines: [xt.themeNote], action: chosen ? undefined : cc.apply };
+      const t = THEMES[pick], chosen = s.theme === t.id, open = isEditionUnlocked(s, t.id);
+      if (!open) return { name: xt.themes[t.id], status: cc.locked, statusColor: "#8d7fa8", lines: [mc.editionHint[t.id] ?? "", mc.themeNote] };
+      return { name: xt.themes[t.id], status: chosen ? cc.applied : cc.unlocked, statusColor: chosen ? "#20C98B" : "#9fb3d1", lines: [mc.themeNote], action: chosen ? undefined : cc.apply };
     }
     case "chambers": {
       const cleared = new Set(cab.chambers), secrets = new Set(cab.secretRooms);
+      const mc = chamberCopy(lang(engine));
       CHAMBERS.forEach((ch, i) => {
-        const { x, y, size } = at(i), owned = cleared.has(ch.key);
-        card(engine, x, y, size, owned, ch.tint, sel(i));
-        engine.label(ch.label, x + size / 2, y + size / 2 + 4, 14, owned ? ch.tint : "#4a4360", "center", "Georgia");
+        const { x, y, size } = at(i), owned = cleared.has(ch.key), seen = owned || (!!ch.expansion && chamberVisited(cab, ch.key));
+        card(engine, x, y, size, seen, ch.tint, sel(i));
+        if (ch.expansion) { c.save(); c.strokeStyle = seen ? "#FFD36A" : "#3a3348"; c.lineWidth = 1; c.setLineDash([3, 3]); c.strokeRect(x + 5, y + 5, size - 10, size - 10); c.restore(); }
+        engine.label(ch.expansion && !seen ? "?" : ch.label, x + size / 2, y + size / 2 + 4, 14, seen ? ch.tint : "#4a4360", "center", "Georgia");
         if (owned) engine.label("✓", x + 12, y + size - 8, 10, "#20C98B", "center");
         if (secrets.has(ch.key)) engine.label("✶", x + size - 12, y + size - 8, 10, "#FFD36A", "center");
       });
       const ch = CHAMBERS[pick], owned = cleared.has(ch.key), best = s.bestStageTimes?.[ch.key];
+      if (ch.expansion) {
+        const seen = owned || chamberVisited(cab, ch.key), [name, rule] = mc.chambers[ch.expansion];
+        if (!seen) return { name: `? · ${cc.unexplored}`, status: cc.unexplored, statusColor: "#8d7fa8", lines: [mc.chamberUnknown, mc.route] };
+        return { name: name.toUpperCase(), status: owned ? cc.cleared : mc.discovered, statusColor: owned ? "#20C98B" : "#FFD36A",
+          lines: [rule, [typeof best === "number" ? cc.bestTime(best.toFixed(1)) : "", secrets.has(ch.key) ? cc.secretFound : cc.secretHidden].filter(Boolean).join(" · ")],
+          action: engine.state === "title" ? mc.enter : undefined };
+      }
       return { name: owned ? ch.name.toUpperCase() : `${ch.label} · ${cc.unexplored}`, status: owned ? cc.cleared : cc.unexplored, statusColor: owned ? "#20C98B" : "#8d7fa8",
         lines: owned ? [ch.world, [typeof best === "number" ? cc.bestTime(best.toFixed(1)) : "", ch.key === "bonus" ? "" : secrets.has(ch.key) ? cc.secretFound : cc.secretHidden].filter(Boolean).join(" · ")] : [ch.world] };
     }

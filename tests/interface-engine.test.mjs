@@ -70,9 +70,12 @@ test('jukebox: locked records refuse, Cursed Vinyl unlocks and the choice persis
   e.destroy();
 });
 
-test('theme choice applies and persists', () => {
+test('theme choice applies and persists (special editions unlock through play since M6)', () => {
   const e = make(); e.press('pause'); e.release('pause'); e.setExpansionTab('theme');
   e.press('right'); e.release('right'); e.update(1/60); e.press('bubble'); e.release('bubble'); e.update(1/60);
+  assert.equal(e.settings.theme,'default','locked edition is refused');
+  e.settings.cabinet.achievements.push('opening_night');
+  e.press('bubble'); e.release('bubble'); e.update(1/60);
   assert.equal(e.settings.theme,'old-vic'); assert.equal(JSON.parse(storage.get('bubble-hex-settings')).theme,'old-vic'); e.destroy();
 });
 

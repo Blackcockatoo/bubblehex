@@ -11,8 +11,8 @@ const V5_SAVE = {
 
 test("v5 save migrates to v7 losslessly with an empty collection and no familiars", () => {
   const migrated = migrateSettings(JSON.parse(JSON.stringify(V5_SAVE)));
-  assert.equal(migrated.version, 8);
-  assert.equal(SETTINGS_VERSION, 8);
+  assert.equal(migrated.version, 9);
+  assert.equal(SETTINGS_VERSION, 9);
   const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.collection; delete rest.jukeboxTrack; delete rest.theme; delete rest.familiars; delete rest.cabinet;
   const expected:Record<string,unknown> = {...V5_SAVE}; delete expected.version;
   assert.deepEqual(rest, expected);
@@ -49,7 +49,7 @@ test("v6 save (M2/M3 era) migrates to v7 losslessly", () => {
   const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.familiars; delete rest.cabinet;
   const expected:Record<string,unknown> = {...v6}; delete expected.version;
   assert.deepEqual(rest, expected);
-  assert.equal(migrated.version, 8);
+  assert.equal(migrated.version, 9);
 });
 
 test("v7 familiars round-trip; selection persisted; corrupted values sanitised", () => {

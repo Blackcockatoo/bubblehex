@@ -10,6 +10,9 @@
  */
 import { Announcer, type AnnouncementEvent } from "./announcer";
 import { loreName } from "./cabinet-i18n";
+import { isEditionUnlocked } from "./chambers";
+import { chamberCopy } from "./chambers-i18n";
+import { loreDesc } from "./lore-i18n";
 import type { MusicTrackId } from "./audio";
 import { EXPANSION_COPY, PAUSE_TABS, type ExpansionCopy, type PauseTab } from "./expansion-i18n";
 import { drawItemIcon, expansionRuntime, fitText } from "./forbidden-expansion";
@@ -118,7 +121,9 @@ function updateTab(engine: AnyEngine, ui: InterfaceRuntime) {
       if (isRecordUnlocked(record.id, vinyls(engine))) { engine.settings.jukeboxTrack = record.id; engine.save?.(); engine.syncMusic?.(); engine.audio?.reward?.(); }
       else engine.audio?.tone?.(140, 0.18, "sawtooth", -40, 0.08);
     } else if (tab === "theme") {
-      engine.settings.theme = THEMES[ui.pick.theme].id; engine.save?.(); engine.audio?.reward?.();
+      const id = THEMES[ui.pick.theme].id;
+      if (isEditionUnlocked(engine.settings ?? {}, id)) { engine.settings.theme = id; engine.save?.(); engine.audio?.reward?.(); }
+      else engine.audio?.tone?.(140, 0.18, "sawtooth", -40, 0.08);
     }
   }
   engine.pauseJumpPending = false;
@@ -190,7 +195,7 @@ function drawCollection(engine: AnyEngine, ui: InterfaceRuntime) {
   const left = 175, maxW = 610;
   engine.label(count ? loreName(ui.lang, item.id, item.name).toUpperCase() : copy.undiscovered, left, 402, 14, count ? "#FFD6F1" : "#8d7fa8", "left", "Georgia");
   engine.label(`${item.rarity.toUpperCase()}${count ? ` · ${copy.owned(count)}` : ""}`, left + maxW, 402, 9, RARITY_COLOR[item.rarity], "right");
-  if (count) engine.label(fitText(engine, item.description, 9, maxW), left, 436, 9, "#c9d6ec");
+  if (count) engine.label(fitText(engine, loreDesc(ui.lang, item.id, item.description), 9, maxW), left, 436, 9, "#c9d6ec");
   engine.label(fitText(engine, `${copy.howToFind}: ${item.discovery}`, 9, maxW), left, 466, 9, "#9fb3d1");
   if (count && item.announce) engine.label(item.announce, left, 498, 10, "#FF2A9D");
 }
@@ -223,14 +228,20 @@ function drawThemes(engine: AnyEngine, ui: InterfaceRuntime) {
   const copy = copyFor(ui), active = theme(engine);
   const assets = expansionRuntime(engine).assets;
   engine.label(copy.themeTitle, W / 2, 188, 13, active.accent, "center", "Georgia");
-  engine.label(copy.themeNote, W / 2, 222, 8, "#9fb3d1", "center");
+  const mc = chamberCopy(ui.lang);
+  engine.label(fitText(engine, mc.themeNote, 8, 620), W / 2, 222, 8, "#9fb3d1", "center");
   THEMES.forEach((t, i) => {
-    const y = 244 + i * 56, selected = i === ui.pick.theme;
+    const y = 244 + i * 56, selected = i === ui.pick.theme, open = isEditionUnlocked(engine.settings ?? {}, t.id);
     c.save();
     c.fillStyle = selected ? "rgba(40,12,48,.92)" : "rgba(14,8,22,.85)"; c.fillRect(170, y, 620, 48);
     c.strokeStyle = selected ? t.accent : "#3a3348"; c.lineWidth = selected ? 3 : 1.5; c.strokeRect(170, y, 620, 48);
     if (!(t.panel && assets.draw(c, t.panel, 218, y + 24, 72, 40))) { c.strokeStyle = t.accent; c.lineWidth = 2; c.strokeRect(184, y + 6, 68, 36); c.strokeStyle = t.secondary; c.strokeRect(192, y + 13, 52, 22); }
-    engine.label(copy.themes[t.id], 270, y + 32, 10, t.accent);
+    if (open) engine.label(copy.themes[t.id], 270, y + 32, 10, t.accent);
+    else {
+      c.fillStyle = "rgba(4,3,9,.55)"; c.fillRect(176, y + 4, 90, 40);
+      engine.label(fitText(engine, `${mc.editionLocked} · ${copy.themes[t.id]}`, 9, 330), 270, y + 24, 9, "#8d7fa8");
+      engine.label(fitText(engine, mc.editionHint[t.id] ?? mc.editionLocked, 7, 500), 270, y + 42, 7, "#9fb3d1");
+    }
     if (active.id === t.id) engine.label(`${copy.applied} ✓`, 778, y + 32, 8, t.secondary, "right");
     c.restore();
   });

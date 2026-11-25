@@ -23,12 +23,12 @@ const V5 = {
 };
 
 test("save v8: v5, v6 and v7 saves seed the cabinet from campaign records, everything else intact", () => {
-  assert.equal(SETTINGS_VERSION, 8);
+  assert.equal(SETTINGS_VERSION, 9);
   for (const version of [5, 6, 7]) {
     const extra = version >= 6 ? {collection:{items:{black_pearl:1}}, jukeboxTrack:"boss", theme:"klein"} : {};
     const fam = version >= 7 ? {familiars:{unlocked:["hex_cat"],selected:"hex_cat",assists:false,bestChain:6}} : {};
     const m = migrateSettings(JSON.parse(JSON.stringify({...V5, version, ...extra, ...fam})));
-    assert.equal(m.version, 8);
+    assert.equal(m.version, 9);
     assert.deepEqual(m.cabinet.chambers.sort(), ["blueprint", "bonus", "sisters-dream"]);
     assert.deepEqual(m.cabinet.secretRooms, ["blueprint", "dawn"]);
     assert.equal(m.cabinet.counters.perfects, 3);
@@ -39,18 +39,18 @@ test("save v8: v5, v6 and v7 saves seed the cabinet from campaign records, every
   }
 });
 
-test("save v8 round-trips losslessly, keeping ids from newer builds", () => {
+test("save v8 → v9 round-trips losslessly, keeping ids from newer builds", () => {
   const cabinet = {achievements:["first_pop","future_badge"],wardrobeEquipped:"future_hat",ammoSeen:["venom","future_ammo"],personalitiesSeen:["lover"],
     counters:{pops:12,futureCounter:3},chambers:["blueprint"],secretRooms:[],web:.42,titleSecret:true};
   const first = migrateSettings({...V5, version:8, cabinet});
   const second = migrateSettings(JSON.parse(JSON.stringify(first)));
   assert.deepEqual(second, first);
-  assert.deepEqual(first.cabinet, cabinet);
+  assert.deepEqual(first.cabinet, {...cabinet, themesUnlocked:first.theme === "default" ? [] : [first.theme]});
 });
 
 test("normalizeCabinet rejects garbage and clamps", () => {
   const n = normalizeCabinet({achievements:[1,"a","a",""],counters:{x:-1,y:"2",z:3.7,pops:Infinity},web:9,titleSecret:"yes",wardrobeEquipped:5,chambers:"no"});
-  assert.deepEqual(n, {achievements:["a"],wardrobeEquipped:null,ammoSeen:[],personalitiesSeen:[],counters:{z:3},chambers:[],secretRooms:[],web:1,titleSecret:false});
+  assert.deepEqual(n, {achievements:["a"],wardrobeEquipped:null,ammoSeen:[],personalitiesSeen:[],counters:{z:3},chambers:[],secretRooms:[],web:1,titleSecret:false,themesUnlocked:[]});
   assert.deepEqual(normalizeCabinet(null), DEFAULT_SETTINGS.cabinet);
 });
 
