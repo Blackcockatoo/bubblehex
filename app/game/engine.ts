@@ -96,7 +96,7 @@ export class BubbleHexEngine {
   private upgrades={speed:false,rapid:false,range:false,velocity:false,shield:false,venom:false,chain:false,crown:false};
   private fireCooldown=0; private stageKills=0; private trappedBeforeFirstPop=0; private firstPop=false; private touchedFloor=false; private bestChain=0;
   private coyote=0; private jumpBuffer=0;
-  private settings:Settings={...DEFAULT_SETTINGS,selectedSkins:{...DEFAULT_SETTINGS.selectedSkins},unlockedSkins:[...DEFAULT_SETTINGS.unlockedSkins],unlockedCodex:[...DEFAULT_SETTINGS.unlockedCodex],fragments:[],collection:{items:{}}}; private musicClock=0;
+  private settings:Settings={...DEFAULT_SETTINGS,selectedSkins:{...DEFAULT_SETTINGS.selectedSkins},unlockedSkins:[...DEFAULT_SETTINGS.unlockedSkins],unlockedCodex:[...DEFAULT_SETTINGS.unlockedCodex],fragments:[],collection:{items:{}},jukeboxTrack:"auto",theme:"default"}; private musicClock=0;
   private shake=0; private hitStop=0; private attractTime=0; private secretFound=false; private endingText=""; private animTime=0;
   private debug=false; private platformAudit:PlatformAudit[]=[]; private landedThisFrame=false;
   private art=new GameArtAssets(); private archiveIndex=0; private audioReady=false;

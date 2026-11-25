@@ -242,13 +242,13 @@ html:lang(ja) .arcade-page *, html:lang(hi) .arcade-page * { letter-spacing:norm
 
 /* ── Language menu: a small globe in the corner that opens EN / 日本語 / हिन्दी ── */
 .lang-menu { position: relative; flex: none; --lm-accent: #e7c767; }
-.lang-menu-btn { display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid color-mix(in srgb, var(--lm-accent) 28%, transparent); border-radius: 50%; background: rgba(5, 6, 8, .6); color: color-mix(in srgb, var(--lm-accent) 62%, transparent); cursor: pointer; transition: color .15s, border-color .15s, background .15s; -webkit-tap-highlight-color: transparent; }
+.lang-menu-btn { display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 1px solid color-mix(in srgb, var(--lm-accent) 28%, transparent); border-radius: 50%; background: rgba(5, 6, 8, .6); color: color-mix(in srgb, var(--lm-accent) 62%, transparent); cursor: pointer; transition: color .15s, border-color .15s, background .15s; -webkit-tap-highlight-color: transparent; }
 .lang-menu-btn:hover, .lang-menu.is-open .lang-menu-btn { color: var(--lm-accent); border-color: color-mix(in srgb, var(--lm-accent) 65%, transparent); background: rgba(5, 6, 8, .85); }
 .lang-menu-btn:focus { outline: none; }
 .lang-menu-btn:focus-visible { color: var(--lm-accent); outline: 2px solid var(--lm-accent); outline-offset: 2px; }
 .lang-menu-list { position: absolute; top: calc(100% + 6px); right: 0; z-index: 50; display: flex; flex-direction: column; gap: 2px; min-width: 156px; padding: 5px; border: 1px solid color-mix(in srgb, var(--lm-accent) 45%, transparent); border-radius: 10px; background: rgba(5, 6, 8, .97); box-shadow: 0 16px 36px -12px rgba(0, 0, 0, .85); text-align: left; }
 .lang-menu-list[hidden] { display: none; }
-.lang-menu-item { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-height: 42px; width: 100%; padding: 4px 32px 4px 11px; border: 0; border-radius: 7px; background: transparent; color: #f3f0e6; cursor: pointer; line-height: 1.15; text-align: left; }
+.lang-menu-item { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; min-height: 44px; width: 100%; padding: 4px 32px 4px 11px; border: 0; border-radius: 7px; background: transparent; color: #f3f0e6; cursor: pointer; line-height: 1.15; text-align: left; }
 .lang-menu-item b { font: 700 14px/1.2 system-ui, "Hiragino Sans", "Noto Sans JP", "Noto Sans Devanagari", "Nirmala UI", sans-serif; letter-spacing: 0; text-transform: none; }
 .lang-menu-item small { margin-top: 2px; font: 600 9px/1 system-ui, sans-serif; letter-spacing: .1em; text-transform: uppercase; opacity: .65; }
 .lang-menu-item:hover, .lang-menu-item:focus-visible { background: color-mix(in srgb, var(--lm-accent) 14%, transparent); color: var(--lm-accent); outline: none; }

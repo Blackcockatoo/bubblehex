@@ -1,0 +1,51 @@
+/* Forbidden Expansion M2 — stateful buttons from the asset pack's button frames
+   (normal / pressed / disabled / focus). Frames are drawn with border-image so
+   corners stay crisp at any size and existing layout boxes do not change. */
+.expansion-tabs button,
+.mini-controls button {
+  border-image-slice: 40 fill;
+  border-image-width: 14px;
+  border-image-repeat: stretch;
+}
+.mini-controls button:nth-child(1) { border-image-source: url("/game/expansion/png/ui/button_gold_normal.png"); }
+.mini-controls button:nth-child(2) { border-image-source: url("/game/expansion/png/ui/button_jade_normal.png"); }
+.mini-controls button:nth-child(3) { border-image-source: url("/game/expansion/png/ui/button_magenta_normal.png"); }
+.mini-controls button:nth-child(4) { border-image-source: url("/game/expansion/png/ui/button_jade_normal.png"); }
+.mini-controls button:nth-child(1):active { border-image-source: url("/game/expansion/png/ui/button_gold_pressed.png"); }
+.mini-controls button:nth-child(2):active,
+.mini-controls button:nth-child(4):active,
+.mini-controls button:nth-child(4)[aria-pressed="true"] { border-image-source: url("/game/expansion/png/ui/button_jade_pressed.png"); }
+.mini-controls button:nth-child(3):active,
+.mini-controls button:nth-child(3)[aria-pressed="true"] { border-image-source: url("/game/expansion/png/ui/button_magenta_pressed.png"); }
+.mini-controls button:nth-child(1):focus-visible { border-image-source: url("/game/expansion/png/ui/button_gold_focus.png"); outline: none; }
+.mini-controls button:nth-child(2):focus-visible,
+.mini-controls button:nth-child(4):focus-visible { border-image-source: url("/game/expansion/png/ui/button_jade_focus.png"); outline: none; }
+.mini-controls button:nth-child(3):focus-visible { border-image-source: url("/game/expansion/png/ui/button_magenta_focus.png"); outline: none; }
+.mini-controls button:nth-child(1):disabled { border-image-source: url("/game/expansion/png/ui/button_gold_disabled.png"); }
+.mini-controls button:nth-child(2):disabled,
+.mini-controls button:nth-child(4):disabled { border-image-source: url("/game/expansion/png/ui/button_jade_disabled.png"); }
+.mini-controls button:nth-child(3):disabled { border-image-source: url("/game/expansion/png/ui/button_magenta_disabled.png"); }
+
+/* Pause menu tabs: SETTINGS · COLLECTION · JUKEBOX · THEME (>=44px targets). */
+.expansion-tabs {
+  position: absolute; top: 6px; left: 6px; right: 6px; z-index: 6;
+  display: flex; gap: 4px; padding: 2px; background: rgba(5, 3, 10, .94);
+}
+.expansion-tabs button {
+  flex: 1 1 0; min-width: 44px; min-height: 44px; padding: 4px 8px;
+  background: transparent; border-style: solid; border-color: transparent; border-width: 1px; color: #ffd6f1; cursor: pointer;
+  font: 900 clamp(10px, 2.3vw, 14px)/1.05 ui-monospace, monospace; letter-spacing: .06em;
+  text-shadow: 0 1px 2px #000; overflow-wrap: anywhere;
+  border-image-source: url("/game/expansion/png/ui/button_magenta_normal.png");
+}
+.expansion-tabs button:active { border-image-source: url("/game/expansion/png/ui/button_magenta_pressed.png"); }
+.expansion-tabs button[aria-pressed="true"] { color: #b9ffe3; border-image-source: url("/game/expansion/png/ui/button_jade_pressed.png"); }
+.expansion-tabs button:focus-visible { outline: none; border-image-source: url("/game/expansion/png/ui/button_jade_focus.png"); }
+.arcade-page .screen-wrap .expansion-tabs ~ .pause-summary { top: 52px; gap: clamp(1px, .8vw, 6px); padding: 2px 8px; font-size: clamp(10px, 2.4vw, 15px); line-height: 1.12; }
+.arcade-page .screen-wrap .expansion-tabs ~ .pause-summary strong { font-size: clamp(14px, 3.8vw, 28px); line-height: 1; }
+.expansion-tabs button { white-space: nowrap; overflow-wrap: normal; font-size: clamp(8px, 1.9vw, 14px); padding: 4px 4px; }
+.arcade-page[data-reduced-motion="true"] .expansion-tabs button { transition: none; }
+@media (max-height: 500px) {
+  .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary { font-size: 10px; gap: 1px; line-height: 1.1; }
+  .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary strong { font-size: 14px; }
+}

@@ -19,7 +19,11 @@ type Sprite = { image: HTMLImageElement; x: number; y: number; w: number; h: num
 export const EXPANSION_BASE = "/game/expansion/";
 /** Categories needed by M1: item pickups (atlas), pop frames (atlas), rarity badges (individual). */
 export const M1_ATLAS_CATEGORIES = ["items", "effects"] as const;
-export const M1_INDIVIDUAL_IDS = ["badge_common", "badge_uncommon", "badge_rare", "badge_legendary", "badge_cursed"] as const;
+export const M1_INDIVIDUAL_IDS = [
+  "badge_common", "badge_uncommon", "badge_rare", "badge_legendary", "badge_cursed",
+  // M2 interface: meter frames and themed panels.
+  "meter_combo", "meter_time", "meter_boss", "panel_old_vic", "panel_signal", "panel_velvet",
+] as const;
 
 export type ExpansionLoadState = "idle" | "loading" | "ready" | "degraded";
 

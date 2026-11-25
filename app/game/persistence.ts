@@ -1,5 +1,6 @@
 import type { HeroId } from "./content";
 import type { EnemyConsciousness, HeroProgress } from "./progression";
+import { isJukeboxChoice, isThemeId, type JukeboxChoice, type ThemeId } from "./jukebox.ts";
 
 const DEFAULT_SKIN:Record<HeroId,string> = {vesper:"vesper-crimson-thorn",jade:"jade-glass-tide"};
 
@@ -27,6 +28,10 @@ export type PersistedSettings = {
   perfectClears:number;
   heroProgress:Record<HeroId,HeroProgress>;
   collection:PersistedCollection;
+  /** Forbidden Expansion jukebox override for chamber music ("auto" = chamber default). */
+  jukeboxTrack:JukeboxChoice;
+  /** Forbidden Expansion visual theme (B$S Special Editions). */
+  theme:ThemeId;
 };
 
 export const DEFAULT_SETTINGS:PersistedSettings = {
@@ -35,6 +40,8 @@ export const DEFAULT_SETTINGS:PersistedSettings = {
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
   collection:{items:{}},
+  jukeboxTrack:"auto",
+  theme:"default",
 };
 
 /** Keep every well-formed count (including ids from newer builds) so v5→v6 and v6→v6 are lossless. */
@@ -89,5 +96,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     perfectClears:typeof raw.perfectClears==="number"?Math.max(0,raw.perfectClears):0,
     heroProgress:{vesper:normalizePersistedHeroProgress(raw.heroProgress?.vesper),jade:normalizePersistedHeroProgress(raw.heroProgress?.jade)},
     collection:normalizeCollection(raw.collection),
+    jukeboxTrack:isJukeboxChoice(raw.jukeboxTrack)?raw.jukeboxTrack:"auto",
+    theme:isThemeId(raw.theme)?raw.theme:"default",
   };
 }
