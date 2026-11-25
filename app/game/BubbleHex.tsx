@@ -8,6 +8,8 @@ import { LEVEL_CUES } from "./level-cues";
 import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import { installForbiddenExpansion } from "./forbidden-expansion";
 import { installExpansionInterface } from "./expansion-ui";
+import { installLivingBubbles } from "./living-expansion";
+import { ammoById } from "./living-bubbles";
 import { EXPANSION_COPY, PAUSE_TABS, type PauseTab } from "./expansion-i18n";
 import "./background-motion.css";
 import "./cabinet-polish.css";
@@ -68,6 +70,7 @@ export default function BubbleHex() {
   const [combo, setCombo] = useState("");
   const [reducedMotion, setReducedMotion] = useState(false);
   const [pauseTab, setPauseTab] = useState<PauseTab>("settings");
+  const [ammo, setAmmo] = useState("");
   // English on the server render; the saved / browser language is applied after hydration.
   const lang = useSyncExternalStore(subscribeLang, clientLang, serverLang);
   const t = CABINET_COPY[lang];
@@ -96,6 +99,7 @@ export default function BubbleHex() {
     installBubbleHexRuntimeUpgrades(BubbleHexEngine);
     installForbiddenExpansion(BubbleHexEngine);
     installExpansionInterface(BubbleHexEngine);
+    installLivingBubbles(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.setLang(detectLang());
@@ -123,6 +127,8 @@ export default function BubbleHex() {
       setReducedMotion(canvas.dataset.reducedMotion === "true");
       const nextTab = (canvas.dataset.expansionPauseTab ?? "settings") as PauseTab;
       setPauseTab(current => current === nextTab ? current : nextTab);
+      const nextAmmo = canvas.dataset.expansionAmmoOwned === "1" ? `${canvas.dataset.expansionAmmo ?? "normal"}|${canvas.dataset.expansionAmmoCharges ?? ""}` : "";
+      setAmmo(current => current === nextAmmo ? current : nextAmmo);
       if (nextState !== previousState && !["playing", "hurry", "attract"].includes(nextState)) clearPointers();
       previousState = nextState;
       setGameState((current) => (current === nextState ? current : nextState));
@@ -299,6 +305,17 @@ export default function BubbleHex() {
               />
               <div className="game-background-vignette" aria-hidden="true" />
               <div className="scanlines" aria-hidden="true" />
+              {ammo && (gameState === "playing" || gameState === "hurry") && (() => {
+                const [sel, list] = ammo.split("|");
+                const def = ammoById(sel);
+                const charges = Number(list.split(",").find(entry => entry.startsWith(`${sel}:`))?.split(":")[1] ?? 0);
+                return <button type="button" className="ammo-switch" data-ammo={sel}
+                  aria-label={xt.ammoButton(def ? def.name : xt.ammoNormal, charges)}
+                  onClick={() => {
+                    (engineRef.current as unknown as {cycleAmmo?: (dir?: 1 | -1) => unknown} | null)?.cycleAmmo?.(1);
+                    canvasRef.current?.focus({preventScroll:true});
+                  }}><span aria-hidden="true">⟳</span></button>;
+              })()}
               {gameState === "paused" && <div className="expansion-tabs" role="group" aria-label={xt.tabsLabel}>
                 {PAUSE_TABS.map(tab => (
                   <button key={tab} type="button" aria-pressed={pauseTab === tab} data-tab={tab}

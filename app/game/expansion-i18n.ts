@@ -32,6 +32,8 @@ export type ExpansionCopy = {
   themes: Record<ThemeId, string>;
   navHint: string;
   applied: string;
+  ammoNormal: string;
+  ammoButton: (name: string, charges: number) => string;
 };
 
 export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
@@ -55,6 +57,8 @@ export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
     themes: { default: "ORIGINAL SIGNAL", "old-vic": "OLD VIC STATE", "civilian-signal": "CIVILIAN SIGNAL", klein: "KLEIN EDITION", "widow-after-dark": "WIDOW AFTER DARK" },
     navHint: "← → CHOOSE · BUBBLE APPLY",
     applied: "APPLIED",
+    ammoNormal: "NORMAL",
+    ammoButton: (name: string, charges: number) => `Switch ammo. Now: ${name}${charges ? ` ×${charges}` : ""}. Key V`,
   },
   ja: {
     tabs: { settings: "設定", collection: "コレクション", jukebox: "ジュークボックス", theme: "テーマ" },
@@ -76,6 +80,8 @@ export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
     themes: { default: "オリジナル", "old-vic": "OLD VIC STATE", "civilian-signal": "CIVILIAN SIGNAL", klein: "KLEIN EDITION", "widow-after-dark": "WIDOW AFTER DARK" },
     navHint: "← → 選ぶ · バブルで決定",
     applied: "適用中",
+    ammoNormal: "ノーマル",
+    ammoButton: (name: string, charges: number) => `弾を切替。現在: ${name}${charges ? ` ×${charges}` : ""}。Vキー`,
   },
   hi: {
     tabs: { settings: "सेटिंग्स", collection: "संग्रह", jukebox: "ज्यूकबॉक्स", theme: "थीम" },
@@ -97,5 +103,7 @@ export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
     themes: { default: "मूल सिग्नल", "old-vic": "OLD VIC STATE", "civilian-signal": "CIVILIAN SIGNAL", klein: "KLEIN EDITION", "widow-after-dark": "WIDOW AFTER DARK" },
     navHint: "← → चुनें · बबल से लागू",
     applied: "लागू",
+    ammoNormal: "सामान्य",
+    ammoButton: (name: string, charges: number) => `गोला बदलें। अभी: ${name}${charges ? ` ×${charges}` : ""}। V कुंजी`,
   },
 };
