@@ -10,6 +10,8 @@ import { installForbiddenExpansion } from "./forbidden-expansion";
 import { installExpansionInterface } from "./expansion-ui";
 import { installLivingBubbles } from "./living-expansion";
 import { installFamiliars } from "./familiar-expansion";
+import { installLivingCabinet } from "./cabinet-expansion";
+import { cabinetCopy } from "./cabinet-i18n";
 import { ammoById } from "./living-bubbles";
 import { EXPANSION_COPY, PAUSE_TABS, type PauseTab } from "./expansion-i18n";
 import "./background-motion.css";
@@ -72,10 +74,13 @@ export default function BubbleHex() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const [pauseTab, setPauseTab] = useState<PauseTab>("settings");
   const [ammo, setAmmo] = useState("");
+  const [cabinetOpen, setCabinetOpen] = useState(false);
+  const [titleSecret, setTitleSecret] = useState(false);
   // English on the server render; the saved / browser language is applied after hydration.
   const lang = useSyncExternalStore(subscribeLang, clientLang, serverLang);
   const t = CABINET_COPY[lang];
   const xt = EXPANSION_COPY[lang];
+  const ct = cabinetCopy(lang);
   useEffect(() => {
     engineRef.current?.setLang(lang);
     document.documentElement.lang = lang;
@@ -102,6 +107,7 @@ export default function BubbleHex() {
     installExpansionInterface(BubbleHexEngine);
     installLivingBubbles(BubbleHexEngine);
     installFamiliars(BubbleHexEngine);
+    installLivingCabinet(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.setLang(detectLang());
@@ -131,6 +137,8 @@ export default function BubbleHex() {
       setPauseTab(current => current === nextTab ? current : nextTab);
       const nextAmmo = canvas.dataset.expansionAmmoOwned === "1" ? `${canvas.dataset.expansionAmmo ?? "normal"}|${canvas.dataset.expansionAmmoCharges ?? ""}` : "";
       setAmmo(current => current === nextAmmo ? current : nextAmmo);
+      setCabinetOpen(canvas.dataset.expansionCabinet === "1");
+      setTitleSecret(canvas.dataset.expansionTitleSecret === "1");
       if (nextState !== previousState && !["playing", "hurry", "attract"].includes(nextState)) clearPointers();
       previousState = nextState;
       setGameState((current) => (current === nextState ? current : nextState));
@@ -318,7 +326,22 @@ export default function BubbleHex() {
                     canvasRef.current?.focus({preventScroll:true});
                   }}><span aria-hidden="true">⟳</span></button>;
               })()}
-              {gameState === "paused" && <div className="expansion-tabs" role="group" aria-label={xt.tabsLabel}>
+              {cabinetOpen ? (
+                <button type="button" className="cabinet-close" aria-label={ct.close}
+                  onClick={() => { (engineRef.current as unknown as {closeCabinet?: () => void} | null)?.closeCabinet?.(); setCabinetOpen(false); canvasRef.current?.focus({preventScroll:true}); }}>
+                  <span aria-hidden="true">✕</span>
+                </button>
+              ) : (gameState === "title" || (gameState === "paused" && pauseTab === "collection")) && (
+                <button type="button" className={`cabinet-open ${gameState === "title" ? "on-title" : "on-pause"}`} aria-label={ct.open}
+                  onClick={() => { (engineRef.current as unknown as {openCabinet?: () => boolean} | null)?.openCabinet?.(); setCabinetOpen(true); canvasRef.current?.focus({preventScroll:true}); }}>
+                  <span className="cabinet-label" aria-hidden="true">{ct.openShort}</span><span className="cabinet-icon" aria-hidden="true">✦</span>{gameState === "paused" && <span className="cabinet-keys" aria-hidden="true">{"\u00a0· JUMP / V"}</span>}
+                </button>
+              )}
+              {gameState === "title" && !cabinetOpen && (
+                <button type="button" className={`title-secret${titleSecret ? " found" : ""}`} aria-label={ct.secretButton}
+                  onClick={() => { (engineRef.current as unknown as {revealTitleSecret?: () => boolean} | null)?.revealTitleSecret?.(); canvasRef.current?.focus({preventScroll:true}); }} />
+              )}
+              {gameState === "paused" && !cabinetOpen && <div className="expansion-tabs" role="group" aria-label={xt.tabsLabel}>
                 {PAUSE_TABS.map(tab => (
                   <button key={tab} type="button" aria-pressed={pauseTab === tab} data-tab={tab} aria-label={xt.tabs[tab]}
                     onClick={() => {
@@ -331,7 +354,7 @@ export default function BubbleHex() {
                   </button>
                 ))}
               </div>}
-              {gameState === "paused" && pauseTab === "settings" && <div className="pause-summary" role="note" aria-label="Pause controls">
+              {gameState === "paused" && !cabinetOpen && pauseTab === "settings" && <div className="pause-summary" role="note" aria-label="Pause controls">
                 <strong>{t.paused}</strong>
                 <span>{t.pauseResume}</span>
                 <span>← / → {t.music} {volumes.music}/10</span>

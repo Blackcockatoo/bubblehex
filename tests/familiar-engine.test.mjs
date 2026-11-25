@@ -54,11 +54,11 @@ test('no familiar until one is earned; clearing a chamber unlocks and auto-equip
   const e = make();
   tick(e, 5); e.syncAuditData();
   assert.equal(activeFamiliar(e), undefined); assert.equal(familiarRuntime(e).body, null); assert.equal(e.canvas.dataset.familiar, 'none');
-  e.settings.bestStageTimes = {blueprint: 30};
+  e.settings.cabinet.chambers = ['blueprint'];
   assert.deepEqual(checkUnlocks(e), ['hex_cat']);
   assert.equal(activeFamiliar(e).id, 'hex_cat'); assert.match(e.message, /HEX CAT/);
   const saved = JSON.parse(storage.get('bubble-hex-settings'));
-  assert.equal(saved.version, 7); assert.deepEqual(saved.familiars.unlocked, ['hex_cat']);
+  assert.equal(saved.version, 8); assert.deepEqual(saved.familiars.unlocked, ['hex_cat']);
   tick(e, 30); assert.ok(familiarRuntime(e).body);
   e.destroy();
 });

@@ -11,9 +11,9 @@ const V5_SAVE = {
 
 test("v5 save migrates to v7 losslessly with an empty collection and no familiars", () => {
   const migrated = migrateSettings(JSON.parse(JSON.stringify(V5_SAVE)));
-  assert.equal(migrated.version, 7);
-  assert.equal(SETTINGS_VERSION, 7);
-  const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.collection; delete rest.jukeboxTrack; delete rest.theme; delete rest.familiars;
+  assert.equal(migrated.version, 8);
+  assert.equal(SETTINGS_VERSION, 8);
+  const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.collection; delete rest.jukeboxTrack; delete rest.theme; delete rest.familiars; delete rest.cabinet;
   const expected:Record<string,unknown> = {...V5_SAVE}; delete expected.version;
   assert.deepEqual(rest, expected);
   assert.deepEqual(migrated.collection, {items:{}});
@@ -46,10 +46,10 @@ test("default settings never share the collection object", () => {
 test("v6 save (M2/M3 era) migrates to v7 losslessly", () => {
   const v6 = {...V5_SAVE, version:6, collection:{items:{black_pearl:2}}, jukeboxTrack:"boss", theme:"old-vic"};
   const migrated = migrateSettings(JSON.parse(JSON.stringify(v6)));
-  const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.familiars;
+  const rest:Record<string,unknown> = {...migrated}; delete rest.version; delete rest.familiars; delete rest.cabinet;
   const expected:Record<string,unknown> = {...v6}; delete expected.version;
   assert.deepEqual(rest, expected);
-  assert.equal(migrated.version, 7);
+  assert.equal(migrated.version, 8);
 });
 
 test("v7 familiars round-trip; selection persisted; corrupted values sanitised", () => {
