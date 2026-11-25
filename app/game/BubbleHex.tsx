@@ -9,6 +9,7 @@ import { installBubbleHexRuntimeUpgrades } from "./runtime-upgrades";
 import { installForbiddenExpansion } from "./forbidden-expansion";
 import { installExpansionInterface } from "./expansion-ui";
 import { installLivingBubbles } from "./living-expansion";
+import { installFamiliars } from "./familiar-expansion";
 import { ammoById } from "./living-bubbles";
 import { EXPANSION_COPY, PAUSE_TABS, type PauseTab } from "./expansion-i18n";
 import "./background-motion.css";
@@ -100,6 +101,7 @@ export default function BubbleHex() {
     installForbiddenExpansion(BubbleHexEngine);
     installExpansionInterface(BubbleHexEngine);
     installLivingBubbles(BubbleHexEngine);
+    installFamiliars(BubbleHexEngine);
     const engine = new BubbleHexEngine(canvasRef.current, () => setRunning(true));
     engineRef.current = engine;
     engine.setLang(detectLang());
@@ -318,13 +320,14 @@ export default function BubbleHex() {
               })()}
               {gameState === "paused" && <div className="expansion-tabs" role="group" aria-label={xt.tabsLabel}>
                 {PAUSE_TABS.map(tab => (
-                  <button key={tab} type="button" aria-pressed={pauseTab === tab} data-tab={tab}
+                  <button key={tab} type="button" aria-pressed={pauseTab === tab} data-tab={tab} aria-label={xt.tabs[tab]}
                     onClick={() => {
                       (engineRef.current as unknown as {setExpansionTab?: (next: PauseTab) => void} | null)?.setExpansionTab?.(tab);
                       setPauseTab(tab);
                       canvasRef.current?.focus({preventScroll:true});
                     }}>
-                    {xt.tabs[tab]}
+                    <span className="tab-long" aria-hidden="true">{xt.tabs[tab]}</span>
+                    <span className="tab-short" aria-hidden="true">{xt.tabsShort[tab]}</span>
                   </button>
                 ))}
               </div>}

@@ -9,10 +9,20 @@ export type PersistedCollection = {
   items:Record<string,number>;
 };
 
-export const SETTINGS_VERSION = 6;
+/** Forbidden Expansion familiars (v7). Ids are kept as strings so newer builds' ids survive. */
+export type PersistedFamiliars = {
+  unlocked:string[];
+  /** null = never chosen (auto-equip the first unlock); "none" = explicitly no familiar. */
+  selected:string|null;
+  /** false = cosmetic mode: familiars animate but never assist. */
+  assists:boolean;
+  bestChain:number;
+};
+
+export const SETTINGS_VERSION = 7;
 
 export type PersistedSettings = {
-  version:6;
+  version:7;
   muted:boolean;
   musicVolume:number;
   sfxVolume:number;
@@ -32,16 +42,18 @@ export type PersistedSettings = {
   jukeboxTrack:JukeboxChoice;
   /** Forbidden Expansion visual theme (B$S Special Editions). */
   theme:ThemeId;
+  familiars:PersistedFamiliars;
 };
 
 export const DEFAULT_SETTINGS:PersistedSettings = {
-  version:6,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
+  version:7,muted:false,musicVolume:.5,sfxVolume:.6,reducedMotion:false,enemyConsciousness:0,highScore:0,secrets:0,
   selectedSkins:{...DEFAULT_SKIN},unlockedSkins:Object.values(DEFAULT_SKIN),
   unlockedCodex:["vesper","jade","velvet-drain",...Object.values(DEFAULT_SKIN)],fragments:[],
   bestStageTimes:{},perfectClears:0,heroProgress:{vesper:{level:1,xp:0},jade:{level:1,xp:0}},
   collection:{items:{}},
   jukeboxTrack:"auto",
   theme:"default",
+  familiars:{unlocked:[],selected:null,assists:true,bestChain:0},
 };
 
 /** Keep every well-formed count (including ids from newer builds) so v5→v6 and v6→v6 are lossless. */
@@ -54,6 +66,14 @@ export function normalizeCollection(value:unknown):PersistedCollection {
     }
   }
   return {items};
+}
+
+export function normalizeFamiliars(value:unknown):PersistedFamiliars {
+  const raw=value&&typeof value==="object"?value as Partial<PersistedFamiliars>:{};
+  const unlocked=Array.isArray(raw.unlocked)?[...new Set(raw.unlocked.filter((id):id is string=>typeof id==="string"&&id.length>0&&id.length<40))]:[];
+  const selected=typeof raw.selected==="string"&&(raw.selected==="none"||unlocked.includes(raw.selected))?raw.selected:null;
+  const bestChain=typeof raw.bestChain==="number"&&Number.isFinite(raw.bestChain)?Math.max(0,Math.min(999,Math.floor(raw.bestChain))):0;
+  return {unlocked,selected,assists:typeof raw.assists==="boolean"?raw.assists:true,bestChain};
 }
 
 const unique=(values:unknown,fallback:string[])=>Array.isArray(values)?[...new Set(values.filter((item):item is string=>typeof item==="string"))]:[...fallback];
@@ -81,7 +101,7 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
   // v2 stored a single `volume`; split it evenly across the new music/sfx buses.
   const legacyVolume=typeof raw.volume==="number"?raw.volume:undefined;
   return {
-    ...DEFAULT_SETTINGS,...raw,version:6,
+    ...DEFAULT_SETTINGS,...raw,version:7,
     muted:typeof raw.muted==="boolean"?raw.muted:DEFAULT_SETTINGS.muted,
     musicVolume:clampVolume(raw.musicVolume,legacyVolume??DEFAULT_SETTINGS.musicVolume),
     sfxVolume:clampVolume(raw.sfxVolume,legacyVolume??DEFAULT_SETTINGS.sfxVolume),
@@ -98,5 +118,6 @@ export function migrateSettings(input:unknown,prefersReducedMotion=false):Persis
     collection:normalizeCollection(raw.collection),
     jukeboxTrack:isJukeboxChoice(raw.jukeboxTrack)?raw.jukeboxTrack:"auto",
     theme:isThemeId(raw.theme)?raw.theme:"default",
+    familiars:normalizeFamiliars(raw.familiars),
   };
 }

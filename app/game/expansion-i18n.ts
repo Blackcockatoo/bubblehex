@@ -6,11 +6,13 @@
 import type { Lang } from "./i18n";
 import type { JukeboxChoice, ThemeId } from "./jukebox";
 
-export type PauseTab = "settings" | "collection" | "jukebox" | "theme";
-export const PAUSE_TABS: readonly PauseTab[] = ["settings", "collection", "jukebox", "theme"];
+export type PauseTab = "settings" | "collection" | "familiars" | "jukebox" | "theme";
+export const PAUSE_TABS: readonly PauseTab[] = ["settings", "collection", "familiars", "jukebox", "theme"];
 
 export type ExpansionCopy = {
   tabs: Record<PauseTab, string>;
+  /** Compact tab labels for phone-sized pause bars (accessible name stays the full label). */
+  tabsShort: Record<PauseTab, string>;
   tabsLabel: string;
   tabHint: string;
   combo: string;
@@ -34,11 +36,20 @@ export type ExpansionCopy = {
   applied: string;
   ammoNormal: string;
   ammoButton: (name: string, charges: number) => string;
+  familiarsTitle: string;
+  familiarsCount: (have: number, total: number) => string;
+  familiarLocked: string;
+  equipped: string;
+  assistsOn: string;
+  assistsOff: string;
+  familiarNav: string;
+  unlockedToast: string;
 };
 
 export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
   en: {
-    tabs: { settings: "SETTINGS", collection: "COLLECTION", jukebox: "JUKEBOX", theme: "THEME" },
+    tabs: { settings: "SETTINGS", collection: "COLLECTION", familiars: "FAMILIARS", jukebox: "JUKEBOX", theme: "THEME" },
+    tabsShort: { settings: "SET", collection: "ITEMS", familiars: "PETS", jukebox: "JUKE", theme: "THEME" },
     tabsLabel: "Pause menu sections",
     tabHint: "Q / E · SWITCH TAB",
     combo: "COMBO", time: "TIME", boss: "WIDOW", best: "BEST",
@@ -59,9 +70,18 @@ export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
     applied: "APPLIED",
     ammoNormal: "NORMAL",
     ammoButton: (name: string, charges: number) => `Switch ammo. Now: ${name}${charges ? ` ×${charges}` : ""}. Key V`,
+    familiarsTitle: "WIDOW'S COLLECTION · FAMILIARS",
+    familiarsCount: (h: number, t: number) => `FAMILIARS ${h}/${t}`,
+    familiarLocked: "LOCKED",
+    equipped: "EQUIPPED",
+    assistsOn: "ASSIST ON",
+    assistsOff: "COSMETIC MODE · NO ASSIST",
+    familiarNav: "← → CHOOSE · BUBBLE EQUIP · JUMP ASSIST ON/OFF",
+    unlockedToast: "FAMILIAR UNLOCKED",
   },
   ja: {
-    tabs: { settings: "設定", collection: "コレクション", jukebox: "ジュークボックス", theme: "テーマ" },
+    tabs: { settings: "設定", collection: "コレクション", familiars: "使い魔", jukebox: "ジュークボックス", theme: "テーマ" },
+    tabsShort: { settings: "設定", collection: "収集", familiars: "使い魔", jukebox: "曲", theme: "テーマ" },
     tabsLabel: "ポーズメニュー",
     tabHint: "Q / E · タブ切替",
     combo: "コンボ", time: "タイム", boss: "ウィドウ", best: "ベスト",
@@ -82,9 +102,18 @@ export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
     applied: "適用中",
     ammoNormal: "ノーマル",
     ammoButton: (name: string, charges: number) => `弾を切替。現在: ${name}${charges ? ` ×${charges}` : ""}。Vキー`,
+    familiarsTitle: "ウィドウのコレクション · 使い魔",
+    familiarsCount: (h: number, t: number) => `使い魔 ${h}/${t}`,
+    familiarLocked: "ロック",
+    equipped: "同行中",
+    assistsOn: "アシスト オン",
+    assistsOff: "見た目のみ · アシストなし",
+    familiarNav: "← → 選ぶ · バブルで同行/解除 · ジャンプでアシスト切替",
+    unlockedToast: "使い魔が仲間に",
   },
   hi: {
-    tabs: { settings: "सेटिंग्स", collection: "संग्रह", jukebox: "ज्यूकबॉक्स", theme: "थीम" },
+    tabs: { settings: "सेटिंग्स", collection: "संग्रह", familiars: "साथी", jukebox: "ज्यूकबॉक्स", theme: "थीम" },
+    tabsShort: { settings: "सेट", collection: "संग्रह", familiars: "साथी", jukebox: "संगीत", theme: "थीम" },
     tabsLabel: "पॉज़ मेनू खंड",
     tabHint: "Q / E · टैब बदलें",
     combo: "कॉम्बो", time: "समय", boss: "विडो", best: "सर्वश्रेष्ठ",
@@ -105,5 +134,13 @@ export const EXPANSION_COPY: Record<Lang, ExpansionCopy> = {
     applied: "लागू",
     ammoNormal: "सामान्य",
     ammoButton: (name: string, charges: number) => `गोला बदलें। अभी: ${name}${charges ? ` ×${charges}` : ""}। V कुंजी`,
+    familiarsTitle: "विडो का संग्रह · साथी",
+    familiarsCount: (h: number, t: number) => `साथी ${h}/${t}`,
+    familiarLocked: "बंद",
+    equipped: "साथ में",
+    assistsOn: "सहायता चालू",
+    assistsOff: "सिर्फ़ दिखावट · सहायता बंद",
+    familiarNav: "← → चुनें · बबल साथ लें/हटाएँ · जंप सहायता चालू/बंद",
+    unlockedToast: "साथी मिला",
   },
 };

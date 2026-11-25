@@ -55,7 +55,7 @@ test("art manifest points at real PNGs with declared dimensions",()=>{
 
 test("legacy settings migrate to v5 without losing preferences, records, mastery, or adaptive enemy consciousness",()=>{
   const settings=migrateSettings({muted:true,volume:.7,reducedMotion:true,highScore:108000,secrets:3});
-  assert.equal(settings.version,6);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);assert.equal(settings.enemyConsciousness,0);
+  assert.equal(settings.version,7);assert.equal(settings.muted,true);assert.equal(settings.reducedMotion,true);assert.equal(settings.enemyConsciousness,0);
   assert.equal(settings.musicVolume,.7);assert.equal(settings.sfxVolume,.7);
   assert.equal(settings.highScore,108000);assert.equal(settings.secrets,3);assert.deepEqual(settings.selectedSkins,DEFAULT_SKIN);
   assert.ok(Object.values(DEFAULT_SKIN).every(id=>settings.unlockedSkins.includes(id)));
