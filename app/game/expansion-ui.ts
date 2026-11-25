@@ -35,10 +35,25 @@ export type InterfaceRuntime = {
 
 const runtimes = new WeakMap<object, InterfaceRuntime>();
 
+/** Extra pause tabs contributed by later milestones (M4 familiars). */
+export type PauseTabHandler = {
+  size: (engine: AnyEngine) => number;
+  select: (engine: AnyEngine, ui: InterfaceRuntime) => void;
+  jump?: (engine: AnyEngine, ui: InterfaceRuntime) => void;
+  draw: (engine: AnyEngine, ui: InterfaceRuntime, copy: ExpansionCopy) => void;
+};
+const EXTRA_TABS = new Map<PauseTab, PauseTabHandler>();
+export function registerPauseTab(tab: PauseTab, handler: PauseTabHandler) { EXTRA_TABS.set(tab, handler); }
+/** Extra "· X n/m" fragments for the collection header (familiars, etc.). */
+const COLLECTION_SUFFIXES: ((engine: AnyEngine, copy: ExpansionCopy) => string)[] = [];
+export function registerCollectionSuffix(fn: (engine: AnyEngine, copy: ExpansionCopy) => string) { if (!COLLECTION_SUFFIXES.includes(fn)) COLLECTION_SUFFIXES.push(fn); }
+export const copyForEngine = (engine: AnyEngine): ExpansionCopy => copyFor(interfaceRuntime(engine));
+
+
 export function interfaceRuntime(engine: AnyEngine): InterfaceRuntime {
   let ui = runtimes.get(engine);
   if (!ui) {
-    ui = { announcer: new Announcer(), shownScore: engine.score ?? 0, tab: "settings", pick: { collection: 0, jukebox: 0, theme: 0 }, lang: "en", lastChain: 0, keyHandler: null };
+    ui = { announcer: new Announcer(), shownScore: engine.score ?? 0, tab: "settings", pick: { collection: 0, familiars: 0, jukebox: 0, theme: 0 }, lang: "en", lastChain: 0, keyHandler: null };
     runtimes.set(engine, ui);
   }
   return ui;
@@ -90,11 +105,14 @@ function chamberDefault(engine: AnyEngine): MusicTrackId {
 function updateTab(engine: AnyEngine, ui: InterfaceRuntime) {
   const just: Set<string> = engine.just;
   const tab = ui.tab as Exclude<PauseTab, "settings">;
-  const size = tab === "collection" ? ITEM_DEFINITIONS.length : tab === "jukebox" ? JUKEBOX_RECORDS.length : THEMES.length;
+  const extra = EXTRA_TABS.get(tab);
+  const size = extra ? extra.size(engine) : tab === "collection" ? ITEM_DEFINITIONS.length : tab === "jukebox" ? JUKEBOX_RECORDS.length : THEMES.length;
   if (just.has("left")) { ui.pick[tab] = (ui.pick[tab] - 1 + size) % size; engine.audio?.tone?.(520, 0.04, "triangle", 0, 0.05); }
   if (just.has("right")) { ui.pick[tab] = (ui.pick[tab] + 1) % size; engine.audio?.tone?.(620, 0.04, "triangle", 0, 0.05); }
+  if (extra && just.has("jump")) extra.jump?.(engine, ui);
   if (just.has("bubble")) {
-    if (tab === "jukebox") {
+    if (extra) extra.select(engine, ui);
+    else if (tab === "jukebox") {
       const record = JUKEBOX_RECORDS[ui.pick.jukebox];
       if (isRecordUnlocked(record.id, vinyls(engine))) { engine.settings.jukeboxTrack = record.id; engine.save?.(); engine.syncMusic?.(); engine.audio?.reward?.(); }
       else engine.audio?.tone?.(140, 0.18, "sawtooth", -40, 0.08);
@@ -146,7 +164,8 @@ function drawCollection(engine: AnyEngine, ui: InterfaceRuntime) {
   const c = engine.ctx as CanvasRenderingContext2D;
   const copy = copyFor(ui), t = theme(engine), items = engine.settings?.collection?.items ?? {};
   const reduced = !!engine.settings?.reducedMotion;
-  engine.label(fitText(engine, `${copy.collectionTitle} · ${discoveredCount(items)}/${ITEM_DEFINITIONS.length}`, 13, 640, "Georgia"), W / 2, 188, 13, t.accent, "center", "Georgia");
+  const suffix = COLLECTION_SUFFIXES.map(fn => fn(engine, copy)).filter(Boolean).map(text => ` · ${text}`).join("");
+  engine.label(fitText(engine, `${copy.collectionTitle} · ${discoveredCount(items)}/${ITEM_DEFINITIONS.length}${suffix}`, 13, 640, "Georgia"), W / 2, 188, 13, t.accent, "center", "Georgia");
   const size = 64, gap = 14, startX = (W - (8 * size + 7 * gap)) / 2;
   ITEM_DEFINITIONS.forEach((item, i) => {
     const x = startX + (i % 8) * (size + gap), y = 212 + Math.floor(i / 8) * (size + gap);
@@ -218,11 +237,13 @@ function drawThemes(engine: AnyEngine, ui: InterfaceRuntime) {
 
 function drawTabPanel(engine: AnyEngine, ui: InterfaceRuntime) {
   drawThemedPanel(engine, PANEL.x, PANEL.y, PANEL.w, PANEL.h);
-  if (ui.tab === "collection") drawCollection(engine, ui);
+  const extra = EXTRA_TABS.get(ui.tab);
+  if (extra) extra.draw(engine, ui, copyFor(ui));
+  else if (ui.tab === "collection") drawCollection(engine, ui);
   else if (ui.tab === "jukebox") drawJukebox(engine, ui);
   else drawThemes(engine, ui);
   const copy = copyFor(ui);
-  engine.label(fitText(engine, `${copy.navHint} · ${copy.tabHint}`, 9, 640), W / 2, 598, 9, "#9fb3d1", "center");
+  engine.label(fitText(engine, `${ui.tab === "familiars" ? copy.familiarNav : copy.navHint} · ${copy.tabHint}`, 9, 640), W / 2, 598, 9, "#9fb3d1", "center");
 }
 
 function drawMeters(engine: AnyEngine, ui: InterfaceRuntime) {

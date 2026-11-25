@@ -45,6 +45,13 @@
 .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary strong { font-size: clamp(14px, 3.8vw, 28px); line-height: 1; }
 .expansion-tabs button { white-space: nowrap; overflow-wrap: normal; font-size: clamp(8px, 1.9vw, 14px); padding: 4px 4px; }
 .arcade-page[data-reduced-motion="true"] .expansion-tabs button { transition: none; }
+.expansion-tabs .tab-short { display: none; }
+/* Phones (portrait cabinet is rotated; landscape is short): compact labels, never clipped. */
+@media (max-width: 520px), (max-height: 500px) {
+  .expansion-tabs .tab-long { display: none; }
+  .expansion-tabs .tab-short { display: inline; }
+  .expansion-tabs button { letter-spacing: 0; padding: 2px; font-size: 9px; }
+}
 @media (max-height: 500px) {
   .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary { font-size: 10px; gap: 1px; line-height: 1.1; }
   .arcade-page .screen-wrap .expansion-tabs ~ .pause-summary strong { font-size: 14px; }

@@ -264,6 +264,16 @@ export function installLivingBubbles(EngineClass: EngineConstructor) {
     popChain: proto.popChain, resolveBubble: proto.resolveBubble, updateEnemies: proto.updateEnemies, spawnReward: proto.spawnReward,
     collectReward: proto.collectReward, drawReward: proto.drawReward, drawBubble: proto.drawBubble, drawProgressionHud: proto.drawProgressionHud,
     loadLevelData: proto.loadLevelData, toTitle: proto.toTitle, beginRun: proto.beginRun, update: proto.update, syncAuditData: proto.syncAuditData,
+    pollGamepad: proto.pollGamepad,
+  };
+
+  // Gamepad: Y / triangle (button 3) cycles ammo on the press edge, during play only.
+  const padHeld = new WeakMap<object, boolean>();
+  proto.pollGamepad = function (this: AnyEngine) {
+    o.pollGamepad.call(this);
+    const pressed = !!(typeof navigator !== "undefined" && navigator.getGamepads?.()[0]?.buttons[3]?.pressed);
+    if (pressed && !padHeld.get(this) && (this.state === "playing" || this.state === "hurry")) this.cycleAmmo(1);
+    padHeld.set(this, pressed);
   };
 
   proto.cycleAmmo = function (this: AnyEngine, dir: 1 | -1 = 1) {
