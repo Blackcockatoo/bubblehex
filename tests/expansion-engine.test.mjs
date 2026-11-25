@@ -70,7 +70,7 @@ test('pickups record the collection and persist in save v7 (collection unchanged
   assert.equal(e.score, 500+500+5000);
   assert.deepEqual(e.settings.collection.items, {poison_apple:2,black_pearl:1});
   const saved = JSON.parse(storage.get('bubble-hex-settings'));
-  assert.equal(saved.version, 7); assert.deepEqual(saved.collection.items, {poison_apple:2,black_pearl:1});
+  assert.equal(saved.version, 8); assert.deepEqual(saved.collection.items, {poison_apple:2,black_pearl:1});
   assert.equal(e.canvas.dataset.expansionToast ?? '', ''); e.syncAuditData(); assert.equal(e.canvas.dataset.expansionToast, 'black_pearl');
   e.destroy();
 });

@@ -9,6 +9,7 @@
  * original pause controls are untouched on the SETTINGS tab.
  */
 import { Announcer, type AnnouncementEvent } from "./announcer";
+import { loreName } from "./cabinet-i18n";
 import type { MusicTrackId } from "./audio";
 import { EXPANSION_COPY, PAUSE_TABS, type ExpansionCopy, type PauseTab } from "./expansion-i18n";
 import { drawItemIcon, expansionRuntime, fitText } from "./forbidden-expansion";
@@ -187,7 +188,7 @@ function drawCollection(engine: AnyEngine, ui: InterfaceRuntime) {
   });
   const item = ITEM_DEFINITIONS[ui.pick.collection], count = items[item.id] ?? 0;
   const left = 175, maxW = 610;
-  engine.label(count ? item.name.toUpperCase() : copy.undiscovered, left, 402, 14, count ? "#FFD6F1" : "#8d7fa8", "left", "Georgia");
+  engine.label(count ? loreName(ui.lang, item.id, item.name).toUpperCase() : copy.undiscovered, left, 402, 14, count ? "#FFD6F1" : "#8d7fa8", "left", "Georgia");
   engine.label(`${item.rarity.toUpperCase()}${count ? ` · ${copy.owned(count)}` : ""}`, left + maxW, 402, 9, RARITY_COLOR[item.rarity], "right");
   if (count) engine.label(fitText(engine, item.description, 9, maxW), left, 436, 9, "#c9d6ec");
   engine.label(fitText(engine, `${copy.howToFind}: ${item.discovery}`, 9, maxW), left, 466, 9, "#9fb3d1");

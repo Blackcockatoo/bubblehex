@@ -9,7 +9,8 @@
  * adds the FAMILIARS pause tab and lets unlocked familiars wander the title.
  */
 import { expansionRuntime, fitText } from "./forbidden-expansion";
-import { copyForEngine, registerCollectionSuffix, registerPauseTab, type InterfaceRuntime } from "./expansion-ui";
+import { copyForEngine, registerCollectionSuffix, registerPauseTab, type InterfaceRuntime, interfaceRuntime } from "./expansion-ui";
+import { loreName } from "./cabinet-i18n";
 import type { ExpansionCopy } from "./expansion-i18n";
 import {
   FAMILIARS, FAMILIAR_LIMITS, assistReady, evaluateUnlocks, familiarById, frameIndex, isFamiliarId, newAssistClock, newBody,
@@ -51,8 +52,23 @@ function familiarsSave(engine: AnyEngine) {
   return s.familiars as { unlocked: string[]; selected: string | null; assists: boolean; bestChain: number };
 }
 
+/**
+ * Unlock milestones. From save v8 these come from the expansion's own cabinet
+ * counters (seeded from campaign records on migration) so a collection reset
+ * really resets familiars instead of re-unlocking them from campaign records.
+ */
 export function unlockStats(engine: AnyEngine): UnlockStats {
   const s = engine.settings ?? {};
+  const cab = s.cabinet;
+  if (cab && typeof cab === "object") {
+    return {
+      stagesCleared: cab.chambers?.length ?? 0,
+      itemsDiscovered: discoveredCount(s.collection?.items ?? {}),
+      secrets: cab.secretRooms?.length ?? 0,
+      bestChain: s.familiars?.bestChain ?? 0,
+      perfectClears: cab.counters?.perfects ?? 0,
+    };
+  }
   return {
     stagesCleared: Object.keys(s.bestStageTimes ?? {}).length,
     itemsDiscovered: discoveredCount(s.collection?.items ?? {}),
@@ -61,6 +77,15 @@ export function unlockStats(engine: AnyEngine): UnlockStats {
     perfectClears: s.perfectClears ?? 0,
   };
 }
+
+/** Hooks for later milestones (M5 living cabinet): title walker cap, title dance, assist counting. */
+export type FamiliarDecor = {
+  walkerCap: (engine: AnyEngine) => number;
+  dancing: (engine: AnyEngine) => boolean;
+  onAssist: (engine: AnyEngine, def: FamiliarDefinition) => void;
+};
+const DECOR: FamiliarDecor = { walkerCap: () => FAMILIAR_LIMITS.maxTitleWalkers, dancing: () => false, onAssist: () => {} };
+export function setFamiliarDecor(next: Partial<FamiliarDecor>) { Object.assign(DECOR, next); }
 
 /** Equipped familiar: explicit choice, else the first unlocked (auto), else none. */
 export function activeFamiliar(engine: AnyEngine): FamiliarDefinition | undefined {
@@ -101,7 +126,7 @@ export function checkUnlocks(engine: AnyEngine): FamiliarId[] {
   const rt = familiarRuntime(engine);
   rt.lastUnlock = fresh[fresh.length - 1];
   const copy = copyForEngine(engine);
-  engine.message = `${copy.unlockedToast}: ${familiarById(rt.lastUnlock)!.name.toUpperCase()}`;
+  engine.message = `${copy.unlockedToast}: ${loreName(interfaceRuntime(engine).lang, rt.lastUnlock, familiarById(rt.lastUnlock)!.name).toUpperCase()}`;
   engine.messageLife = 2.6;
   ensureBody(engine, rt);
   event(engine, "unlock");
@@ -114,6 +139,7 @@ export function checkUnlocks(engine: AnyEngine): FamiliarId[] {
 
 function trySpend(engine: AnyEngine, rt: FamiliarRuntime, def: FamiliarDefinition, say: string) {
   spendAssist(rt.clock, def);
+  DECOR.onAssist(engine, def);
   if (rt.body) notify(rt.body, "assist", say);
   engine.audio?.tone?.(988, 0.07, "triangle", 120, 0.06);
 }
@@ -256,7 +282,7 @@ function drawFamiliarsTab(engine: AnyEngine, ui: InterfaceRuntime, copy: Expansi
     drawSprite(engine, def, unlocked ? Math.floor(((engine.animTime ?? 0) / FAMILIAR_LIMITS.frameTime)) % 4 * (rm ? 0 : 1) : 0, 70);
     c.restore();
     if (!unlocked) engine.label("?", x + 48, y + 60, 16, "#8d7fa8", "center");
-    engine.label(fitText(engine, unlocked ? def.name.toUpperCase() : copy.familiarLocked, 10, 110), x + 92, y + 40, 10, unlocked ? def.tint : "#8d7fa8");
+    engine.label(fitText(engine, unlocked ? loreName(interfaceRuntime(engine).lang, def.id, def.name).toUpperCase() : copy.familiarLocked, 10, 110), x + 92, y + 40, 10, unlocked ? def.tint : "#8d7fa8");
     const p = unlockProgress(def, stats);
     const status = equipped ? `${copy.equipped} ✓` : unlocked ? "" : `${p.have}/${p.need}`;
     if (status) engine.label(fitText(engine, status, 8, 110), x + 92, y + 72, 8, equipped ? "#20C98B" : "#9fb3d1");
@@ -327,9 +353,9 @@ export function installFamiliars(EngineClass: EngineConstructor) {
       tickAssist(rt.clock, dt);
       runPassiveAssist(this, rt);
     } else if (this.state === "title") {
-      const unlocked = FAMILIARS.filter(f => familiarsSave(this).unlocked.includes(f.id)).slice(0, FAMILIAR_LIMITS.maxTitleWalkers);
+      const unlocked = FAMILIARS.filter(f => familiarsSave(this).unlocked.includes(f.id)).slice(0, Math.max(1, Math.min(FAMILIARS.length, DECOR.walkerCap(this))));
       const ids = unlocked.length ? unlocked.map(f => f.id) : ["hex_cat" as FamiliarId];
-      if (rt.walkers.map(w => w.id).join() !== ids.join()) rt.walkers = ids.map((id, i) => ({ id, x: 260 + i * 150, dir: i % 2 ? -1 : 1, pause: 0, clock: i * 0.37 }));
+      if (rt.walkers.map(w => w.id).join() !== ids.join()) rt.walkers = ids.map((id, i) => ({ id, x: 230 + i * (ids.length > 3 ? 90 : 150), dir: i % 2 ? -1 : 1, pause: 0, clock: i * 0.37 }));
       for (const w of rt.walkers) stepWalker(w, dt, 210, 690, rt.rng, !!this.settings?.reducedMotion);
     }
     return result;
@@ -347,12 +373,19 @@ export function installFamiliars(EngineClass: EngineConstructor) {
     o.drawTitle.call(this);
     const rt = familiarRuntime(this);
     const teaser = !FAMILIARS.some(f => familiarsSave(this).unlocked.includes(f.id));
-    for (const w of rt.walkers) {
+    const dance = !teaser && DECOR.dancing(this) && !this.settings?.reducedMotion;
+    rt.walkers.forEach((w, i) => {
       const body = newBody(w.id, w.x, 690);
       body.facing = w.dir; body.vx = w.pause > 0 ? 0 : w.dir * 46; body.motionClock = w.clock; body.frameClock = w.clock;
       if (w.pause > 0) body.expression = "happy";
+      if (dance) {
+        // Title idle dance: hop on the beat, sway, face the crowd.
+        const t = (this.animTime ?? 0) * 5 + i * 0.9;
+        body.y = 690 - Math.abs(Math.sin(t)) * 12; body.vx = 0; body.tilt = Math.sin(t * 0.5) * 0.18; body.expression = "happy";
+        body.facing = Math.sin(t * 0.25) > 0 ? 1 : -1;
+      }
       drawFamiliar(this, body, { alpha: teaser ? 0.3 : 0.95, size: 46 });
-    }
+    });
   };
 
   proto.popChain = function (this: AnyEngine, root: AnyEngine) {

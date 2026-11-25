@@ -72,3 +72,35 @@
 .arcade-page .screen-wrap .ammo-switch:hover,
 .arcade-page .screen-wrap .ammo-switch:focus-visible { border-color: #FFD36A; outline: 2px solid #FFD36A; outline-offset: 2px; }
 .arcade-page .screen-wrap .ammo-switch:active { background: rgba(255, 211, 106, .14); }
+
+/* ---- M5: Widow's Collection cabinet + title secret ---- */
+.arcade-page .screen-wrap .cabinet-open,
+.arcade-page .screen-wrap .cabinet-close {
+  position: absolute; z-index: 7;
+  min-width: 44px; min-height: 44px;
+  display: flex; align-items: center; justify-content: center; padding: 0 8px;
+  color: #FFD6F1; cursor: pointer; touch-action: manipulation;
+  font: 700 clamp(11px, 1.4vw, 15px)/1 monospace; letter-spacing: .04em;
+  background: rgba(10, 4, 18, .82);
+  border-style: solid; border-width: 2px; border-color: #FF2A9D; border-radius: 4px;
+}
+.arcade-page .screen-wrap .cabinet-open.on-title { right: 2.6%; top: 3.6%; width: 21%; height: 7%; }
+.arcade-page .screen-wrap .cabinet-open.on-pause { left: 30%; top: 70.6%; width: 40%; height: 6.4%; }
+.arcade-page .screen-wrap .cabinet-close { right: 2.6%; top: 3.2%; width: 6.4%; height: 7%; font-size: clamp(16px, 2vw, 22px); }
+.arcade-page .screen-wrap .title-secret {
+  position: absolute; z-index: 6;
+  left: calc(5.625% - 22px); top: calc(65.28% - 22px); width: 44px; height: 44px;
+  background: transparent; border: 2px solid transparent; border-radius: 50%; cursor: pointer; padding: 0;
+}
+.arcade-page .screen-wrap .cabinet-open:hover, .arcade-page .screen-wrap .cabinet-open:focus-visible,
+.arcade-page .screen-wrap .cabinet-close:hover, .arcade-page .screen-wrap .cabinet-close:focus-visible,
+.arcade-page .screen-wrap .title-secret:focus-visible { border-color: #FFD36A; outline: 2px solid #FFD36A; outline-offset: 2px; }
+.arcade-page .screen-wrap .cabinet-open:active, .arcade-page .screen-wrap .cabinet-close:active { background: rgba(255, 211, 106, .18); }
+.arcade-page .screen-wrap .cabinet-open .cabinet-icon { display: none; }
+@media (max-width: 480px) {
+  .arcade-page .screen-wrap .cabinet-open.on-title { width: 8%; font-size: 20px; }
+  .arcade-page .screen-wrap .cabinet-open.on-title .cabinet-label { display: none; }
+  .arcade-page .screen-wrap .cabinet-open.on-title .cabinet-icon { display: inline; }
+  .arcade-page .screen-wrap .cabinet-open.on-pause { left: 25%; width: 50%; }
+  .arcade-page .screen-wrap .cabinet-open .cabinet-keys { display: none; }
+}
