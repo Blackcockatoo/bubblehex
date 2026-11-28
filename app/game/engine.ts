@@ -43,6 +43,8 @@ import {
 } from "./progression";
 import { blockForPlatform, type PlatformBlockDefinition } from "./blocks";
 import { drawHeroArt, type HeroMotion, type HeroPose } from "./hero-art";
+import { AnimationFx, GHOST_LIFE } from "./animation-fx";
+import { drawDefeatBurst, drawEnemyArt, drawWidowArt } from "./enemy-art";
 
 export type Action = "left" | "right" | "jump" | "bubble" | "start" | "pause" | "consciousness";
 type GameState = "boot" | "title" | "attract" | "characterSelect" | "stageIntro" | "playing" | "hurry" | "dying" | "stageClear" | "paused" | "gameOver" | "victory" | "records/options";
@@ -97,7 +99,7 @@ export class BubbleHexEngine {
   private fireCooldown=0; private stageKills=0; private trappedBeforeFirstPop=0; private firstPop=false; private touchedFloor=false; private bestChain=0;
   private coyote=0; private jumpBuffer=0;
   private settings:Settings={...DEFAULT_SETTINGS,selectedSkins:{...DEFAULT_SETTINGS.selectedSkins},unlockedSkins:[...DEFAULT_SETTINGS.unlockedSkins],unlockedCodex:[...DEFAULT_SETTINGS.unlockedCodex],fragments:[],collection:{items:{}},jukeboxTrack:"auto",theme:"default",familiars:{unlocked:[],selected:null,assists:true,bestChain:0}}; private musicClock=0;
-  private shake=0; private hitStop=0; private attractTime=0; private secretFound=false; private endingText=""; private animTime=0;
+  private fx=new AnimationFx(); private shake=0; private hitStop=0; private attractTime=0; private secretFound=false; private endingText=""; private animTime=0;
   private debug=false; private platformAudit:PlatformAudit[]=[]; private landedThisFrame=false;
   private art=new GameArtAssets(); private archiveIndex=0; private audioReady=false;
   private readonly devTools:boolean=Boolean(import.meta.env?.DEV);
@@ -214,10 +216,18 @@ export class BubbleHexEngine {
     const track=this.level.bonus?"bonus":(this.level.boss||this.level.approach)?"boss":"stage";
     this.audio.playMusic(track);
   }
+  // Visual-only animation bookkeeping. Reads simulation state, never writes it.
+  private stepFx(dt:number){
+    const fx=this.fx,p=this.player,calm=this.settings.reducedMotion;
+    fx.updateHero(dt,{grounded:p.grounded,vy:p.vy,facing:p.facing,invuln:p.invuln,throwTimer:p.throwTimer,state:this.state,calm,hitStop:this.hitStop>0});
+    for(const e of this.enemies)fx.updateEnemy(dt,e,p.x+17,calm);
+    fx.endEnemyPass();fx.updateGhosts(dt);fx.updateWidow(dt,this.widow);
+  }
   private update(dt:number){
     this.pollGamepad();
     if(this.state!=="paused")this.updateFeedback(dt);
     this.stateTime+=dt;if(this.state!=="paused")this.animTime+=dt;this.titleIdle+=this.state==="title"?dt:0;this.messageLife=Math.max(0,this.messageLife-dt);this.comboLife=Math.max(0,this.comboLife-dt);this.shake=Math.max(0,this.shake-dt*18);
+    if(this.state!=="paused")this.stepFx(dt);
     if(this.hitStop>0){this.hitStop-=dt;return}
     // The renderer already has procedural fallbacks for every optional art asset.
     // A stalled image request must not lock Start on a slow mobile connection.
@@ -412,7 +422,7 @@ export class BubbleHexEngine {
     if(b.phase!=="popping")return;
     this.addRing(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,Math.min(3,chain));
     if(b.enemyId===WIDOW_ENEMY_ID){this.hitWidow();b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,COLORS.crimson,18);return}
-    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy&&enemy.state!=="dead"){enemy.state="dead";this.stageKills++;const points=100*mult*enemy.rank*(enemy.elite?2:1);this.score+=points;this.addScoreBurst(b.x,b.y,points);if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
+    const enemy=this.enemies.find(e=>e.id===b.enemyId);if(enemy&&enemy.state!=="dead"){enemy.state="dead";this.fx.enemyDefeated(enemy.id,b.x,b.y);this.stageKills++;const points=100*mult*enemy.rank*(enemy.elite?2:1);this.score+=points;this.addScoreBurst(b.x,b.y,points);if(this.state!=="attract")this.gainHeroXp(enemyXp(enemy.kind,enemy.rank,enemy.elite));this.spawnReward(b.x,b.y,chain)}b.phase="burst";b.life=-.1;this.audio.pop(chain);this.burstParticles(b.x,b.y,chain%2?COLORS.pink:COLORS.jade,14);
   }
   private hitWidow(){
     const w=this.widow;if(!w)return;
@@ -513,7 +523,7 @@ export class BubbleHexEngine {
     const hit=this.enemies.some(e=>(e.state==="normal"||e.state==="furious")&&overlaps(this.player,e))||this.projectiles.some(p=>p.x>this.player.x&&p.x<this.player.x+this.player.w&&p.y>this.player.y&&p.y<this.player.y+this.player.h)||(widowDangerous&&dist(this.player,this.widow!)<52);
     if(hit)this.damagePlayer();
   }
-  private damagePlayer(){if(this.player.invuln>0)return;this.stageDamaged=true;if(this.upgrades.shield){this.upgrades.shield=false;this.player.invuln=1.2;this.message="COMPACT SHATTERED";this.messageLife=1;this.audio.pop(2);return}this.audio.hurt();this.lives--;this.setState("dying");this.burstParticles(this.player.x+17,this.player.y+24,COLORS.crimson,22)}
+  private damagePlayer(){if(this.player.invuln>0)return;this.stageDamaged=true;if(this.upgrades.shield){this.upgrades.shield=false;this.player.invuln=1.2;this.fx.heroHurt();this.message="COMPACT SHATTERED";this.messageLife=1;this.audio.pop(2);return}this.audio.hurt();this.lives--;this.setState("dying");this.burstParticles(this.player.x+17,this.player.y+24,COLORS.crimson,22)}
   private afterDeath(){if(this.lives<=0){this.newRecord=isNewCampaignRecord(this.settings.highScore,this.score);if(this.newRecord)this.audio.recordSting();this.settings.highScore=Math.max(this.settings.highScore,this.score);this.save();this.setState("gameOver")}else{this.resetPlayer(2.2);this.setState("playing")}}
   private spawnReward(x:number,y:number,chain:number){
     const kinds=["CHERRY","RING","PERFUME","DRAGON FRUIT","BLACKBERRY","CROWN"],values=[100,250,400,600,800,1300];const tier=Math.min(kinds.length-1,Math.floor((chain-1)/2)+(this.upgrades.crown?1:0));
@@ -581,7 +591,7 @@ export class BubbleHexEngine {
     this.level=level;this.levelTime=level.time;
     const rank=this.threatRank();
     this.enemies=level.enemies.map((s,index)=>({id:this.nextId++,x:s.x,y:s.y,prevX:s.x,prevY:s.y,vx:s.kind==="love"?70:0,vy:0,w:s.kind==="eye"?38:34,h:s.kind==="bat"?30:38,kind:s.kind,state:"normal",timer:0,cooldown:1+Math.random(),homeY:s.y,weakened:false,rank,elite:isEliteEnemy(this.levelIndex,index,rank)}));
-    this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];this.pendingPops=[];this.rings=[];this.scoreBursts=[];this.comboLife=0;this.scorePulse=0;this.boardEnergy=0;this.hitStop=0;this.shake=0;this.fireCooldown=0;this.releaseAll();
+    this.bubbles=[];this.rewards=[];this.projectiles=[];this.particles=[];this.pendingPops=[];this.fx.reset();this.rings=[];this.scoreBursts=[];this.comboLife=0;this.scorePulse=0;this.boardEnergy=0;this.hitStop=0;this.shake=0;this.fireCooldown=0;this.releaseAll();
     this.widow=level.boss?this.makeWidow(W/2,-60,true):null;this.widowTime=0;
     this.platformAudit=auditLevelReachability(level);this.resetPlayer(1.2);
     this.stageKills=0;this.trappedBeforeFirstPop=0;this.firstPop=false;this.touchedFloor=false;this.bestChain=0;this.secretFound=false;this.stageStartScore=this.score;this.stageDamaged=false;this.stageXp=0;
@@ -667,16 +677,21 @@ export class BubbleHexEngine {
     for(const b of bubbles)this.drawBubble(b);
     for(const e of enemies)if(e.state!=="dead"&&e.state!=="trapped"&&e.kind!=="bat"&&e.kind!=="eye")this.drawShadowUnder(e.x+e.w/2,e.y+e.h,17);
     for(const e of enemies)if(e.state!=="dead"&&e.state!=="trapped")this.drawEnemy(e);
+    for(const g of this.fx.ghosts){const e=this.enemies.find(en=>en.id===g.id);if(!e)continue;drawDefeatBurst(this.ctx,g.x,g.y,g.age,this.settings.reducedMotion);this.drawEnemy({...e,x:g.x-e.w/2,y:g.y-e.h/2,vx:0,vy:0},false,0,g.age/GHOST_LIFE,g.spin)}
     for(const p of this.projectiles)this.drawProjectile(p);
     if(this.widow&&this.widow.phase!=="trapped")this.drawWidow({...this.widow,x:lerp(this.widow.prevX,this.widow.x,a),y:lerp(this.widow.prevY,this.widow.y,a)});
     const pl=this.player;
     const ix=lerp(pl.previousX,pl.x,a),iy=lerp(pl.previousY,pl.y,a);
     this.drawShadowUnder(ix+pl.w/2,iy+pl.h,21);
-    const pose:HeroPose=this.state==="dying"?"hurt":!pl.grounded?(pl.vy<0?"jump":"fall"):Math.abs(pl.vx)>30?"run":"idle";
+    const rmo=this.settings.reducedMotion,fh=this.fx.hero,dying=this.state==="dying",st=this.stateTime;
+    const pose:HeroPose=dying?"hurt":this.state==="stageClear"?"cheer":!pl.grounded?(pl.vy<0?"jump":"fall"):Math.abs(pl.vx)>30?"run":"idle";
     const maxSpeed=this.upgrades.speed?POWER_RUN_SPEED:MAX_RUN_SPEED;
-    const squash=this.settings.reducedMotion?0:pl.landTimer>0?(pl.landTimer/.18)*pl.landPower*.55:!pl.grounded?-clamp(Math.abs(pl.vy)/2600,0,.3):0;
+    const launch=rmo?0:Math.max(0,1-fh.takeoffAge/.16)*.12;
+    const squash=rmo?0:(pl.landTimer>0?(pl.landTimer/.18)*pl.landPower*.55:!pl.grounded?-clamp(Math.abs(pl.vy)/2600,0,.3)-launch:0);
+    // a dying hero hops up, then drops out of the stage spinning
+    const lift=dying&&!rmo?(st<.45?-Math.sin(st/.45*Math.PI)*30:(st-.45)*(st-.45)*900-0):0,rot=dying&&!rmo?-pl.facing*st*5:0;
     this.drawHero(ix+17,iy+24,this.hero,1,pl.invuln>0&&Math.floor(pl.invuln*10)%2===0,
-      {facing:pl.facing,pose,runPhase:pl.runPhase,throwT:clamp(pl.throwTimer/.3,0,1),squash,speed:clamp(Math.abs(pl.vx)/maxSpeed,0,1)});
+      {facing:rmo?pl.facing:fh.turn,pose,runPhase:pl.runPhase,throwT:clamp(pl.throwTimer/.3,0,1),squash,speed:clamp(Math.abs(pl.vx)/maxSpeed,0,1),calm:rmo,hit:fh.hitAge,celebrate:this.fx.hero.celebrate,lift,rot,takeoff:fh.takeoffAge});
     for(const p of this.settings.reducedMotion?[]:this.particles){this.ctx.globalAlpha=clamp(p.life*2,0,1);this.ctx.fillStyle=p.color;this.ctx.fillRect(p.x,p.y,p.size,p.size);this.ctx.globalAlpha=1}
     this.drawFeedback();this.drawHud();this.drawProgressionHud();
     if(this.level.boss&&this.widow&&this.widow.phase==="entrance")this.drawBossNameplate();
@@ -777,116 +792,15 @@ export class BubbleHexEngine {
     c.strokeStyle=COLORS.shine;c.lineWidth=2;const sh=rm?0:b.age*.8;c.beginPath();c.arc(b.x-r*.28,b.y-r*.28,r*.3,Math.PI+sh*.3,Math.PI*1.55+sh*.3);c.stroke();
     c.fillStyle=COLORS.shine;c.globalAlpha=alpha*.8;c.beginPath();c.arc(b.x+r*.34,b.y+r*.22,r*.09,0,Math.PI*2);c.fill();c.globalAlpha=alpha;
     if(b.enemyId===WIDOW_ENEMY_ID&&this.widow){this.drawWidow({...this.widow,x:b.x,y:b.y})}
-    else if(b.enemyId){const e=this.enemies.find(e=>e.id===b.enemyId);if(e)this.drawEnemy({...e,x:b.x-e.w/2,y:b.y-e.h/2},true)}
+    else if(b.enemyId){const e=this.enemies.find(e=>e.id===b.enemyId);if(e)this.drawEnemy({...e,x:b.x-e.w/2,y:b.y-e.h/2},true,b.phase==="warning"?1:0)}
     c.restore()}
-  private drawEnemy(e:Enemy,trapped=false){
-    const c=this.ctx,x=e.x+e.w/2,y=e.y+e.h/2,fur=e.state==="furious";
-    const t=this.settings.reducedMotion?0:trapped?this.animTime:e.timer;
-    const face:1|-1=Math.abs(e.vx)>4?(e.vx>0?1:-1):(this.player.x+17>x?1:-1);
-    c.save();c.translate(x,y);c.scale(BubbleHexEngine.ENEMY_SCALE,BubbleHexEngine.ENEMY_SCALE);
-    if(trapped){c.globalAlpha=.85;c.rotate(this.settings.reducedMotion?0:Math.sin(this.animTime*2.2)*.16)}
-    if(fur)c.rotate(Math.sin(t*18)*.12);
-    const col=fur?COLORS.crimson:COLORS.pink;
-    if(fur&&!trapped){c.save();c.strokeStyle=COLORS.crimson;c.globalAlpha=.25+Math.sin(t*12)*.12;c.lineWidth=3;c.beginPath();c.arc(0,0,25+Math.sin(t*9)*2,0,Math.PI*2);c.stroke();c.restore()}
-    if(e.elite){c.strokeStyle="#FFD36A";c.lineWidth=2;c.shadowBlur=12;c.shadowColor="#FFD36A";c.beginPath();c.arc(0,0,27+Math.sin(t*5)*2,0,Math.PI*2);c.stroke();c.shadowBlur=0}
-    c.fillStyle=e.elite?"#FFD36A":COLORS.blue;for(let i=0;i<e.rank;i++)c.fillRect(-e.rank*3+i*7,-32,5,3);
-    if(e.kind==="love"){
-      const beat=1+Math.pow(Math.max(0,Math.sin(t*6)),3)*.12,chomp=(Math.sin(t*7)+1)*1.6;
-      c.save();c.rotate(Math.sin(t*11)*.07*Math.min(1,Math.abs(e.vx)/70));c.scale(beat,beat);
-      this.drawHeart(0,0,18,col);
-      c.fillStyle=COLORS.shine;for(let i=-9;i<=9;i+=6){c.beginPath();c.moveTo(i,3);c.lineTo(i+3,9+chomp);c.lineTo(i+6,3);c.fill()}
-      c.fillStyle=COLORS.void;c.fillRect(-9+face*2,-6,4,4);c.fillRect(5+face*2,-6,4,4);
-      c.fillStyle=COLORS.shine;c.fillRect(-8+face*2,-5,1.5,1.5);c.fillRect(6+face*2,-5,1.5,1.5);
-      c.restore();
-    }else if(e.kind==="bat"){
-      const flap=Math.sin(t*15);
-      c.rotate(clamp(e.vx/420,-.3,.3));
-      c.fillStyle="#171028";
-      for(const s of [-1,1] as const){c.save();c.scale(s,1);c.translate(4,0);c.rotate(-flap*.55);c.beginPath();c.moveTo(0,0);c.quadraticCurveTo(12,-14,24,-9);c.quadraticCurveTo(17,-1,21,7);c.quadraticCurveTo(10,3,0,9);c.closePath();c.fill();c.restore()}
-      c.fillStyle=col;c.beginPath();c.ellipse(0,2+flap*1.5,7,10,0,0,Math.PI*2);c.fill();
-      c.beginPath();c.moveTo(-6,-5+flap);c.lineTo(-9,-14+flap);c.lineTo(-1,-8+flap);c.closePath();c.fill();
-      c.beginPath();c.moveTo(6,-5+flap);c.lineTo(9,-14+flap);c.lineTo(1,-8+flap);c.closePath();c.fill();
-      c.fillStyle=COLORS.shine;c.fillRect(-4+face,-2+flap*1.5,2.5,2.5);c.fillRect(2+face,-2+flap*1.5,2.5,2.5);
-      c.beginPath();c.moveTo(-2,6+flap*1.5);c.lineTo(-1,9+flap*1.5);c.lineTo(0,6+flap*1.5);c.closePath();c.fill();
-    }else if(e.kind==="eye"){
-      const aim=Math.atan2(this.player.y+24-y,this.player.x+17-x);
-      const charge=!trapped&&e.state!=="trapped"&&e.cooldown<.5?1-Math.max(0,e.cooldown)/.5:0;
-      const cycle=t%4.2,lid=cycle<.22?Math.sin(cycle/.22*Math.PI):charge*.3;
-      c.rotate(Math.sin(t*2)*.06);c.scale(1,1-lid*.8);
-      if(charge){c.strokeStyle=COLORS.crimson;c.globalAlpha*=.6;c.lineWidth=2;c.beginPath();c.ellipse(0,0,22+charge*4,15+charge*3,0,0,Math.PI*2);c.stroke();c.globalAlpha=trapped?.85:1}
-      c.strokeStyle=col;c.lineWidth=5;c.beginPath();c.ellipse(0,0,19,12,0,0,Math.PI*2);c.stroke();
-      c.fillStyle="#0d0716";c.beginPath();c.ellipse(0,0,16,9.5,0,0,Math.PI*2);c.fill();
-      c.fillStyle=charge>.4?COLORS.crimson:COLORS.blue;c.beginPath();c.arc(Math.cos(aim)*5,Math.sin(aim)*3,7+charge*1.5,0,Math.PI*2);c.fill();
-      c.fillStyle=COLORS.shine;c.fillRect(Math.cos(aim)*5-2,Math.sin(aim)*3-3,3,4);
-      c.strokeStyle=col;c.lineWidth=2;for(let i=-1;i<=1;i++){c.beginPath();c.moveTo(i*8,-12);c.lineTo(i*10,-17);c.stroke()}
-    }else if(e.kind==="witch"){
-      const bobW=Math.sin(t*3)*3,charge=!trapped&&e.state!=="trapped"&&e.cooldown<.65?1-Math.max(0,e.cooldown)/.65:0;
-      c.translate(0,bobW);
-      c.fillStyle="#26102f";c.beginPath();c.moveTo(-20,2);c.lineTo(0,-22);c.lineTo(20,2);c.closePath();c.fill();
-      c.beginPath();c.moveTo(-2,-19);c.quadraticCurveTo(4+Math.sin(t*2.6)*4,-34,12,-30);c.quadraticCurveTo(6,-25,4,-20);c.closePath();c.fill();
-      c.fillStyle=col;c.beginPath();c.moveTo(-13,0);c.lineTo(13,0);c.lineTo(15,22);
-      for(let hx=13;hx>=-15;hx-=5)c.lineTo(hx,22+Math.sin(t*6+hx)*2);
-      c.closePath();c.fill();
-      c.fillStyle=COLORS.shine;c.fillRect(-7,-9,5,6);c.fillRect(2,-9,5,6);
-      c.fillStyle="#26102f";c.fillRect(-6+face,-8,2,3);c.fillRect(3+face,-8,2,3);
-      if(charge){c.save();c.translate(face*17,-2);c.rotate(t*9);c.fillStyle=COLORS.pink;c.globalAlpha*=.4+charge*.6;for(let i=0;i<4;i++){c.fillRect(-1.5,-(2+5*charge),3,4+10*charge);c.rotate(Math.PI/4)}c.restore()}
-    }else if(e.kind==="doll"){
-      const cyc=t%3.4,charging=cyc>2.55,windup=cyc>2.2&&!charging;
-      const shiver=windup?Math.sin(t*46)*2:charging?Math.sin(t*28):Math.sin(t*5)*.5;
-      c.translate(shiver,0);if(charging)c.rotate(face*.16);
-      if(charging&&!trapped){c.strokeStyle="rgba(255,214,241,.4)";c.lineWidth=2;for(let i=0;i<3;i++){const ly=-8+i*8;c.beginPath();c.moveTo(-face*14,ly);c.lineTo(-face*(24+i*4),ly);c.stroke()}}
-      c.save();c.translate(-face*13,4);c.rotate(charging?t*12:t*2);c.strokeStyle="#8f8f9f";c.lineWidth=2.5;c.beginPath();c.moveTo(0,-6);c.lineTo(0,6);c.moveTo(-4,-6);c.lineTo(4,-6);c.stroke();c.restore();
-      c.fillStyle="#2a1629";c.beginPath();c.arc(0,-8,12,0,Math.PI*2);c.fill();c.fillRect(-12,2,24,21);
-      c.strokeStyle=col;c.lineWidth=2;c.beginPath();c.moveTo(-7,-12);c.lineTo(-3,-7);c.moveTo(-3,-12);c.lineTo(-7,-7);c.moveTo(3,-12);c.lineTo(7,-7);c.moveTo(7,-12);c.lineTo(3,-7);c.stroke();
-      c.beginPath();c.moveTo(-5,-2);c.lineTo(5,-2);for(let mx=-4;mx<=4;mx+=3){c.moveTo(mx,-3.5);c.lineTo(mx,-.5)}c.stroke();
-      c.strokeStyle="rgba(255,214,241,.35)";c.beginPath();c.moveTo(-12,9);c.lineTo(12,13);c.stroke();
-    }else{
-      const jaw=e.vy<-40?6:2+Math.max(0,Math.sin(t*4))*2;
-      const springy=clamp(-e.vy/1400,-.15,.22);
-      c.rotate(clamp(e.vx/900,-.15,.15));c.scale(1-springy*.4,1+springy*.6);
-      c.fillStyle="#0a0510";c.fillRect(-8,3,16,4+jaw);
-      c.fillStyle="#ded8dc";c.beginPath();c.arc(0,-5,16,0,Math.PI*2);c.fill();c.fillRect(-9,5+jaw,18,6);
-      c.fillStyle=COLORS.void;c.fillRect(-10,-10,6,7);c.fillRect(4,-10,6,7);c.fillRect(-3,-1,6,4);
-      if(fur){c.fillStyle=COLORS.crimson;c.fillRect(-9,-9,4,5);c.fillRect(5,-9,4,5)}
-      c.fillStyle="#ded8dc";for(let tx=-8;tx<=5;tx+=4)c.fillRect(tx,3,2.5,3);
-      c.strokeStyle=col;c.lineWidth=2.5;c.beginPath();c.moveTo(-13,-14);c.lineTo(-19,-26+Math.sin(t*8)*1.5);c.moveTo(-16,-21);c.lineTo(-20,-19);c.moveTo(13,-14);c.lineTo(19,-26+Math.sin(t*8+1)*1.5);c.moveTo(16,-21);c.lineTo(20,-19);c.stroke();
-    }
-    c.restore()}
-  private drawHero(x:number,y:number,hero:HeroId,scale=1,ghost=false,motion:HeroMotion={}){drawHeroArt(this.ctx,{hero,skin:this.skinFor(hero),x,y,scale,time:this.animTime,...motion,ghost})}
-  private drawWidow(w:WidowState){
-    const c=this.ctx;
-    if(w.phase==="telegraph"){
-      c.save();c.strokeStyle=COLORS.crimson;c.lineWidth=3;c.setLineDash([10,10]);c.globalAlpha=.5+Math.sin(w.phaseTimer*30)*.3;
-      c.beginPath();c.moveTo(w.x,w.y);c.lineTo(w.x+Math.cos(w.lungeAngle)*900,w.y+Math.sin(w.lungeAngle)*900);c.stroke();c.setLineDash([]);c.restore();
-    }
-    const scale=w.phase==="entrance"?clamp(w.phaseTimer/1.2,.2,1):1;
-    const glow=w.phase==="telegraph"?(.6+Math.sin(w.phaseTimer*40)*.4):w.phase==="staggered"?(.5+Math.sin(w.phaseTimer*14)*.5):1;
-    const bodyColor=w.phase==="staggered"?COLORS.jade:w.phase==="defeated"?"#3a2230":COLORS.crimson;
-    c.save();c.translate(w.x,w.y);
-    if(w.phase==="telegraph")c.translate(Math.sin(w.phaseTimer*60)*2.5,0);
-    c.scale(scale,scale);c.globalAlpha=w.phase==="defeated"?clamp(1-w.phaseTimer/1.4,0,1):1;
-    if(w.phase==="lunge"){c.rotate(clamp(Math.atan2(w.vy,w.vx)*.12,-.3,.3));c.scale(1.14,.9)}
-    if(w.phase==="lunge"){c.save();c.globalAlpha*=.35;c.translate(-w.vx*.03,-w.vy*.03);this.drawHeart(0,0,34,"#09080d");c.restore()}
-    // skittering spider legs
-    const skit=w.phase==="chase"||w.phase==="lunge"?11:w.phase==="telegraph"?2:4;
-    c.strokeStyle="#b8a7a8";c.lineWidth=3;
-    for(const s of [-1,1] as const)for(let i=0;i<3;i++){
-      const step=Math.sin(w.age*skit+i*2.1+(s>0?0:1.2))*(w.phase==="telegraph"?.08:.3);
-      const by=-6+i*11;
-      c.beginPath();c.moveTo(s*26,by);c.lineTo(s*(44+Math.cos(step)*6),by+10+Math.sin(step)*7);c.lineTo(s*(60+Math.cos(step)*9),by+2+Math.sin(step)*12);c.stroke();
-    }
-    c.shadowBlur=20*glow;c.shadowColor=w.phase==="staggered"?COLORS.jade:COLORS.pink;this.drawHeart(0,0,38,"#09080d");c.shadowBlur=0;
-    c.strokeStyle=bodyColor;c.lineWidth=4;c.beginPath();c.moveTo(-10,-18);c.lineTo(2,-4);c.lineTo(-6,8);c.lineTo(10,23);c.stroke();
-    const blinkW=w.age%3.7<.14;
-    c.fillStyle=COLORS.shine;if(blinkW){c.fillRect(-18,-6,10,2);c.fillRect(8,-6,10,2)}else{c.fillRect(-18,-8,10,6);c.fillRect(8,-8,10,6);c.fillStyle=bodyColor;c.fillRect(-15,-7,4,4);c.fillRect(11,-7,4,4)}
-    // tarnished crown and rippling veil
-    c.strokeStyle="#7f6d70";c.lineWidth=4;c.beginPath();c.moveTo(-25,-30);c.lineTo(-14,-52+Math.sin(w.age*3)*1.5);c.lineTo(0,-37);c.lineTo(15,-55+Math.sin(w.age*3+1)*1.5);c.lineTo(27,-28);c.stroke();
-    c.strokeStyle="rgba(184,167,168,.4)";c.lineWidth=2;
-    for(const s of [-1,1] as const){c.beginPath();c.moveTo(s*20,-24);c.quadraticCurveTo(s*(34+Math.sin(w.age*2.2+s)*4),0,s*(28+Math.sin(w.age*1.8)*5),28);c.stroke()}
-    if(w.phase==="staggered")for(let i=0;i<3;i++){const a=w.phaseTimer*4+i*2.09;this.label("★",Math.cos(a)*26,-44+Math.sin(a)*7,12,COLORS.jade,"center")}
-    if(w.phase==="defeated"){c.strokeStyle=COLORS.pink;c.lineWidth=2;c.globalAlpha=clamp(1-w.phaseTimer/1.4,0,1)*.7;for(let i=0;i<5;i++){const tx=-30+i*15,rise=w.phaseTimer*(40+i*14);c.beginPath();c.moveTo(tx,10-rise);c.quadraticCurveTo(tx+6,-6-rise,tx,-22-rise);c.stroke()}}
-    c.restore();
+  private drawEnemy(e:Enemy,trapped=false,panic=0,defeat=-1,spin=0){
+    drawEnemyArt(this.ctx,e,this.fx.enemy(e.id),{scale:BubbleHexEngine.ENEMY_SCALE,calm:this.settings.reducedMotion,animTime:this.animTime,px:this.player.x,py:this.player.y,trapped,panic,defeat,spin});
   }
+  private drawWidow(w:WidowState){
+    drawWidowArt(this.ctx,w,this.fx,this.settings.reducedMotion,(text,x,y,size,color,align)=>this.label(text,x,y,size,color,align));
+  }
+  private drawHero(x:number,y:number,hero:HeroId,scale=1,ghost=false,motion:HeroMotion={}){drawHeroArt(this.ctx,{hero,skin:this.skinFor(hero),x,y,scale,time:this.animTime,calm:this.settings.reducedMotion,...motion,ghost})}
   private drawProjectile(p:Projectile){
     const c=this.ctx;c.save();c.translate(p.x,p.y);
     if(p.kind==="tear"){
@@ -971,7 +885,7 @@ export class BubbleHexEngine {
   }
   private drawDying(){this.ctx.fillStyle=`rgba(196,19,61,${this.settings.reducedMotion?.2:.2+Math.sin(this.stateTime*18)*.1})`;this.ctx.fillRect(0,70,W,H-70);this.label("HEART BROKEN",W/2,360,38,COLORS.crimson,"center","Georgia")}
   private drawGameOver(){this.drawStars();this.drawGothicFrame(COLORS.crimson);this.label(this.copy.gameOver,W/2,265,80,COLORS.crimson,"center","Georgia");this.drawHeart(W/2,370,45,"#16070d");this.label(`${this.copy.score} ${String(this.score).padStart(7,"0")}`,W/2,475,22,COLORS.shine,"center");if(this.newRecord)this.label(this.copy.newBest,W/2,505,14,"#FFD36A","center");else this.label(`${this.copy.campaignBest} ${String(this.settings.highScore).padStart(7,"0")}`,W/2,505,12,COLORS.blue,"center");this.label(this.copy.nightRemembers,W/2,560,16,COLORS.pink,"center")}
-  private drawVictory(){this.drawStars();this.drawGothicFrame(this.cheats.super?COLORS.crimson:COLORS.jade);this.drawHero(310,300,this.hero,2.2,false,{pose:"jump"});this.drawHeartBubble(650,300,90);this.label(this.cheats.super?"VENOM EDITION CLEARED":"DAWN SURVIVED",W/2,495,45,this.cheats.super?COLORS.crimson:COLORS.jade,"center","Georgia");this.label(this.endingText,W/2,545,15,COLORS.shine,"center");this.label(`FINAL SCORE ${this.score}`,W/2,590,18,COLORS.pink,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,615,14,"#FFD36A","center");this.label("PRESS START",W/2,650,15,COLORS.blue,"center")}
+  private drawVictory(){this.drawStars();this.drawGothicFrame(this.cheats.super?COLORS.crimson:COLORS.jade);this.drawHero(310,300,this.hero,2.2,false,{pose:"cheer",celebrate:this.stateTime});this.drawHeartBubble(650,300,90);this.label(this.cheats.super?"VENOM EDITION CLEARED":"DAWN SURVIVED",W/2,495,45,this.cheats.super?COLORS.crimson:COLORS.jade,"center","Georgia");this.label(this.endingText,W/2,545,15,COLORS.shine,"center");this.label(`FINAL SCORE ${this.score}`,W/2,590,18,COLORS.pink,"center");if(this.newRecord)this.label("★ NEW CAMPAIGN BEST ★",W/2,615,14,"#FFD36A","center");this.label("PRESS START",W/2,650,15,COLORS.blue,"center")}
   private drawRecords(){
     const c=this.ctx,entries=this.archiveEntries();this.archiveIndex=((this.archiveIndex%entries.length)+entries.length)%entries.length;const entry=entries[this.archiveIndex];
     this.drawStars();c.save();c.globalAlpha=.16;this.art.draw(c,"roster",0,0,1536,1024,0,0,W,H);c.restore();c.fillStyle="rgba(5,5,9,.76)";c.fillRect(0,0,W,H);this.drawGothicFrame(COLORS.blue);
