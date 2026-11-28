@@ -1,14 +1,21 @@
 import type { HeroId, SkinDefinition } from "./content";
+import { blinkAmount, breathe, fidgetAmount, fidgetLook } from "./animation-fx";
 
-export type HeroPose = "idle" | "run" | "jump" | "fall" | "throw" | "hurt";
+export type HeroPose = "idle" | "run" | "jump" | "fall" | "throw" | "hurt" | "cheer";
 export type HeroMotion = {
-  facing?:1|-1;      // 1 = right, -1 = left
+  facing?:number;    // 1 = right, -1 = left; fractional while turning around
   pose?:HeroPose;
   runPhase?:number;  // radians, advanced by ground speed
   throwT?:number;    // 1 just fired → 0 settled
   squash?:number;    // >0 landing squash, <0 airborne stretch
   speed?:number;     // 0..1 of max run speed
   ghost?:boolean;    // invulnerability flicker frame
+  calm?:boolean;     // reduced motion: no fidgets, squish, strobe or sparkle orbit
+  hit?:number;       // seconds since the hero was hit (knock wobble + flash); omit when idle
+  celebrate?:number; // seconds into a victory pose (drives the hop)
+  lift?:number;      // extra vertical offset in px (death hop)
+  rot?:number;       // extra rotation in radians (death tumble)
+  takeoff?:number;   // seconds since leaving the ground (arms-down launch pose)
 };
 export type HeroArtOptions = { hero:HeroId; skin:SkinDefinition; x:number; y:number; scale:number; time:number } & HeroMotion;
 
@@ -28,24 +35,39 @@ function spark(c:CanvasRenderingContext2D,x:number,y:number,r:number,color:strin
 export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
   const {hero,skin,x,y,scale,time}=o;
   const facing=o.facing??1,pose=o.pose??"idle",run=o.runPhase??0,throwT=clamp(o.throwT??0,0,1),speed=clamp(o.speed??0,0,1);
-  const squash=clamp(o.squash??0,-.4,.6);
-  const accent=skin.accent,secondary=skin.secondary,glass=skin.bubble;
-  const dark=hero==="vesper"?"#130B18":"#081A3A",outline="#03040A",shine="#FFD6F1";
+  const calm=!!o.calm;
+  const celebrate=pose==="cheer"?(o.celebrate??0):0;
+  const hitAge=o.hit??9,hitWob=hitAge<.6&&!calm?Math.exp(-6*hitAge)*Math.cos(26*hitAge):0;
+  const hitFlash=hitAge<.18&&!calm&&Math.floor(time*40)%2===0;
+  // hops while celebrating; the landing of each hop squashes
+  const hopPhase=celebrate*7.5,hop=pose==="cheer"?Math.abs(Math.sin(hopPhase)):0;
+  const hopSquash=pose==="cheer"&&!calm?Math.max(0,.5-hop*5)*.22:0;
+  const squash=clamp((o.squash??0)+hopSquash,-.4,.6);
+  const accent=hitFlash?"#FFFFFF":skin.accent,secondary=skin.secondary,glass=skin.bubble;
+  const dark=hitFlash?"#FFE9F7":hero==="vesper"?"#130B18":"#081A3A",outline="#03040A",shine="#FFD6F1";
   const air=pose==="jump"||pose==="fall",hurt=pose==="hurt";
-  const bob=pose==="run"?-Math.abs(Math.sin(run))*2.6:pose==="idle"?Math.sin(time*2.6)*1.3:0;
+  const bob=pose==="run"?-Math.abs(Math.sin(run))*(calm?1.4:2.6):pose==="idle"?Math.sin(time*2.6)*(calm?.6:1.3):pose==="cheer"?-hop*(calm?3:9):0;
+  const breath=pose==="idle"&&!calm?breathe(time):0;                    // chest rise and fall
+  const fid=pose==="idle"&&!calm?fidgetAmount(time):0,look2=fid?fidgetLook(time):0;
+  const blink=hurt?0:blinkAmount(time);
+  const stepSq=pose==="run"&&!calm?(1-Math.abs(Math.sin(run)))*.05:0;    // footfall compress
+  const rm=o.rot??0,ox=-throwT*throwT*2.4+hitWob*3.5;
 
-  c.save();c.translate(x,y+bob);c.scale(scale,scale);c.scale(facing,1);c.lineJoin="round";c.lineCap="round";
+  c.save();c.translate(x,y+bob+(o.lift??0));c.scale(scale,scale);
+  // turning around squishes through the flip but never collapses to a line
+  c.scale(Math.abs(facing)<.3?(facing<0?-.3:.3):facing,1);c.translate(ox,0);c.lineJoin="round";c.lineCap="round";
   if(o.ghost)c.globalAlpha*=.35;
   // squash & stretch anchored at the feet line
-  c.translate(0,24);c.scale(1+squash*.22,1-squash*.2);c.translate(0,-24);
+  c.translate(0,24);c.scale(1+squash*.22+stepSq*-.5-throwT*.04,1-squash*.2+breath*.012-stepSq*.8+throwT*.03);c.translate(0,-24);
   const lean=hurt?Math.sin(time*22)*.06:pose==="run"?.1+speed*.1:pose==="jump"?-.09:pose==="fall"?.07:0;
-  c.rotate(lean+throwT*.09);
+  c.rotate(lean+throwT*.09+rm+hitWob*.16-(pose==="idle"?fid*.03:0)+(pose==="cheer"?Math.sin(hopPhase)*.07:0));
 
   // ---- tail (drawn behind everything) ----
-  const wave=pose==="run"?Math.sin(run):Math.sin(time*2.4);
+  const wave=pose==="run"?Math.sin(run):pose==="cheer"?Math.sin(time*11)*1.4:Math.sin(time*2.4)+(fid?Math.sin(time*13)*fid*1.2:0);
   let mid:[number,number],tip:[number,number];
   if(pose==="jump"){mid=[-8,20];tip=[-20,30]}
   else if(pose==="fall"){mid=[-14,12];tip=[-26,-2]}
+  else if(pose==="cheer"){mid=[-9,19];tip=[-21,8+wave*5]}
   else if(hurt){mid=[-10,20+Math.sin(time*26)*3];tip=[-22,10+Math.sin(time*31)*5]}
   else if(pose==="run"){mid=[-12,18+wave*4];tip=[-27,12+Math.sin(run+2.1)*7]}
   else{mid=[-11,21];tip=[-23,9+wave*2]}
@@ -58,8 +80,9 @@ export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
   let bh:[number,number];
   if(throwT>0)bh=[-10-throwT*3,-2];
   else if(pose==="run")bh=[-7+Math.cos(run+Math.PI)*8,3+Math.sin(run+Math.PI)*3];
-  else if(pose==="jump")bh=[-13,-15];
+  else if(pose==="jump")bh=[-13,-15+Math.min(8,Math.max(0,1-(o.takeoff??9)/.14)*8)];
   else if(pose==="fall")bh=[-16,-9];
+  else if(pose==="cheer")bh=[-14,-17+Math.sin(time*12)*2];
   else if(hurt)bh=[-15,-12+Math.sin(time*24)*2];
   else bh=[-11,4+Math.sin(time*2.6)*.8];
   c.strokeStyle=outline;c.lineWidth=8;c.beginPath();c.moveTo(-7,-6);c.lineTo(bh[0],bh[1]);c.stroke();
@@ -75,7 +98,7 @@ export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
   else{c.fillStyle=shine;c.beginPath();c.moveTo(1,-1);c.lineTo(4,4);c.lineTo(-2,4);c.closePath();c.fill()}
 
   // ---- head ----
-  const hx=2,hy=-21;
+  const hx=2+(fid?look2*.8:0),hy=-21+(pose==="run"&&!calm?Math.sin(run*2+1)*.8:0)-breath*.3+(fid?Math.sin(time*3.4)*.6*fid:0);
   c.fillStyle=outline;c.beginPath();c.arc(hx,hy,15,0,Math.PI*2);c.fill();
   c.fillStyle=dark;c.beginPath();c.arc(hx,hy,12.5,0,Math.PI*2);c.fill();c.strokeStyle=accent;c.lineWidth=2.5;c.stroke();
 
@@ -96,14 +119,20 @@ export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
   }
 
   // ---- face ----
-  if(hurt){
+  if(pose==="cheer"){
+    c.strokeStyle=shine;c.lineWidth=2.2;
+    for(const ex of[hx-4,hx+6]){c.beginPath();c.moveTo(ex-3.5,hy-1);c.quadraticCurveTo(ex,hy-6,ex+3.5,hy-1);c.stroke()}
+    c.fillStyle=outline;c.beginPath();c.moveTo(hx-4,hy+5);c.quadraticCurveTo(hx+1,hy+13,hx+6,hy+5);c.closePath();c.fill();
+    c.fillStyle="#FF72BC";c.globalAlpha*=.6;c.fillRect(hx-9,hy+3,3,2);c.fillRect(hx+7,hy+3,3,2);c.globalAlpha=o.ghost?.35:1;
+  }else if(hurt){
     c.strokeStyle=shine;c.lineWidth=2;
     for(const ex of[hx-6,hx+4]){c.beginPath();c.moveTo(ex,hy-4);c.lineTo(ex+4,hy);c.moveTo(ex+4,hy-4);c.lineTo(ex,hy);c.stroke()}
     c.beginPath();c.moveTo(hx-4,hy+7);c.quadraticCurveTo(hx-1,hy+5,hx+1,hy+7);c.quadraticCurveTo(hx+3,hy+9,hx+5,hy+7);c.stroke();
   }else{
-    const look=pose==="run"||air?2:1;
-    c.fillStyle=shine;c.fillRect(hx-7,hy-5,6,7);c.fillRect(hx+3,hy-5,6,7);
-    c.fillStyle=secondary;c.fillRect(hx-5+look,hy-3,2.5,3.5);c.fillRect(hx+5+look,hy-3,2.5,3.5);
+    const look=(pose==="run"||air?2:1)+(fid?Math.round(look2*1.5):0);
+    const eh=7*(1-blink*.88),ey=hy-5+(7-eh)*.55;
+    c.fillStyle=shine;c.fillRect(hx-7,ey,6,eh);c.fillRect(hx+3,ey,6,eh);
+    c.fillStyle=secondary;if(blink<.6){c.fillRect(hx-5+look,hy-3,2.5,3.5);c.fillRect(hx+5+look,hy-3,2.5,3.5)}
     c.strokeStyle=outline;c.lineWidth=2;c.beginPath();c.moveTo(hx-8,hy-7);c.lineTo(hx-2,hy-6);c.moveTo(hx+3,hy-6);c.lineTo(hx+9,hy-7);c.stroke();
     c.fillStyle="#FF72BC";c.globalAlpha*=.6;c.fillRect(hx-9,hy+3,3,2);c.fillRect(hx+7,hy+3,3,2);c.globalAlpha=o.ghost?.35:1;
     if(throwT>.3){c.fillStyle=outline;c.beginPath();c.arc(hx+2,hy+6,2.2,0,Math.PI*2);c.fill()}
@@ -114,14 +143,18 @@ export function drawHeroArt(c:CanvasRenderingContext2D,o:HeroArtOptions){
   let fh:[number,number];
   if(throwT>0){const ext=Math.sin(throwT*Math.PI*.5);fh=[8+14*ext,-5+2*(1-ext)]}
   else if(pose==="run")fh=[8+Math.cos(run)*9,3+Math.sin(run)*3.5];
-  else if(pose==="jump")fh=[14,-17];
+  else if(pose==="jump")fh=[14,-17+Math.min(9,Math.max(0,1-(o.takeoff??9)/.14)*9)];
   else if(pose==="fall")fh=[17,-9];
+  else if(pose==="cheer")fh=[15,-19+Math.sin(time*12+2)*2.5];
   else if(hurt)fh=[16,-12+Math.sin(time*24+2)*2];
   else fh=[11,4+Math.sin(time*2.6+1)*.8];
   c.strokeStyle=outline;c.lineWidth=8;c.beginPath();c.moveTo(7,-6);c.lineTo(fh[0],fh[1]);c.stroke();
   c.strokeStyle=accent;c.lineWidth=4.5;c.stroke();c.fillStyle=shine;c.fillRect(fh[0]-3,fh[1]-2,6,5);
   if(throwT>.45){c.globalAlpha*=.55+throwT*.45;spark(c,fh[0]+6,fh[1]+1,4+throwT*3,glass);spark(c,fh[0]+6,fh[1]+1,2,shine);c.globalAlpha=o.ghost?.35:1}
 
+  // celebration sparkles orbit the hero; a hit sends out a brief shock ring
+  if(pose==="cheer"&&!calm){for(let i=0;i<3;i++){const a=time*3+i*2.094;c.globalAlpha=.85;spark(c,Math.cos(a)*26,-12+Math.sin(a)*20,2.5+i*.6,i===1?shine:glass)}c.globalAlpha=o.ghost?.35:1}
+  if(hitAge<.3&&!calm){c.strokeStyle=shine;c.globalAlpha=(1-hitAge/.3)*.7;c.lineWidth=2.5;c.beginPath();c.arc(0,-6,18+hitAge*70,0,Math.PI*2);c.stroke();c.globalAlpha=o.ghost?.35:1}
   // unlockable looks carry gold stitching
   if(skin.unlock!=="default"){c.strokeStyle="#FFD36A";c.lineWidth=1.5;c.strokeRect(-7,0,4,4);c.strokeRect(4,6,4,4);c.beginPath();c.moveTo(-9,12);c.lineTo(10,14);c.stroke()}
   c.restore();
